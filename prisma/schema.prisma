@@ -1,0 +1,196 @@
+//////////////////////////////////////////////////////
+// DIJITOTRACK — PRISMA SCHEMA
+// Modules: 0 (System) + 1 (Auth) + 2 (Business)
+// Database: PostgreSQL
+//////////////////////////////////////////////////////
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+//////////////////////////////////////////////////////
+// MODULE 0 — SYSTEM LEVEL
+//////////////////////////////////////////////////////
+
+model SuperAdmin {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  role      UserRole
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SystemSetting {
+  id             String   @id @default(uuid())
+  currency       String
+  trialDays      Int
+  isBootstrapped Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+//////////////////////////////////////////////////////
+// MODULE — AUTH & USERS
+//////////////////////////////////////////////////////
+
+model User {
+  id                   String     @id @default(uuid())
+  email                String
+  passwordHash         String
+  role                 UserRole
+  status               UserStatus
+  businessId           String?
+  business             Business?  @relation(fields: [businessId], references: [id])
+  passwordResetToken   String?
+  passwordResetExpires DateTime?
+  lastLoginAt          DateTime?
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+  emailVerified        Boolean    @default(false)
+  emailVerifyToken     String?
+  emailVerifyExpires   DateTime?
+
+  @@unique([email, businessId])
+}
+
+model Customer {
+  id           String         @id @default(uuid())
+  businessId   String
+  business     Business       @relation(fields: [businessId], references: [id])
+  phone        String
+  status       CustomerStatus
+  otpHash      String?
+  otpExpiresAt DateTime?
+  lastLoginAt  DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  @@unique([phone, businessId])
+}
+
+//////////////////////////////////////////////////////
+// MODULE — BUSINESS (TENANT)
+//////////////////////////////////////////////////////
+model Business {
+  id                String            @id @default(uuid())
+  name              String
+  email             String?
+  phone             String?
+  businessCode      String            @unique
+  status            BusinessStatus    @default(PENDING)
+  setupCompleted Boolean @default(false)
+  users             User[]
+  invites BusinessInvite[]
+  settings          BusinessSettings?
+  subscriptions     Subscription[]
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  customers         Customer[]
+}
+
+model BusinessSettings {
+  id         String   @id @default(uuid())
+  businessId String   @unique
+  currency   String   @default("TZS")
+  timezone   String   @default("Africa/Dar_es_Salaam")
+  business   Business @relation(fields: [businessId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model BusinessInvite {
+  id         String   @id @default(uuid())
+  email      String
+  role       UserRole
+  tokenHash  String
+  expiresAt  DateTime
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@index([email])
+}
+
+
+//////////////////////////////////////////////////////
+// MODULE: SUBSCRIPTION CORE
+//////////////////////////////////////////////////////
+
+model Subscription {
+  id           String             @id @default(uuid())
+  businessId   String             @unique
+  business     Business           @relation(fields: [businessId], references: [id])
+  plan         SubscriptionPlan
+  status       SubscriptionStatus
+  startDate    DateTime
+  endDate      DateTime?
+  setupFeePaid Boolean            @default(false)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+}
+
+////////////////////////////////////////
+// // MODULE - AUDIT LOG
+////////////////////////////////////
+model AuditLog {
+  id        String   @id @default(uuid())
+  action    String
+  actorId   String?
+  actorRole String?
+  entity    String
+  entityId  String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+}
+
+//////////////////////////////////////////////////////
+// ENUMS
+//////////////////////////////////////////////////////
+
+enum UserRole {
+  SUPER_ADMIN
+  BUSINESS_OWNER
+  MANAGER
+  STAFF
+  CUSTOMER
+}
+
+enum BusinessStatus {
+  PENDING
+  ACTIVE
+  GRACE
+  SUSPENDED
+  TERMINATED
+}
+
+enum SubscriptionPlan {
+  STARTER
+  PRO
+  PREMIUM
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  GRACE
+  SUSPENDED
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING
+}
+
+enum CustomerStatus {
+  ACTIVE
+  INACTIVE
+}

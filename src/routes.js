@@ -1,0 +1,29 @@
+const express = require("express");
+
+const { client } = require("./utils/metrics");
+const authRoutes = require("./modules/auth/auth.routes");
+const systemRoutes = require("./modules/system/system.routes");
+const businessRoutes = require("./modules/business/business.routes");
+
+const router = express.Router();
+
+// Server health endpoint
+router.get("/health", (req, res) => {
+  res.json({
+    status: "OK",
+    uptime: process.uptime(),
+    timestamp: new Date(),
+  });
+});
+
+// Metrix endpoint
+router.get("/metrics", async (req, res) => {
+  res.set("Content-Type", client.register.contentType);
+  res.end(await client.register.metrics());
+});
+
+router.use("/auth", authRoutes);
+router.use("/system", systemRoutes);
+router.use("/businesses", businessRoutes);
+
+module.exports = router;

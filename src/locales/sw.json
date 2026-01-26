@@ -1,0 +1,51 @@
+{
+  "general": {
+    "success": "Imefanikiwa",
+    "internal_error": "Hitilafu ya ndani ya mfumo",
+    "not_found": "Rasilimali haijapatikana"
+  },
+
+  "auth": {
+    "email_exists": "Akaunti yenye barua pepe hii tayari ipo",
+    "invalid_credentials": "Barua pepe au nenosiri si sahihi",
+    "session_invalid": "Kipindi chako cha matumizi si halali tena",
+    "token_invalid": "Token si halali au muda wake umeisha",
+    "invalid_otp": "Msimbo wa uthibitisho si sahihi au muda wake umeisha",
+    "unauthorized": "Huna ruhusa ya kufanya kitendo hiki"
+  },
+
+  "notification": {
+    "password_reset": {
+      "subject": "Badilisha nenosiri lako",
+      "body": "Bofya link hii kubadilisha nenosiri lako: {{resetUrl}}. Link inaisha baada ya dakika 15."
+    },
+    "email_verify": {
+      "subject": "Thibitisha barua pepe yako",
+      "body": "Msimbo wako wa uthibitisho wa DijitoTrack ni {{code}}. Unaisha baada ya dakika 15."
+    },
+    "otp": {
+      "message": "Msimbo wako wa uthibitisho wa DijitoTrack ni {{otp}}. Unaisha baada ya dakika 5."
+    },
+    "business_invite": {
+      "subject": "Umealikwa kujiunga na biashara",
+      "body": "Umealikwa kujiunga na biashara kama {{role}}. Tafadhali bofya link hii kukamilisha usajili wako: {{inviteUrl}}"
+    }
+  },
+  "business": {
+    "alreadyExists": "Akaunti hii tayari ina biashara",
+    "missingRequired": "Taarifa muhimu za biashara hazijajazwa",
+    "notFound": "Biashara haijapatikana",
+    "alreadyTerminated": "Biashara tayari imefungwa",
+    "activated": "Biashara imewezeshwa",
+    "grace": "Biashara imehamishwa kwenye kipindi cha msamaha",
+    "suspended": "Biashara imesimamishwa",
+    "terminated": "Biashara imefungwa kabisa",
+    "business": {
+      "codeGenerationFailed": "Imeshindikana kutengeneza namba ya kipekee ya biashara"
+    }
+  },
+  "user": {
+    "missingFields": "Taarifa muhimu za mtumiaji hazijajazwa",
+    "emailExists": "Barua pepe tayari inatumika"
+  }
+}

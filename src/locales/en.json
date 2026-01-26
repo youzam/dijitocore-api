@@ -1,0 +1,49 @@
+{
+  "general": {
+    "success": "Success",
+    "internal_error": "Internal server error",
+    "not_found": "Resource not found"
+  },
+
+  "auth": {
+    "email_exists": "An account with this email already exists",
+    "invalid_credentials": "Invalid email or password",
+    "session_invalid": "Your session is no longer valid",
+    "token_invalid": "Invalid or expired token",
+    "invalid_otp": "Invalid or expired verification code",
+    "unauthorized": "You are not authorized to perform this action"
+  },
+
+  "notification": {
+    "password_reset": {
+      "subject": "Reset your password",
+      "body": "Click this link to reset your password: {{resetUrl}}. This link expires in 15 minutes."
+    },
+    "email_verify": {
+      "subject": "Verify your email",
+      "body": "Your DijitoTrack verification code is {{code}}. It expires in 15 minutes."
+    },
+    "otp": {
+      "message": "Your DijitoTrack verification code is {{otp}}. It expires in 5 minutes."
+    },
+    "business_invite": {
+      "subject": "You have been invited to join a business",
+      "body": "You have been invited to join a business as {{role}}. Click here to complete your registration: {{inviteUrl}}"
+    }
+  },
+  "business": {
+    "alreadyExists": "Business already exists for this account",
+    "missingRequired": "Missing required business information",
+    "notFound": "Business not found",
+    "alreadyTerminated": "Business already terminated",
+    "activated": "Business activated",
+    "grace": "Business moved to grace period",
+    "suspended": "Business suspended",
+    "terminated": "Business terminated",
+    "codeGenerationFailed": "Failed to generate unique business code"
+  },
+  "user": {
+    "missingFields": "Missing required user fields",
+    "emailExists": "Email already in use"
+  }
+}
