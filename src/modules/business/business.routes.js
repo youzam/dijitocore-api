@@ -113,4 +113,11 @@ router.post(
   controller.activateBusinessUser,
 );
 
+router.get(
+  "/:businessId",
+  tenant,
+  role("BUSINESS_OWNER", "SUPER_ADMIN"),
+  controller.getBusinessDetails,
+);
+
 module.exports = router;

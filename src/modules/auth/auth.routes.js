@@ -2,8 +2,10 @@ const express = require("express");
 
 const authController = require("./auth.controller");
 const validate = require("../../middlewares/validate.middleware");
-const rateLimit = require("../../middlewares/rateLimit.middleware");
+const { authRateLimiter } = require("../../middlewares/rateLimit.middleware");
 const authMiddleware = require("../../middlewares/auth.middleware");
+const customerAuthController = require("./customer.auth.controller");
+const customerAuthValidation = require("./customer.auth.validation");
 
 const {
   ownerSignupSchema,
@@ -12,10 +14,8 @@ const {
   refreshSchema,
   passwordResetRequestSchema,
   passwordResetSchema,
-  customerIdentifySchema,
-  customerRequestOtpSchema,
-  customerVerifyOtpSchema,
   acceptInviteSchema,
+  systemLoginSchema,
 } = require("./auth.validation");
 
 const router = express.Router();
@@ -27,7 +27,7 @@ const router = express.Router();
  */
 router.post(
   "/signup",
-  rateLimit,
+  authRateLimiter,
   validate(ownerSignupSchema),
   authController.ownerSignup,
 );
@@ -38,11 +38,16 @@ router.post(
   authController.verifyEmail,
 );
 
-router.post("/login", rateLimit, validate(loginSchema), authController.login);
+router.post(
+  "/login",
+  authRateLimiter,
+  validate(loginSchema),
+  authController.login,
+);
 
 router.post(
   "/refresh",
-  rateLimit,
+  authRateLimiter,
   validate(refreshSchema),
   authController.refresh,
 );
@@ -51,12 +56,24 @@ router.post("/logout", authMiddleware, authController.logout);
 
 /**
  * =====================================================
+ * SYSTEM (SUPER ADMIN) LOGIN
+ * =====================================================
+ */
+router.post(
+  "/system/login",
+  authRateLimiter,
+  validate(systemLoginSchema),
+  authController.systemLogin,
+);
+
+/**
+ * =====================================================
  * ACCEPT BUSINESS INVITE (PUBLIC)
  * =====================================================
  */
 router.post(
   "/accept-invite",
-  rateLimit,
+  authRateLimiter,
   validate(acceptInviteSchema),
   authController.acceptInvite,
 );
@@ -68,42 +85,56 @@ router.post(
  */
 router.post(
   "/password/request-reset",
-  rateLimit,
+  authRateLimiter,
   validate(passwordResetRequestSchema),
   authController.requestPasswordReset,
 );
 
 router.post(
   "/password/reset",
-  rateLimit,
+  authRateLimiter,
   validate(passwordResetSchema),
   authController.resetPassword,
 );
 
 /**
  * =====================================================
- * CUSTOMER AUTH
+ * CUSTOMER AUTH (PUBLIC)
  * =====================================================
  */
-router.post(
-  "/customer/identify",
-  rateLimit,
-  validate(customerIdentifySchema),
-  authController.customerIdentify,
-);
 
 router.post(
   "/customer/request-otp",
-  rateLimit,
-  validate(customerRequestOtpSchema),
-  authController.customerRequestOtp,
+  authRateLimiter,
+  validate(customerAuthValidation.requestOtp),
+  customerAuthController.requestOtp,
 );
 
 router.post(
   "/customer/verify-otp",
-  rateLimit,
-  validate(customerVerifyOtpSchema),
-  authController.customerVerifyOtp,
+  authRateLimiter,
+  validate(customerAuthValidation.verifyOtp),
+  customerAuthController.verifyOtp,
+);
+
+router.post(
+  "/customer/set-pin",
+  validate(customerAuthValidation.setPin),
+  customerAuthController.setPin,
+);
+
+router.post(
+  "/customer/login",
+  authRateLimiter,
+  validate(customerAuthValidation.loginWithPin),
+  customerAuthController.loginWithPin,
+);
+
+router.post(
+  "/customer/forgot-pin",
+  authRateLimiter,
+  validate(customerAuthValidation.requestOtp),
+  customerAuthController.requestOtp,
 );
 
 module.exports = router;

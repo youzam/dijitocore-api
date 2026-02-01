@@ -5,7 +5,7 @@ const helmet = require("helmet");
 const routes = require("./routes");
 const errorHandler = require("./middlewares/error.middleware");
 const notFound = require("./middlewares/notFound.middleware");
-const rateLimiter = require("./middlewares/rateLimit.middleware");
+const { globalRateLimiter } = require("./middlewares/rateLimit.middleware");
 const localeMiddleware = require("./middlewares/locale.middleware");
 const requestIdMiddleware = require("./middlewares/requestId.middleware");
 const loggerMiddleware = require("./middlewares/logger.middleware");
@@ -16,7 +16,7 @@ const app = express();
 
 app.set("trust proxy", 1);
 app.use(helmet());
-app.use(rateLimiter);
+app.use(globalRateLimiter);
 
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));

@@ -385,6 +385,45 @@ const customerVerifyOtp = async (phone, businessId, otp) => {
   };
 };
 
+/**
+ * =====================================================
+ * SYSTEM LOGIN (SUPER ADMIN)
+ * =====================================================
+ */
+const systemLogin = async ({ email, password }) => {
+  const admin = await prisma.superAdmin.findFirst({
+    where: {
+      email,
+      role: "SUPER_ADMIN",
+      status: "ACTIVE",
+    },
+  });
+
+  if (!admin) {
+    throw new AppError("auth.invalid_credentials", 401);
+  }
+
+  const valid = await bcrypt.compare(password, admin.password);
+  if (!valid) {
+    throw new AppError("auth.invalid_credentials", 401);
+  }
+
+  const tokens = signToken({
+    sub: admin.id,
+    identity_type: "system",
+    role: "SUPER_ADMIN",
+  });
+
+  return {
+    user: {
+      id: admin.id,
+      email: admin.email,
+      role: admin.role,
+    },
+    tokens,
+  };
+};
+
 module.exports = {
   ownerSignup,
   login,
@@ -397,4 +436,5 @@ module.exports = {
   customerVerifyOtp,
   verifyEmail,
   acceptInvite,
+  systemLogin,
 };

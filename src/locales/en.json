@@ -11,7 +11,12 @@
     "session_invalid": "Your session is no longer valid",
     "token_invalid": "Invalid or expired token",
     "invalid_otp": "Invalid or expired verification code",
-    "unauthorized": "You are not authorized to perform this action"
+    "unauthorized": "You are not authorized to perform this action",
+    "customer_not_found": "Customer not found for this business",
+    "pin_not_set": "PIN not set. Please verify OTP first",
+    "invalid_pin": "Invalid PIN",
+    "otp_sent": "Verification code sent",
+    "pin_set_success": "PIN set successfully"
   },
 
   "notification": {
@@ -45,5 +50,8 @@
   "user": {
     "missingFields": "Missing required user fields",
     "emailExists": "Email already in use"
+  },
+  "customers": {
+    "already_exists": "Customer already exists for this business"
   }
 }

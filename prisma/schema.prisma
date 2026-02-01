@@ -18,13 +18,13 @@ datasource db {
 //////////////////////////////////////////////////////
 
 model SuperAdmin {
-  id        String   @id @default(uuid())
-  email     String   @unique
+  id        String      @id @default(uuid())
+  email     String      @unique
   password  String
   role      UserRole
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  status    AdminStatus
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
 }
 
 model SystemSetting {
@@ -41,58 +41,96 @@ model SystemSetting {
 //////////////////////////////////////////////////////
 
 model User {
-  id                   String     @id @default(uuid())
+  id                   String         @id @default(uuid())
   email                String
   passwordHash         String
   role                 UserRole
   status               UserStatus
   businessId           String?
-  business             Business?  @relation(fields: [businessId], references: [id])
+  business             Business?      @relation(fields: [businessId], references: [id])
   passwordResetToken   String?
   passwordResetExpires DateTime?
   lastLoginAt          DateTime?
-  createdAt            DateTime   @default(now())
-  updatedAt            DateTime   @updatedAt
-  emailVerified        Boolean    @default(false)
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  emailVerified        Boolean        @default(false)
   emailVerifyToken     String?
   emailVerifyExpires   DateTime?
+  refreshTokens        RefreshToken[]
 
   @@unique([email, businessId])
 }
 
 model Customer {
-  id           String         @id @default(uuid())
-  businessId   String
-  business     Business       @relation(fields: [businessId], references: [id])
-  phone        String
-  status       CustomerStatus
-  otpHash      String?
-  otpExpiresAt DateTime?
-  lastLoginAt  DateTime?
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  id               String         @id @default(uuid())
+  businessId       String
+  fullName         String
+  phone            String
+  altPhone         String?
+  email            String?
+  gender           String?
+  dateOfBirth      DateTime?
+  addressLine      String?
+  ward             String?
+  district         String?
+  region           String?
+  nationalId       String?
+  idType           String?
+  idVerified       Boolean        @default(false)
+  occupation       String?
+  employerName     String?
+  monthlyIncome    Int?
+  guarantorName    String?
+  guarantorPhone   String?
+  relationship     String?
+  status           CustomerStatus
+  totalContracts   Int            @default(0)
+  activeContracts  Int            @default(0)
+  totalPaid        Int            @default(0)
+  totalOutstanding Int            @default(0)
+  lastPaymentAt    DateTime?
+  riskScore        Int?
+  isBlacklisted    Boolean        @default(false)
+  notes            String?
+  pinHash          String?
+  otpHash          String?
+  otpExpiresAt     DateTime?
+  lastLoginAt      DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  business         Business       @relation(fields: [businessId], references: [id])
 
   @@unique([phone, businessId])
+}
+
+model RefreshToken {
+  id         String   @id @default(uuid())
+  token      String   @unique
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  customerId String? // ← ADD
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
 }
 
 //////////////////////////////////////////////////////
 // MODULE — BUSINESS (TENANT)
 //////////////////////////////////////////////////////
 model Business {
-  id                String            @id @default(uuid())
-  name              String
-  email             String?
-  phone             String?
-  businessCode      String            @unique
-  status            BusinessStatus    @default(PENDING)
-  setupCompleted Boolean @default(false)
-  users             User[]
-  invites BusinessInvite[]
-  settings          BusinessSettings?
-  subscriptions     Subscription[]
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-  customers         Customer[]
+  id             String            @id @default(uuid())
+  name           String
+  email          String?
+  phone          String?
+  businessCode   String            @unique
+  status         BusinessStatus    @default(PENDING)
+  setupCompleted Boolean           @default(false)
+  users          User[]
+  invites        BusinessInvite[]
+  settings       BusinessSettings?
+  subscriptions  Subscription[]
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  customers      Customer[]
 }
 
 model BusinessSettings {
@@ -113,11 +151,10 @@ model BusinessInvite {
   expiresAt  DateTime
   businessId String
   business   Business @relation(fields: [businessId], references: [id])
-  createdAt DateTime @default(now())
+  createdAt  DateTime @default(now())
 
   @@index([email])
 }
-
 
 //////////////////////////////////////////////////////
 // MODULE: SUBSCRIPTION CORE
@@ -139,15 +176,15 @@ model Subscription {
 ////////////////////////////////////////
 // // MODULE - AUDIT LOG
 ////////////////////////////////////
+
 model AuditLog {
-  id        String   @id @default(uuid())
-  action    String
-  actorId   String?
-  actorRole String?
-  entity    String
-  entityId  String?
-  metadata  Json?
-  createdAt DateTime @default(now())
+  id         String   @id @default(uuid())
+  action     String
+  businessId String?
+  userId     String?
+  customerId String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
 }
 
 //////////////////////////////////////////////////////
@@ -191,6 +228,11 @@ enum UserStatus {
 }
 
 enum CustomerStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum AdminStatus {
   ACTIVE
   INACTIVE
 }

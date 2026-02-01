@@ -23,7 +23,7 @@ exports.activateBusiness = catchAsync(async (req, res) => {
     req.params.businessId,
     "ACTIVE",
   );
-  return response.success(req, res, data, "business.activated");
+  return response.success(req, res, data, 200, "business.activated");
 });
 
 exports.moveToGrace = catchAsync(async (req, res) => {
@@ -31,7 +31,7 @@ exports.moveToGrace = catchAsync(async (req, res) => {
     req.params.businessId,
     "GRACE",
   );
-  return response.success(req, res, data, "business.grace");
+  return response.success(req, res, data, 200, "business.grace");
 });
 
 exports.suspendBusiness = catchAsync(async (req, res) => {
@@ -39,7 +39,7 @@ exports.suspendBusiness = catchAsync(async (req, res) => {
     req.params.businessId,
     "SUSPENDED",
   );
-  return response.success(req, res, data, "business.suspended");
+  return response.success(req, res, data, 200, "business.suspended");
 });
 
 exports.terminateBusiness = catchAsync(async (req, res) => {
@@ -47,7 +47,7 @@ exports.terminateBusiness = catchAsync(async (req, res) => {
     req.params.businessId,
     "TERMINATED",
   );
-  return response.success(req, res, data, "business.terminated");
+  return response.success(req, res, data, 200, "business.terminated");
 });
 
 /**
@@ -117,5 +117,15 @@ exports.deactivateBusinessUser = catchAsync(async (req, res) => {
 
 exports.activateBusinessUser = catchAsync(async (req, res) => {
   const data = await service.activateBusinessUser(req.user, req.params.userId);
+  return response.success(req, res, data);
+});
+
+/**
+ * =========================
+ * VIEW BUSINESS DETAILS
+ * =========================
+ */
+exports.getBusinessDetails = catchAsync(async (req, res) => {
+  const data = await service.getBusinessDetails(req.params.businessId);
   return response.success(req, res, data);
 });

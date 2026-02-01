@@ -11,14 +11,26 @@ const tenantMiddleware = (req, res, next) => {
   }
 
   /**
-   * System (Super Admin) bypass
+   * =====================================================
+   * SYSTEM (SUPER ADMIN)
+   * Inject business context dynamically
+   * =====================================================
    */
   if (req.auth.identityType === "system") {
+    if (req.params.businessId) {
+      req.user = {
+        businessId: req.params.businessId,
+        role: "SUPER_ADMIN",
+      };
+    }
+
     return next();
   }
 
   /**
-   * Owner before business creation
+   * =====================================================
+   * OWNER before business creation
+   * =====================================================
    */
   if (
     req.auth.identityType === "business" &&
@@ -29,7 +41,9 @@ const tenantMiddleware = (req, res, next) => {
   }
 
   /**
+   * =====================================================
    * Enforce business scope
+   * =====================================================
    */
   if (!req.auth.businessId) {
     return next(new AppError("auth.unauthorized", 401));
@@ -41,6 +55,12 @@ const tenantMiddleware = (req, res, next) => {
   if (req.params.businessId && req.params.businessId !== req.auth.businessId) {
     return next(new AppError("auth.unauthorized", 403));
   }
+
+  /**
+   * Attach business context for controllers
+   */
+  req.user = req.user || {};
+  req.user.businessId = req.auth.businessId;
 
   next();
 };

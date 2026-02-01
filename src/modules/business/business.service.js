@@ -253,3 +253,35 @@ exports.activateBusinessUser = async (owner, userId) => {
     data: { status: "ACTIVE" },
   });
 };
+
+/**
+ * =========================
+ * GET BUSINESS DETAILS
+ * =========================
+ */
+exports.getBusinessDetails = async (businessId) => {
+  if (!businessId) {
+    throw new AppError("business.notFound", 404);
+  }
+
+  const business = await prisma.business.findUnique({
+    where: { id: businessId },
+    include: {
+      settings: true,
+      users: {
+        select: {
+          id: true,
+          email: true,
+          role: true,
+          status: true,
+        },
+      },
+    },
+  });
+
+  if (!business) {
+    throw new AppError("business.notFound", 404);
+  }
+
+  return business;
+};

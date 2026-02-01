@@ -113,6 +113,16 @@ const customerVerifyOtpSchema = Joi.object({
     .required(),
 });
 
+/**
+ * =====================================================
+ * SYSTEM (SUPER ADMIN) LOGIN
+ * =====================================================
+ */
+const systemLoginSchema = Joi.object({
+  email: Joi.string().email().required(),
+  password: Joi.string().required(),
+});
+
 module.exports = {
   ownerSignupSchema,
   verifyEmailSchema,
@@ -124,4 +134,5 @@ module.exports = {
   customerRequestOtpSchema,
   customerVerifyOtpSchema,
   acceptInviteSchema,
+  systemLoginSchema,
 };

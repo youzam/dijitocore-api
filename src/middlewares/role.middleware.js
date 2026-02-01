@@ -2,8 +2,9 @@ const AppError = require("../utils/AppError.js");
 
 /**
  * =====================================================
- * ROLE-BASED ACCESS CONTROL (RBAC)
- * - Business users only
+ * ROLE-BASED ACCESS CONTROL
+ * - Business users enforced
+ * - System users bypass
  * =====================================================
  */
 const roleMiddleware = (allowedRoles = []) => {
@@ -12,7 +13,16 @@ const roleMiddleware = (allowedRoles = []) => {
       return next(new AppError("auth.unauthorized", 401));
     }
 
-    // Only business identity has roles
+    /**
+     * SYSTEM (SUPER ADMIN) — FULL BYPASS
+     */
+    if (req.auth.identityType === "system") {
+      return next();
+    }
+
+    /**
+     * BUSINESS USERS
+     */
     if (req.auth.identityType !== "business") {
       return next(new AppError("auth.unauthorized", 401));
     }

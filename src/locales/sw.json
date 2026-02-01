@@ -11,7 +11,12 @@
     "session_invalid": "Kipindi chako cha matumizi si halali tena",
     "token_invalid": "Token si halali au muda wake umeisha",
     "invalid_otp": "Msimbo wa uthibitisho si sahihi au muda wake umeisha",
-    "unauthorized": "Huna ruhusa ya kufanya kitendo hiki"
+    "unauthorized": "Huna ruhusa ya kufanya kitendo hiki",
+    "customer_not_found": "Mteja hapatikani kwenye biashara hii",
+    "pin_not_set": "PIN haijawekwa, tafadhali thibitisha OTP",
+    "invalid_pin": "PIN si sahihi",
+    "otp_sent": "Namba ya uthibitisho imetumwa",
+    "pin_set_success": "PIN imewekwa kikamilifu"
   },
 
   "notification": {
@@ -47,5 +52,8 @@
   "user": {
     "missingFields": "Taarifa muhimu za mtumiaji hazijajazwa",
     "emailExists": "Barua pepe tayari inatumika"
+  },
+  "customers": {
+    "already_exists": "Mteja tayari yupo kwenye biashara hii"
   }
 }

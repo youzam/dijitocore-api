@@ -30,7 +30,7 @@ exports.bootstrapSystemService = async ({
         email,
         password: hashedPassword,
         role: "SUPER_ADMIN",
-        isActive: true,
+        status: "ACTIVE",
       },
     });
 

@@ -134,6 +134,14 @@ const authMiddleware = async (req, res, next) => {
    */
   if (payload.identity_type === "system") {
     req.auth.system = true;
+
+    if (req.params.businessId) {
+      req.user = {
+        businessId: req.params.businessId,
+        role: "SUPER_ADMIN",
+      };
+    }
+
     return next();
   }
 
