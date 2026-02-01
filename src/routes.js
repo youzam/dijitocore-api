@@ -5,6 +5,7 @@ const authRoutes = require("./modules/auth/auth.routes");
 const systemRoutes = require("./modules/system/system.routes");
 const businessRoutes = require("./modules/business/business.routes");
 const customerRoutes = require("./modules/customer/customer.routes");
+const contractRoutes = require("./modules/contract/contract.routes");
 
 const router = express.Router();
 
@@ -27,5 +28,6 @@ router.use("/auth", authRoutes);
 router.use("/system", systemRoutes);
 router.use("/businesses", businessRoutes);
 router.use("/customers", customerRoutes);
+router.use("/contracts", contractRoutes);
 
 module.exports = router;

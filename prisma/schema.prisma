@@ -37,7 +37,7 @@ model SystemSetting {
 }
 
 //////////////////////////////////////////////////////
-// MODULE — AUTH & USERS
+// AUTH & USERS
 //////////////////////////////////////////////////////
 
 model User {
@@ -99,6 +99,7 @@ model Customer {
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
   business         Business       @relation(fields: [businessId], references: [id])
+  contracts        Contract[]
 
   @@unique([phone, businessId])
 }
@@ -114,7 +115,7 @@ model RefreshToken {
 }
 
 //////////////////////////////////////////////////////
-// MODULE — BUSINESS (TENANT)
+// BUSINESS (TENANT)
 //////////////////////////////////////////////////////
 model Business {
   id             String            @id @default(uuid())
@@ -174,7 +175,98 @@ model Subscription {
 }
 
 ////////////////////////////////////////
-// // MODULE - AUDIT LOG
+//          CONTRACT
+////////////////////////////////////
+model Contract {
+  id         String @id @default(uuid())
+  businessId String
+  customerId String
+
+  contractNumber String @unique
+
+  customerName  String
+  customerPhone String
+
+  title       String
+  description String?
+
+  totalValue        Int
+  downPayment       Int
+  balance           Int
+  installmentAmount Int
+  totalInstallments Int
+
+  paidAmount        Int @default(0)
+  outstandingAmount Int
+
+  frequency  InstallmentFrequency
+  customDays Int?
+
+  startDate DateTime
+  endDate   DateTime?
+
+  status ContractStatus @default(DRAFT)
+
+  activatedAt  DateTime?
+  completedAt  DateTime?
+  terminatedAt DateTime?
+
+  terminationReason String?
+  terminatedBy      String?
+
+  requiresApproval Boolean   @default(false)
+  approvedBy       String?
+  approvedAt       DateTime?
+
+  createdBy String
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  customer  Customer              @relation(fields: [customerId], references: [id])
+  assets    ContractAsset[]
+  schedules InstallmentSchedule[]
+
+  @@index([businessId])
+  @@index([customerId])
+}
+
+model InstallmentSchedule {
+  id         String @id @default(uuid())
+  contractId String
+
+  dueDate DateTime
+  amount  Int
+
+  status ScheduleStatus @default(PENDING)
+
+  paidAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  contract Contract @relation(fields: [contractId], references: [id])
+
+  @@index([contractId])
+}
+
+model ContractAsset {
+  id         String @id @default(uuid())
+  contractId String
+
+  name      String
+  quantity  Int
+  unitPrice Int
+
+  createdAt DateTime @default(now())
+
+  contract Contract @relation(fields: [contractId], references: [id])
+
+  @@index([contractId])
+}
+
+////////////////////////////////////////
+//          AUDIT LOG
 ////////////////////////////////////
 
 model AuditLog {
@@ -235,4 +327,31 @@ enum CustomerStatus {
 enum AdminStatus {
   ACTIVE
   INACTIVE
+}
+
+enum ContractStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  TERMINATED
+}
+
+enum InstallmentFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+  CUSTOM
+}
+
+enum ScheduleStatus {
+  PENDING
+  PAID
+  OVERDUE
+}
+
+enum ContractAction {
+  CREATE
+  UPDATE
+  TERMINATE
+  COMPLETE
 }

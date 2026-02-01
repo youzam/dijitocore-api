@@ -13,7 +13,7 @@ router.use(auth);
 // Create customer
 router.post(
   "/",
-  role("BUSINESS_OWNER", "MANAGER", "STAFF"),
+  role(["BUSINESS_OWNER", "MANAGER", "STAFF"]),
   validate(validator.createCustomer),
   controller.createCustomer,
 );
@@ -21,21 +21,21 @@ router.post(
 // List + search + filter + pagination
 router.get(
   "/",
-  role("BUSINESS_OWNER", "MANAGER", "STAFF"),
+  role(["BUSINESS_OWNER", "MANAGER", "STAFF"]),
   controller.listCustomers,
 );
 
 // Get single customer
 router.get(
   "/:id",
-  role("BUSINESS_OWNER", "MANAGER", "STAFF"),
+  role(["BUSINESS_OWNER", "MANAGER", "STAFF"]),
   controller.getCustomer,
 );
 
 // Update customer
 router.put(
   "/:id",
-  role("BUSINESS_OWNER", "MANAGER"),
+  role(["BUSINESS_OWNER", "MANAGER"]),
   validate(validator.updateCustomer),
   controller.updateCustomer,
 );
@@ -43,7 +43,7 @@ router.put(
 // Update status
 router.patch(
   "/:id/status",
-  role("BUSINESS_OWNER", "MANAGER"),
+  role(["BUSINESS_OWNER", "MANAGER"]),
   validate(validator.updateStatus),
   controller.updateStatus,
 );
@@ -51,7 +51,7 @@ router.patch(
 // Blacklist toggle
 router.patch(
   "/:id/blacklist",
-  role("BUSINESS_OWNER", "MANAGER"),
+  role(["BUSINESS_OWNER", "MANAGER"]),
   validate(validator.updateBlacklist),
   controller.updateBlacklist,
 );
@@ -59,7 +59,7 @@ router.patch(
 // Import customers (CSV / Excel)
 router.post(
   "/import",
-  role("BUSINESS_OWNER", "MANAGER"),
+  role(["BUSINESS_OWNER", "MANAGER"]),
   controller.importCustomers,
 );
 

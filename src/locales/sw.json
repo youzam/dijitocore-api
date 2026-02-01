@@ -66,5 +66,20 @@
     "already_exists": "Mteja tayari yupo",
     "welcome_sms": "Karibu {{business}}. Business code yako ni {{code}}. Tumia hii kukamilisha access ya DijitoTrack.",
     "inactive": "Akaunti yako imesitishwa. Tafadhali wasiliana na biashara."
+  },
+  "contract": {
+    "created": "Mkataba umetengenezwa kikamilifu",
+    "list": "Orodha ya mikataba",
+    "single": "Maelezo ya mkataba",
+    "updated": "Mkataba umesasishwa",
+    "terminated": "Mkataba umesitishwa",
+    "completed": "Mkataba umekamilika",
+    "deleted": "Mkataba umefutwa",
+    "not-found": "Mkataba haukupatikana",
+    "customer-not-found": "Mteja hakupatikana",
+    "invalid-downpayment": "Malipo ya awali hayawezi kuzidi thamani ya mkataba",
+    "invalid-installment": "Kiasi cha malipo si sahihi",
+    "custom-days-required": "Idadi ya siku inahitajika kwa malipo ya desturi",
+    "balance-not-zero": "Salio la mkataba lazima liwe sifuri ili ukamilike"
   }
 }

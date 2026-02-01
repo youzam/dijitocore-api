@@ -64,5 +64,20 @@
     "already_exists": "Customer already exists",
     "welcome_sms": "Welcome to {{business}}. Your business code is {{code}}. Use this to complete your DijitoTrack access.",
     "inactive": "Your account is inactive. Please contact the business."
+  },
+  "contract": {
+    "created": "Contract created successfully",
+    "list": "Contracts fetched successfully",
+    "single": "Contract details",
+    "updated": "Contract updated",
+    "terminated": "Contract terminated",
+    "completed": "Contract completed",
+    "deleted": "Contract deleted",
+    "not-found": "Contract not found",
+    "customer-not-found": "Customer not found",
+    "invalid-downpayment": "Down payment cannot exceed total value",
+    "invalid-installment": "Invalid installment amount",
+    "custom-days-required": "Custom days is required for custom frequency",
+    "balance-not-zero": "Contract balance must be zero to complete"
   }
 }

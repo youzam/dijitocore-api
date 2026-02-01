@@ -28,18 +28,22 @@ router.post(
  */
 router.post(
   "/:businessId/activate",
-  role("SUPER_ADMIN"),
+  role(["SUPER_ADMIN"]),
   controller.activateBusiness,
 );
-router.post("/:businessId/grace", role("SUPER_ADMIN"), controller.moveToGrace);
+router.post(
+  "/:businessId/grace",
+  role(["SUPER_ADMIN"]),
+  controller.moveToGrace,
+);
 router.post(
   "/:businessId/suspend",
-  role("SUPER_ADMIN"),
+  role(["SUPER_ADMIN"]),
   controller.suspendBusiness,
 );
 router.post(
   "/:businessId/terminate",
-  role("SUPER_ADMIN"),
+  role(["SUPER_ADMIN"]),
   controller.terminateBusiness,
 );
 
@@ -49,14 +53,14 @@ router.post(
 router.get(
   "/me/settings",
   tenant,
-  role("BUSINESS_OWNER"),
+  role(["BUSINESS_OWNER"]),
   controller.getBusinessSettings,
 );
 
 router.put(
   "/me/settings",
   tenant,
-  role("BUSINESS_OWNER"),
+  role(["BUSINESS_OWNER"]),
   validate(validation.updateSettings),
   controller.updateBusinessSettings,
 );
@@ -67,7 +71,7 @@ router.put(
 router.post(
   "/me/users/invite",
   tenant,
-  role("BUSINESS_OWNER"),
+  role(["BUSINESS_OWNER"]),
   validate(validation.inviteUser),
   controller.inviteBusinessUser,
 );
@@ -75,14 +79,14 @@ router.post(
 router.get(
   "/me/users/invites",
   tenant,
-  role("BUSINESS_OWNER"),
+  role(["BUSINESS_OWNER"]),
   controller.listInvites,
 );
 
 router.delete(
   "/me/users/invites/:inviteId",
   tenant,
-  role("BUSINESS_OWNER"),
+  role(["BUSINESS_OWNER"]),
   controller.revokeInvite,
 );
 
@@ -94,7 +98,7 @@ router.get("/me/users", tenant, controller.listBusinessUsers);
 router.put(
   "/me/users/:userId",
   tenant,
-  role("BUSINESS_OWNER"),
+  role(["BUSINESS_OWNER"]),
   validate(validation.updateUser),
   controller.updateBusinessUser,
 );
@@ -102,21 +106,21 @@ router.put(
 router.delete(
   "/me/users/:userId",
   tenant,
-  role("BUSINESS_OWNER"),
+  role(["BUSINESS_OWNER"]),
   controller.deactivateBusinessUser,
 );
 
 router.post(
   "/me/users/:userId/activate",
   tenant,
-  role("BUSINESS_OWNER"),
+  role(["BUSINESS_OWNER"]),
   controller.activateBusinessUser,
 );
 
 router.get(
   "/:businessId",
   tenant,
-  role("BUSINESS_OWNER", "SUPER_ADMIN"),
+  role(["BUSINESS_OWNER", "SUPER_ADMIN"]),
   controller.getBusinessDetails,
 );
 
