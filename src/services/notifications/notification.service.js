@@ -59,9 +59,29 @@ const sendBusinessInvite = async ({ to, locale = "en", inviteUrl, role }) => {
   });
 };
 
+/**
+ * CUSTOMER WELCOME SMS (SEND BUSINESS CODE)
+ */
+const sendCustomerWelcome = async ({
+  phone,
+  businessName,
+  businessCode,
+  locale = "sw",
+}) => {
+  if (!phone) return;
+
+  const message = translate("customer.welcome_sms", locale, {
+    business: businessName,
+    code: businessCode,
+  });
+
+  return smsChannel.send({ to: phone, message });
+};
+
 module.exports = {
   sendPasswordReset,
   sendOtp,
   sendEmailVerification,
   sendBusinessInvite,
+  sendCustomerWelcome,
 };

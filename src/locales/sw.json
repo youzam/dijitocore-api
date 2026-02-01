@@ -53,7 +53,18 @@
     "missingFields": "Taarifa muhimu za mtumiaji hazijajazwa",
     "emailExists": "Barua pepe tayari inatumika"
   },
-  "customers": {
-    "already_exists": "Mteja tayari yupo kwenye biashara hii"
+  "customer": {
+    "created": "Mteja ameongezwa kikamilifu",
+    "updated": "Taarifa za mteja zimesasishwa",
+    "not_found": "Mteja hapatikani",
+    "status_updated": "Hali ya mteja imesasishwa",
+    "blacklisted": "Mteja amewekwa kwenye blacklist",
+    "unblacklisted": "Mteja ameondolewa kwenye blacklist",
+    "imported": "Wateja wameingizwa kikamilifu",
+    "file_required": "Faili la kuingiza linahitajika",
+    "empty_import": "Faili halina taarifa",
+    "already_exists": "Mteja tayari yupo",
+    "welcome_sms": "Karibu {{business}}. Business code yako ni {{code}}. Tumia hii kukamilisha access ya DijitoTrack.",
+    "inactive": "Akaunti yako imesitishwa. Tafadhali wasiliana na biashara."
   }
 }

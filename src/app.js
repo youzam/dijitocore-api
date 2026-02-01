@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
+const fileUpload = require("express-fileupload");
 
 const routes = require("./routes");
 const errorHandler = require("./middlewares/error.middleware");
@@ -25,6 +26,13 @@ app.use(
   cors({
     origin: corsConfig,
     credentials: true,
+  }),
+);
+
+app.use(
+  fileUpload({
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+    abortOnLimit: true,
   }),
 );
 

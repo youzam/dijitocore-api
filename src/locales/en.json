@@ -51,7 +51,18 @@
     "missingFields": "Missing required user fields",
     "emailExists": "Email already in use"
   },
-  "customers": {
-    "already_exists": "Customer already exists for this business"
+  "customer": {
+    "created": "Customer created successfully",
+    "updated": "Customer updated successfully",
+    "not_found": "Customer not found",
+    "status_updated": "Customer status updated",
+    "blacklisted": "Customer blacklisted",
+    "unblacklisted": "Customer removed from blacklist",
+    "imported": "Customers imported successfully",
+    "file_required": "Import file is required",
+    "empty_import": "Import file has no data",
+    "already_exists": "Customer already exists",
+    "welcome_sms": "Welcome to {{business}}. Your business code is {{code}}. Use this to complete your DijitoTrack access.",
+    "inactive": "Your account is inactive. Please contact the business."
   }
 }

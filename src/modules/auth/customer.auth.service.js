@@ -30,6 +30,14 @@ exports.requestOtp = async (phone, businessCode) => {
 
   if (!customer) return;
 
+  if (customer.isBlacklisted) {
+    throw new AppError("customer.blacklisted", 403);
+  }
+
+  if (customer.status !== "ACTIVE") {
+    throw new AppError("customer.inactive", 403);
+  }
+
   const otp = generateOtp();
   const otpHash = await bcrypt.hash(otp, 10);
 
@@ -125,6 +133,14 @@ exports.loginWithPin = async (phone, businessCode, pin) => {
   const isValid = await bcrypt.compare(pin, customer.pinHash);
 
   if (!isValid) throw new AppError("auth.invalid_pin", 401);
+
+  if (customer.isBlacklisted) {
+    throw new AppError("customer.blacklisted", 403);
+  }
+
+  if (customer.status !== "ACTIVE") {
+    throw new AppError("customer.inactive", 403);
+  }
 
   await prisma.customer.update({
     where: { id: customer.id },
