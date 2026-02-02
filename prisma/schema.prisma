@@ -239,7 +239,7 @@ model InstallmentSchedule {
   dueDate DateTime
   amount  Int
 
-  status ScheduleStatus @default(PENDING)
+  status ScheduleStatus @default(DUE)
 
   paidAt DateTime?
 
@@ -263,6 +263,83 @@ model ContractAsset {
   contract Contract @relation(fields: [contractId], references: [id])
 
   @@index([contractId])
+}
+
+////////////////////////////////////////
+//          PAYMENT
+////////////////////////////////////
+model Payment {
+  id         String @id @default(uuid())
+  businessId String
+  contractId String
+  customerId String
+
+  amount         Int
+  channel        String // CASH | MOBILE | BANK
+  source         String // POS | WEB | IMPORT | API
+  reference      String?
+  idempotencyKey String?
+
+  receivedAt DateTime
+
+  balanceBefore Int
+  balanceAfter  Int
+
+  status PaymentStatus @default(POSTED)
+
+  attachments Json?
+
+  recordedBy String
+
+  createdAt DateTime @default(now())
+
+  reversals PaymentReversal[]
+
+  @@unique([businessId, idempotencyKey])
+  @@index([businessId])
+}
+
+model PaymentReversal {
+  id        String @id @default(uuid())
+  paymentId String
+  reason    String
+
+  requestedBy String
+  approvedBy  String?
+
+  status ReversalStatus @default(PENDING)
+
+  createdAt  DateTime  @default(now())
+  approvedAt DateTime?
+
+  Payment Payment @relation(fields: [paymentId], references: [id])
+}
+
+model ApprovalRequest {
+  id String @id @default(uuid())
+
+  businessId String
+  entityType String
+  entityId   String
+
+  requestedBy String
+  approvedBy  String?
+
+  status ApprovalStatus @default(PENDING)
+  reason String?
+
+  createdAt  DateTime  @default(now())
+  resolvedAt DateTime?
+}
+
+model CustomerCredit {
+  id         String   @id @default(uuid())
+  businessId String
+  customerId String
+  balance    Int      @default(0)
+  updatedAt  DateTime @updatedAt
+
+  @@unique([businessId, customerId])
 }
 
 ////////////////////////////////////////
@@ -344,9 +421,8 @@ enum InstallmentFrequency {
 }
 
 enum ScheduleStatus {
-  PENDING
+  DUE
   PAID
-  OVERDUE
 }
 
 enum ContractAction {
@@ -354,4 +430,21 @@ enum ContractAction {
   UPDATE
   TERMINATE
   COMPLETE
+}
+
+enum PaymentStatus {
+  POSTED
+  REVERSED
+}
+
+enum ReversalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }

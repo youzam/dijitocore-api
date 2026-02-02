@@ -70,7 +70,7 @@
     "list": "Contracts fetched successfully",
     "single": "Contract details",
     "updated": "Contract updated",
-    "terminated": "Contract terminated",
+    "terminated": "This contract has been terminated and cannot receive payments",
     "completed": "Contract completed",
     "deleted": "Contract deleted",
     "not-found": "Contract not found",
@@ -79,5 +79,19 @@
     "invalid-installment": "Invalid installment amount",
     "custom-days-required": "Custom days is required for custom frequency",
     "balance-not-zero": "Contract balance must be zero to complete"
+  },
+  "payment": {
+    "created": "Payment recorded successfully",
+    "listed": "Payments fetched successfully",
+
+    "reversal_requested": "Payment reversal request submitted",
+    "reversal_approved": "Payment reversal approved",
+    "reversal_rejected": "Payment reversal rejected",
+
+    "duplicate_reference": "Payment reference already exists",
+    "not_found": "Payment not found",
+
+    "approval_not_found": "Approval request not found",
+    "reversal_not_found": "Payment reversal not found"
   }
 }

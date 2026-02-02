@@ -72,7 +72,7 @@
     "list": "Orodha ya mikataba",
     "single": "Maelezo ya mkataba",
     "updated": "Mkataba umesasishwa",
-    "terminated": "Mkataba umesitishwa",
+    "terminated": "Mkataba huu umesitishwa na hauwezi kupokea malipo",
     "completed": "Mkataba umekamilika",
     "deleted": "Mkataba umefutwa",
     "not-found": "Mkataba haukupatikana",
@@ -81,5 +81,19 @@
     "invalid-installment": "Kiasi cha malipo si sahihi",
     "custom-days-required": "Idadi ya siku inahitajika kwa malipo ya desturi",
     "balance-not-zero": "Salio la mkataba lazima liwe sifuri ili ukamilike"
+  },
+  "payment": {
+    "created": "Malipo yamehifadhiwa kikamilifu",
+    "listed": "Orodha ya malipo imepatikana",
+
+    "reversal_requested": "Ombi la kurejesha malipo limetumwa",
+    "reversal_approved": "Marejesho ya malipo yameidhinishwa",
+    "reversal_rejected": "Marejesho ya malipo yamekataliwa",
+
+    "duplicate_reference": "Rejea ya malipo tayari ipo",
+    "not_found": "Malipo hayajapatikana",
+
+    "approval_not_found": "Ombi la idhini halijapatikana",
+    "reversal_not_found": "Marejesho ya malipo hayajapatikana"
   }
 }
