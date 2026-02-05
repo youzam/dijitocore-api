@@ -13,7 +13,15 @@ exports.exportCSV = async (businessId) => {
     orderBy: { snapshotDate: "asc" },
   });
 
-  const parser = new Parser();
+  // Guard: empty dataset
+  if (!snapshots || snapshots.length === 0) {
+    return "";
+  }
+
+  const fields = Object.keys(snapshots[0]);
+
+  const parser = new Parser({ fields });
+
   return parser.parse(snapshots);
 };
 

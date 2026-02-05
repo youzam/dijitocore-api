@@ -144,7 +144,7 @@ exports.getStaffMetrics = async (businessId) => {
   return cache(`dash:staff:${businessId}`, 300, async () => {
     const staffs = await prisma.user.findMany({
       where: { businessId, role: "STAFF" },
-      select: { id: true, name: true },
+      select: { id: true, email: true }, // FIX: User has no name
     });
 
     const result = [];
@@ -165,27 +165,28 @@ exports.getStaffMetrics = async (businessId) => {
         _sum: { amount: true },
       });
 
-      const overdue = await prisma.paymentSchedule.aggregate({
+      const overdue = await prisma.installmentSchedule.aggregate({
         where: {
-          businessId,
+          contract: { businessId },
           dueDate: { lt: new Date() },
           status: { not: "PAID" },
           contract: {
             customer: { assignedStaffId: staff.id },
           },
         },
-        _sum: { amount: true, paidAmount: true },
+        _sum: { amount: true, amount: true },
       });
 
       const overdueAmount =
-        (overdue._sum.amount || 0) - (overdue._sum.paidAmount || 0);
+        (overdue._sum.amount || 0) - (overdue._sum.amount || 0);
+
+      const collectedAmount = collected._sum.amount || 0;
 
       const efficiency =
-        collected._sum.amount > 0
+        collectedAmount + overdueAmount > 0
           ? Number(
               (
-                ((collected._sum.amount || 0) /
-                  ((collected._sum.amount || 0) + overdueAmount)) *
+                (collectedAmount / (collectedAmount + overdueAmount)) *
                 100
               ).toFixed(2),
             )
@@ -193,8 +194,8 @@ exports.getStaffMetrics = async (businessId) => {
 
       result.push({
         staffId: staff.id,
-        name: staff.name,
-        collected: collected._sum.amount || 0,
+        email: staff.email, // FIX
+        collected: collectedAmount,
         overdue: overdueAmount,
         efficiency,
       });
@@ -233,17 +234,17 @@ exports.getAssetMetrics = async (businessId) => {
       map[a.assetId].soldCount += 1;
       map[a.assetId].totalValue += a.price || 0;
 
-      const overdue = await prisma.paymentSchedule.aggregate({
+      const overdue = await prisma.installmentSchedule.aggregate({
         where: {
-          contractId: a.contractId,
+          contract: { businessId },
           dueDate: { lt: new Date() },
           status: { not: "PAID" },
         },
-        _sum: { amount: true, paidAmount: true },
+        _sum: { amount: true, amount: true },
       });
 
       map[a.assetId].overdue +=
-        (overdue._sum.amount || 0) - (overdue._sum.paidAmount || 0);
+        (overdue._sum.amount || 0) - (overdue._sum.amount || 0);
     }
 
     return Object.values(map);
@@ -262,7 +263,7 @@ exports.getRiskContracts = async (businessId) => {
     return prisma.contract.findMany({
       where: {
         businessId,
-        paymentSchedules: {
+        schedules: {
           some: {
             dueDate: { lt: sevenDaysAgo },
             status: { not: "PAID" },
@@ -284,12 +285,12 @@ exports.getCashflow = async (businessId) => {
     const compute = async (days) => {
       const future = dayjs().add(days, "day").toDate();
 
-      const agg = await prisma.paymentSchedule.aggregate({
-        where: { businessId, dueDate: { lte: future } },
-        _sum: { amount: true, paidAmount: true },
+      const agg = await prisma.installmentSchedule.aggregate({
+        where: { contract: { businessId }, dueDate: { lte: future } },
+        _sum: { amount: true, amount: true },
       });
 
-      return (agg._sum.amount || 0) - (agg._sum.paidAmount || 0);
+      return (agg._sum.amount || 0) - (agg._sum.amount || 0);
     };
 
     return {
@@ -319,6 +320,9 @@ exports.getFunnelMetrics = async (businessId) => {
             status: "APPROVED",
           },
         },
+      },
+      _count: {
+        _all: true,
       },
     });
 
@@ -354,18 +358,18 @@ exports.getHealthScore = async (businessId) => {
       _sum: { amount: true },
     });
 
-    const overdueAgg = await prisma.paymentSchedule.aggregate({
+    const overdueAgg = await prisma.installmentSchedule.aggregate({
       where: {
-        businessId,
+        contract: { businessId },
         dueDate: { lt: new Date() },
         status: { not: "PAID" },
       },
-      _sum: { amount: true, paidAmount: true },
+      _sum: { amount: true, amount: true },
     });
 
     const collected = collectedAgg._sum.amount || 0;
     const overdue =
-      (overdueAgg._sum.amount || 0) - (overdueAgg._sum.paidAmount || 0);
+      (overdueAgg._sum.amount || 0) - (overdueAgg._sum.amount || 0);
 
     const overdueRatio =
       collected + overdue > 0 ? overdue / (collected + overdue) : 0;
