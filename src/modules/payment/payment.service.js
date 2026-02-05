@@ -25,6 +25,16 @@ exports.recordPayment = async ({
       if (existing) return existing;
     }
 
+    const customer = await tx.customer.findFirst({
+      where: { id: customerId, businessId },
+    });
+
+    if (!customer) throw new Error("customer.not_found");
+
+    if (customer.status === "INACTIVE" || customer.isBlacklisted) {
+      throw new Error("customer.inactiveBlacklisted");
+    }
+
     const contract = await tx.contract.findFirst({
       where: { id: contractId, businessId },
       include: { schedules: true },
@@ -192,6 +202,10 @@ exports.approveReversal = async ({
       where: { id: payment.contractId },
       include: { schedules: true },
     });
+
+    if (contract.completedAt) {
+      throw new Error("contract.closed");
+    }
 
     let rollback = payment.amount;
 

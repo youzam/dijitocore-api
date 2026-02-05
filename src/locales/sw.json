@@ -65,6 +65,7 @@
     "empty_import": "Faili halina taarifa",
     "already_exists": "Mteja tayari yupo",
     "welcome_sms": "Karibu {{business}}. Business code yako ni {{code}}. Tumia hii kukamilisha access ya DijitoTrack.",
+    "inactiveBlacklisted": "Akaunti ya mteja huyu haijawashwa au amewekwa kwenye orodha ya marufuku, hivyo hawezi kufanya miamala yoyote. Tafadhali washa mteja kwanza.",
     "inactive": "Akaunti yako imesitishwa. Tafadhali wasiliana na biashara."
   },
   "contract": {
@@ -80,7 +81,8 @@
     "invalid-downpayment": "Malipo ya awali hayawezi kuzidi thamani ya mkataba",
     "invalid-installment": "Kiasi cha malipo si sahihi",
     "custom-days-required": "Idadi ya siku inahitajika kwa malipo ya desturi",
-    "balance-not-zero": "Salio la mkataba lazima liwe sifuri ili ukamilike"
+    "balance-not-zero": "Salio la mkataba lazima liwe sifuri ili ukamilike",
+    "closed": "Mkataba umefungwa"
   },
   "payment": {
     "created": "Malipo yamehifadhiwa kikamilifu",

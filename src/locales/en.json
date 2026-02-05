@@ -63,6 +63,7 @@
     "empty_import": "Import file has no data",
     "already_exists": "Customer already exists",
     "welcome_sms": "Welcome to {{business}}. Your business code is {{code}}. Use this to complete your DijitoTrack access.",
+    "inactiveBlacklisted": "This customer account is either inactive or blacklisted and cannot perform any transactions. Please activate customer first.",
     "inactive": "Your account is inactive. Please contact the business."
   },
   "contract": {
@@ -78,7 +79,8 @@
     "invalid-downpayment": "Down payment cannot exceed total value",
     "invalid-installment": "Invalid installment amount",
     "custom-days-required": "Custom days is required for custom frequency",
-    "balance-not-zero": "Contract balance must be zero to complete"
+    "balance-not-zero": "Contract balance must be zero to complete",
+    "closed": "Contract is closed"
   },
   "payment": {
     "created": "Payment recorded successfully",

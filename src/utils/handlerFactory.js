@@ -12,6 +12,11 @@ exports.list = async ({
   filterableFields = [],
   defaultSort = "createdAt",
 }) => {
+  // HARD TENANT GUARD (P0.1 FIX)
+  if (!businessFilter || !businessFilter.businessId) {
+    throw new Error("Missing businessId in businessFilter");
+  }
+
   const page = parseInt(query.page, 10) || 1;
   const limit = parseInt(query.limit, 10) || 20;
   const skip = (page - 1) * limit;

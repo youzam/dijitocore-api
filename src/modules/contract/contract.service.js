@@ -52,6 +52,9 @@ exports.createContract = async ({ businessId, userId, payload }) => {
   });
 
   if (!customer) throw new Error("contract.customer-not-found");
+  if (customer.status === "INACTIVE" || customer.isBlacklisted) {
+    throw new Error("customer.inactiveBlacklisted");
+  }
 
   const balance = totalValue - downPayment;
   const totalInstallments = Math.ceil(balance / installmentAmount);
