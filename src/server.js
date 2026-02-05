@@ -2,6 +2,7 @@ require("dotenv").config();
 
 const app = require("./app");
 const prisma = require("./config/prisma");
+const { startJobs } = require("./jobs");
 
 const PORT = process.env.PORT || 4000;
 
@@ -74,4 +75,5 @@ process.on("unhandledRejection", (err) => {
 process.on("SIGTERM", () => gracefulShutdown("SIGTERM", 0));
 process.on("SIGINT", () => gracefulShutdown("SIGINT", 0));
 
+startJobs();
 startServer();

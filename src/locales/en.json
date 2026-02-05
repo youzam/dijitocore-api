@@ -95,5 +95,14 @@
 
     "approval_not_found": "Approval request not found",
     "reversal_not_found": "Payment reversal not found"
+  },
+
+  "dashboard": {
+    "enterprise_loaded": "Enterprise dashboard loaded successfully",
+    "insights_loaded": "Dashboard insights loaded"
+  },
+  "insights": {
+    "overdue_spike": "Overdue increased by {{percent}}%",
+    "collection_drop": "Collections dropped by {{percent}}%"
   }
 }

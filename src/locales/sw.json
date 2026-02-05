@@ -97,5 +97,13 @@
 
     "approval_not_found": "Ombi la idhini halijapatikana",
     "reversal_not_found": "Marejesho ya malipo hayajapatikana"
+  },
+  "dashboard": {
+    "enterprise_loaded": "Dashibodi ya biashara (enterprise) imepatikana kikamilifu",
+    "insights_loaded": "Taarifa za akili ya dashibodi zimepatikana"
+  },
+  "insights": {
+    "overdue_spike": "Madeni yameongezeka kwa {{percent}}%",
+    "collection_drop": "Makusanyo yameshuka kwa {{percent}}%"
   }
 }

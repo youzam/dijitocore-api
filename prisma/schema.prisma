@@ -343,6 +343,90 @@ model CustomerCredit {
 }
 
 ////////////////////////////////////////
+//          DASHBOARDS
+////////////////////////////////////
+model DashboardSnapshot {
+  id           String   @id @default(uuid())
+  businessId   String
+  snapshotDate DateTime
+
+  portfolio   Int
+  collected   Int
+  outstanding Int
+  overdue     Int
+
+  // Cashflow projections
+  cashflow30 Int
+  cashflow60 Int
+  cashflow90 Int
+
+  createdAt DateTime @default(now())
+
+  @@unique([businessId, snapshotDate])
+  @@index([businessId])
+}
+
+model DashboardInsight {
+  id         String @id @default(uuid())
+  businessId String
+
+  type       String
+  messageKey String
+  payload    Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([businessId])
+}
+
+model DashboardStaffMetric {
+  id         String @id @default(uuid())
+  businessId String
+  staffId    String
+
+  collected  Int
+  overdue    Int
+  efficiency Float
+
+  snapshotDate DateTime
+  createdAt    DateTime @default(now())
+
+  @@index([businessId])
+  @@index([staffId])
+}
+
+model DashboardAssetMetric {
+  id         String @id @default(uuid())
+  businessId String
+  assetId    String
+
+  soldCount  Int
+  totalValue Int
+  overdue    Int
+
+  snapshotDate DateTime
+  createdAt    DateTime @default(now())
+
+  @@index([businessId])
+  @@index([assetId])
+}
+
+model DashboardHealth {
+  id         String @id @default(uuid())
+  businessId String
+
+  collectionRate Float
+  overdueRatio   Float
+  churnRate      Float
+  healthScore    Float
+
+  snapshotDate DateTime
+  createdAt    DateTime @default(now())
+
+  @@unique([businessId, snapshotDate])
+}
+
+////////////////////////////////////////
 //          AUDIT LOG
 ////////////////////////////////////
 
