@@ -41,4 +41,59 @@ router.get(
   controller.exportPDF,
 );
 
+/**
+ * ===============================
+ * ANALYTICS ROUTES (ADDED BELOW)
+ * ===============================
+ */
+
+router.get(
+  "/analytics/snapshots",
+  auth,
+  role(["BUSINESS_OWNER", "MANAGER", "STAFF"]),
+  controller.getSnapshotSeries,
+);
+
+router.get(
+  "/analytics/health-timeline",
+  auth,
+  role(["BUSINESS_OWNER", "MANAGER", "STAFF"]),
+  controller.getHealthTimeline,
+);
+
+router.get(
+  "/analytics/insights",
+  auth,
+  role(["BUSINESS_OWNER", "MANAGER"]),
+  controller.getAnalyticsInsights,
+);
+
+router.get(
+  "/analytics/cohorts",
+  auth,
+  role(["BUSINESS_OWNER", "MANAGER"]),
+  controller.getCohorts,
+);
+
+router.get(
+  "/analytics/projections",
+  auth,
+  role(["BUSINESS_OWNER", "MANAGER"]),
+  controller.getProjections,
+);
+
+router.get(
+  "/analytics/audit",
+  auth,
+  role(["BUSINESS_OWNER"]),
+  controller.getAuditDashboard,
+);
+
+router.get(
+  "/enterprise/role",
+  auth,
+  role(["BUSINESS_OWNER", "MANAGER", "STAFF"]),
+  controller.getRoleDashboard,
+);
+
 module.exports = router;

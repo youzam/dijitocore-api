@@ -100,7 +100,13 @@
   },
   "dashboard": {
     "enterprise_loaded": "Dashibodi ya biashara (enterprise) imepatikana kikamilifu",
-    "insights_loaded": "Taarifa za akili ya dashibodi zimepatikana"
+    "insights_loaded": "Taarifa za akili ya dashibodi zimepatikana",
+    "snapshots_loaded": "Snapshot za dashboard zimepatikana kikamilifu",
+    "health_timeline_loaded": "Mfululizo wa afya ya biashara umepatikana kikamilifu",
+    "cohorts_loaded": "Uchambuzi wa makundi ya wateja umepatikana kikamilifu",
+    "projections_loaded": "Makadirio ya mapato yajayo yamepatikana kikamilifu",
+    "audit_loaded": "Dashibodi ya ukaguzi imepatikana kikamilifu",
+    "role_loaded": "Dashibodi kulingana na nafasi ya mtumiaji imepatikana kikamilifu"
   },
   "insights": {
     "overdue_spike": "Madeni yameongezeka kwa {{percent}}%",

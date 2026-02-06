@@ -99,7 +99,13 @@
 
   "dashboard": {
     "enterprise_loaded": "Enterprise dashboard loaded successfully",
-    "insights_loaded": "Dashboard insights loaded"
+    "insights_loaded": "Dashboard insights loaded",
+    "snapshots_loaded": "Dashboard snapshots loaded successfully",
+    "health_timeline_loaded": "Business health timeline loaded successfully",
+    "cohorts_loaded": "Customer cohort analysis loaded successfully",
+    "projections_loaded": "Forward projections loaded successfully",
+    "audit_loaded": "Audit dashboard loaded successfully",
+    "role_loaded": "Role based dashboard loaded successfully"
   },
   "insights": {
     "overdue_spike": "Overdue increased by {{percent}}%",
