@@ -1,13 +1,12 @@
 const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
 const prisma = require("../../config/prisma");
 const AppError = require("../../utils/AppError");
 const jwtConfig = require("../../config/jwt");
+const { signToken, verifyToken } = require("../../utils/auth.helper");
 const notificationService = require("../../services/notifications/notification.service");
 
-const generateOtp = () => {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-};
+const generateOtp = () =>
+  Math.floor(100000 + Math.random() * 900000).toString();
 
 /**
  * Request OTP
@@ -147,31 +146,30 @@ exports.loginWithPin = async (phone, businessCode, pin) => {
     data: { lastLoginAt: new Date() },
   });
 
-  const payload = {
-    customerId: customer.id,
+  /**
+   * JWT TOKENS (aligned with auth.middleware)
+   */
+  const tokens = signToken({
+    sub: customer.id,
+    identity_type: "customer",
     businessId: customer.businessId,
     role: "CUSTOMER",
-  };
-
-  const accessToken = jwt.sign(payload, jwtConfig.accessSecret, {
-    expiresIn: jwtConfig.accessExpiresIn,
-  });
-
-  const refreshToken = jwt.sign(payload, jwtConfig.refreshSecret, {
-    expiresIn: jwtConfig.refreshExpiresIn,
   });
 
   await prisma.refreshToken.create({
     data: {
-      token: refreshToken,
+      token: tokens.refreshToken,
       customerId: customer.id,
       expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     },
   });
 
   return {
-    accessToken,
-    refreshToken,
-    customer,
+    customer: {
+      id: customer.id,
+      phone: customer.phone,
+      businessId: customer.businessId,
+    },
+    tokens,
   };
 };

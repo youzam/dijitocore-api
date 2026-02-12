@@ -80,6 +80,13 @@ exports.createBusiness = async (user, payload) => {
     },
   });
 
+  await prisma.notificationSetting.create({
+    data: {
+      businessId: business.id,
+      userId: null, // business-level default
+    },
+  });
+
   const tokens = authHelper.signToken({
     sub: user.id,
     role: "BUSINESS_OWNER",

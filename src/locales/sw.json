@@ -20,6 +20,16 @@
   },
 
   "notification": {
+    "list": "Taarifa zimepatikana",
+    "marked_read": "Taarifa imewekwa kuwa imesomwa",
+    "bulk_sent": "Ujumbe wa pamoja umetumwa",
+    "bulk_week_limit": "Unaweza kutuma ujumbe wa pamoja mara moja tu kwa wiki",
+    "bulk_month_limit": "Umefikia kikomo cha ujumbe wa mwezi",
+    "template_required": "Template ya ujumbe inahitajika",
+    "settings_list": "Mipangilio ya notisi",
+    "settings_updated": "Mipangilio ya notisi imesasishwa",
+    "settings_not_found": "Mipangilio ya notisi haipo",
+    "analytics": "Takwimu za notisi",
     "password_reset": {
       "subject": "Badilisha nenosiri lako",
       "body": "Bofya link hii kubadilisha nenosiri lako: {{resetUrl}}. Link inaisha baada ya dakika 15."
@@ -34,6 +44,30 @@
     "business_invite": {
       "subject": "Umealikwa kujiunga na biashara",
       "body": "Umealikwa kujiunga na biashara kama {{role}}. Tafadhali bofya link hii kukamilisha usajili wako: {{inviteUrl}}"
+    },
+    "upcoming": {
+      "title": "Malipo yanakuja",
+      "body": "Habari {{name}}, una malipo ya {{amount}} yanayokuja."
+    },
+
+    "due": {
+      "title": "Malipo leo",
+      "body": "Habari {{name}}, malipo yako ya {{amount}} yanahitajika leo."
+    },
+
+    "overdue": {
+      "title": "Malipo yamechelewa",
+      "body": "Habari {{name}}, malipo yako ya {{amount}} yamechelewa."
+    },
+
+    "staff_overdue": {
+      "title": "Mteja amechelewa",
+      "body": "{{customer}} ana malipo ya {{amount}} yaliyochelewa."
+    },
+
+    "escalation": {
+      "title": "Tahadhari ya escalation",
+      "body": "{{customer}} amechelewa kwa siku {{days}} ({{amount}})."
     }
   },
   "business": {
@@ -111,5 +145,9 @@
   "insights": {
     "overdue_spike": "Madeni yameongezeka kwa {{percent}}%",
     "collection_drop": "Makusanyo yameshuka kwa {{percent}}%"
+  },
+  "device": {
+    "registered": "Kifaa kimesajiliwa kikamilifu",
+    "invalid_payload": "Taarifa za kifaa si sahihi"
   }
 }

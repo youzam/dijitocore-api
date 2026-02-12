@@ -20,6 +20,16 @@
   },
 
   "notification": {
+    "list": "Notifications loaded successfully",
+    "marked_read": "Notification marked as read",
+    "bulk_sent": "Bulk notifications sent successfully",
+    "bulk_week_limit": "You can only send bulk notifications once per week",
+    "bulk_month_limit": "Monthly bulk notification limit reached",
+    "template_required": "Notification template is required",
+    "settings_list": "Notification settings",
+    "settings_updated": "Notification settings updated",
+    "settings_not_found": "Notification settings not found",
+    "analytics": "Notification analytics",
     "password_reset": {
       "subject": "Reset your password",
       "body": "Click this link to reset your password: {{resetUrl}}. This link expires in 15 minutes."
@@ -34,6 +44,30 @@
     "business_invite": {
       "subject": "You have been invited to join a business",
       "body": "You have been invited to join a business as {{role}}. Click here to complete your registration: {{inviteUrl}}"
+    },
+    "upcoming": {
+      "title": "Upcoming payment",
+      "body": "Hello {{name}}, you have an upcoming payment of {{amount}}."
+    },
+
+    "due": {
+      "title": "Payment due today",
+      "body": "Hello {{name}}, your payment of {{amount}} is due today."
+    },
+
+    "overdue": {
+      "title": "Payment overdue",
+      "body": "Hello {{name}}, your payment of {{amount}} is overdue."
+    },
+
+    "staff_overdue": {
+      "title": "Customer overdue",
+      "body": "{{customer}} has an overdue payment of {{amount}}."
+    },
+
+    "escalation": {
+      "title": "Escalation alert",
+      "body": "{{customer}} has been overdue for {{days}} days ({{amount}})."
     }
   },
   "business": {
@@ -110,5 +144,9 @@
   "insights": {
     "overdue_spike": "Overdue increased by {{percent}}%",
     "collection_drop": "Collections dropped by {{percent}}%"
+  },
+  "device": {
+    "registered": "Device registered successfully",
+    "invalid_payload": "Invalid device data"
   }
 }

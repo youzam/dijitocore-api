@@ -8,6 +8,8 @@ const customerRoutes = require("./modules/customer/customer.routes");
 const contractRoutes = require("./modules/contract/contract.routes");
 const paymentRoutes = require("./modules/payment/payment.routes");
 const dashboardRoutes = require("./modules/dashboard/dashboard.routes");
+const notificationRoutes = require("./modules/notification/notification.routes");
+const deviceRoutes = require("./modules/device/device.routes");
 
 const router = express.Router();
 
@@ -33,5 +35,7 @@ router.use("/customers", customerRoutes);
 router.use("/contracts", contractRoutes);
 router.use("/payments", paymentRoutes);
 router.use("/dashboards", dashboardRoutes);
+router.use("/notifications", notificationRoutes);
+router.use("/devices", deviceRoutes);
 
 module.exports = router;

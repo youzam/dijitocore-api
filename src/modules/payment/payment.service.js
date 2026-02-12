@@ -1,5 +1,8 @@
 const prisma = require("../../config/prisma");
 const factory = require("../../utils/handlerFactory");
+const {
+  createNotification,
+} = require("../../services/notifications/notification.service");
 
 /**
  * RECORD PAYMENT (IDEMPOTENT)
@@ -17,7 +20,7 @@ exports.recordPayment = async ({
   receivedAt,
   userId,
 }) => {
-  return prisma.$transaction(async (tx) => {
+  const payment = await prisma.$transaction(async (tx) => {
     if (idempotencyKey) {
       const existing = await tx.payment.findFirst({
         where: { businessId, idempotencyKey },
@@ -37,7 +40,16 @@ exports.recordPayment = async ({
 
     const contract = await tx.contract.findFirst({
       where: { id: contractId, businessId },
-      include: { schedules: true },
+      include: {
+        schedules: true,
+        business: {
+          include: {
+            users: {
+              where: { status: "ACTIVE" },
+            },
+          },
+        },
+      },
     });
 
     if (!contract) throw new Error("contract.not_found");
@@ -74,7 +86,7 @@ exports.recordPayment = async ({
       },
     });
 
-    const payment = await tx.payment.create({
+    return tx.payment.create({
       data: {
         businessId,
         contractId,
@@ -91,9 +103,71 @@ exports.recordPayment = async ({
         recordedBy: userId,
       },
     });
-
-    return payment;
   });
+
+  /**
+   * =====================================================
+   * NOTIFICATIONS (AFTER TRANSACTION)
+   * =====================================================
+   */
+
+  // notify customer
+  await createNotification({
+    businessId,
+    customerId,
+    contractId,
+    type: "PAYMENT",
+    channel: "SMS",
+    titleKey: "notification.payment.title",
+    messageKey: "notification.payment.body",
+    templateVars: {
+      amount: payment.amount,
+      reference: payment.reference,
+    },
+    recipient: customerId,
+  });
+
+  await createNotification({
+    businessId,
+    customerId,
+    contractId,
+    type: "PAYMENT",
+    channel: "IN_APP",
+    titleKey: "notification.payment.title",
+    messageKey: "notification.payment.body",
+    templateVars: {
+      amount: payment.amount,
+      reference: payment.reference,
+    },
+    recipient: customerId,
+  });
+
+  // notify business users (in-app)
+  const businessUsers = await prisma.user.findMany({
+    where: {
+      businessId,
+      status: "ACTIVE",
+    },
+  });
+
+  for (const u of businessUsers) {
+    await createNotification({
+      businessId,
+      userId: u.id,
+      contractId,
+      type: "PAYMENT",
+      channel: "IN_APP",
+      titleKey: "notification.payment.staff.title",
+      messageKey: "notification.payment.staff.body",
+      templateVars: {
+        amount: payment.amount,
+        reference: payment.reference,
+      },
+      recipient: u.id,
+    });
+  }
+
+  return payment;
 };
 
 /**

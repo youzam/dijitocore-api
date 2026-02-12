@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "336925404563",
+    "project_id": "dijitotrack",
+    "storage_bucket": "dijitotrack.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:336925404563:android:db0c3d785213075f4f8c66",
+        "android_client_info": {
+          "package_name": "com.dijitolabs.dijitotrack"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDkBW9MnPlfZQ1QHDarSzpdEJ9RYGWkPOY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

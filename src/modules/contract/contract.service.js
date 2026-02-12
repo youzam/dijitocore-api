@@ -1,6 +1,9 @@
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 const dayjs = require("dayjs");
+const {
+  createNotification,
+} = require("../../services/notifications/notification.service");
 
 /* ================= UTILITIES ================= */
 
@@ -68,8 +71,8 @@ exports.createContract = async ({ businessId, userId, payload }) => {
     total: totalInstallments,
   });
 
-  return prisma.$transaction(async (tx) => {
-    const contract = await tx.contract.create({
+  const contract = await prisma.$transaction(async (tx) => {
+    const created = await tx.contract.create({
       data: {
         businessId,
         customerId,
@@ -103,7 +106,7 @@ exports.createContract = async ({ businessId, userId, payload }) => {
 
     await tx.installmentSchedule.createMany({
       data: dates.map((d) => ({
-        contractId: contract.id,
+        contractId: created.id,
         dueDate: d,
         amount: installmentAmount,
       })),
@@ -118,8 +121,65 @@ exports.createContract = async ({ businessId, userId, payload }) => {
       },
     });
 
-    return contract;
+    return created;
   });
+
+  /**
+   * ================= NOTIFICATIONS =================
+   * Contract activated
+   */
+  await createNotification({
+    businessId,
+    customerId,
+    contractId: contract.id,
+    type: "CONTRACT",
+    channel: "IN_APP",
+    titleKey: "notification.contract.active.title",
+    messageKey: "notification.contract.active.body",
+    templateVars: {
+      contract: contract.contractNumber,
+      amount: contract.totalValue,
+    },
+    recipient: customerId,
+  });
+
+  await createNotification({
+    businessId,
+    customerId,
+    contractId: contract.id,
+    type: "CONTRACT",
+    channel: "SMS",
+    titleKey: "notification.contract.active.title",
+    messageKey: "notification.contract.active.body",
+    templateVars: {
+      contract: contract.contractNumber,
+      amount: contract.totalValue,
+    },
+    recipient: customer.phone,
+  });
+
+  const businessUsers = await prisma.user.findMany({
+    where: { businessId, status: "ACTIVE" },
+  });
+
+  for (const u of businessUsers) {
+    await createNotification({
+      businessId,
+      userId: u.id,
+      contractId: contract.id,
+      type: "CONTRACT",
+      channel: "IN_APP",
+      titleKey: "notification.contract.active.staff.title",
+      messageKey: "notification.contract.active.staff.body",
+      templateVars: {
+        customer: customer.fullName,
+        amount: contract.totalValue,
+      },
+      recipient: u.id,
+    });
+  }
+
+  return contract;
 };
 
 /* ================= READ ================= */
@@ -162,7 +222,7 @@ exports.updateContract = async ({ businessId, id, payload }) => {
 exports.terminateContract = async ({ businessId, id, userId, reason }) => {
   const contract = await exports.getContractById({ businessId, id });
 
-  return prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx) => {
     await tx.contract.update({
       where: { id },
       data: {
@@ -181,6 +241,22 @@ exports.terminateContract = async ({ businessId, id, userId, reason }) => {
       },
     });
   });
+
+  await createNotification({
+    businessId,
+    customerId: contract.customerId,
+    contractId: contract.id,
+    type: "CONTRACT",
+    channel: "IN_APP",
+    titleKey: "notification.contract.terminated.title",
+    messageKey: "notification.contract.terminated.body",
+    templateVars: {
+      contract: contract.contractNumber,
+    },
+    recipient: contract.customerId,
+  });
+
+  return true;
 };
 
 /* ================= COMPLETE ================= */
@@ -191,7 +267,7 @@ exports.completeContract = async ({ businessId, id }) => {
   if (contract.outstandingAmount > 0)
     throw new Error("contract.balance-not-zero");
 
-  return prisma.$transaction(async (tx) => {
+  await prisma.$transaction(async (tx) => {
     await tx.contract.update({
       where: { id },
       data: {
@@ -207,6 +283,36 @@ exports.completeContract = async ({ businessId, id }) => {
       },
     });
   });
+
+  await createNotification({
+    businessId,
+    customerId: contract.customerId,
+    contractId: contract.id,
+    type: "CONTRACT",
+    channel: "IN_APP",
+    titleKey: "notification.contract.completed.title",
+    messageKey: "notification.contract.completed.body",
+    templateVars: {
+      contract: contract.contractNumber,
+    },
+    recipient: contract.customerId,
+  });
+
+  await createNotification({
+    businessId,
+    customerId: contract.customerId,
+    contractId: contract.id,
+    type: "CONTRACT",
+    channel: "SMS",
+    titleKey: "notification.contract.completed.title",
+    messageKey: "notification.contract.completed.body",
+    templateVars: {
+      contract: contract.contractNumber,
+    },
+    recipient: contract.customerPhone,
+  });
+
+  return true;
 };
 
 /* ================= SOFT DELETE ================= */

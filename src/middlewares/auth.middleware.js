@@ -124,6 +124,7 @@ const authMiddleware = async (req, res, next) => {
     }
 
     req.auth.customer = customer;
+    req.user = customer;
     return next();
   }
 

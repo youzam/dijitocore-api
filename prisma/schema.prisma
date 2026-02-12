@@ -41,22 +41,24 @@ model SystemSetting {
 //////////////////////////////////////////////////////
 
 model User {
-  id                   String         @id @default(uuid())
+  id                   String                @id @default(uuid())
   email                String
   passwordHash         String
   role                 UserRole
   status               UserStatus
   businessId           String?
-  business             Business?      @relation(fields: [businessId], references: [id])
+  business             Business?             @relation(fields: [businessId], references: [id])
   passwordResetToken   String?
   passwordResetExpires DateTime?
   lastLoginAt          DateTime?
-  createdAt            DateTime       @default(now())
-  updatedAt            DateTime       @updatedAt
-  emailVerified        Boolean        @default(false)
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  emailVerified        Boolean               @default(false)
   emailVerifyToken     String?
   emailVerifyExpires   DateTime?
   refreshTokens        RefreshToken[]
+  notifications        Notification[]
+  notificationSettings NotificationSetting[]
 
   @@unique([email, businessId])
 }
@@ -100,6 +102,7 @@ model Customer {
   updatedAt        DateTime       @updatedAt
   business         Business       @relation(fields: [businessId], references: [id])
   contracts        Contract[]
+  notifications    Notification[]
 
   @@unique([phone, businessId])
 }
@@ -118,20 +121,25 @@ model RefreshToken {
 // BUSINESS (TENANT)
 //////////////////////////////////////////////////////
 model Business {
-  id             String            @id @default(uuid())
-  name           String
-  email          String?
-  phone          String?
-  businessCode   String            @unique
-  status         BusinessStatus    @default(PENDING)
-  setupCompleted Boolean           @default(false)
-  users          User[]
-  invites        BusinessInvite[]
-  settings       BusinessSettings?
-  subscriptions  Subscription[]
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
-  customers      Customer[]
+  id                          String                       @id @default(uuid())
+  name                        String
+  email                       String?
+  phone                       String?
+  businessCode                String                       @unique
+  status                      BusinessStatus               @default(PENDING)
+  setupCompleted              Boolean                      @default(false)
+  users                       User[]
+  invites                     BusinessInvite[]
+  settings                    BusinessSettings?
+  subscriptions               Subscription[]
+  createdAt                   DateTime                     @default(now())
+  updatedAt                   DateTime                     @updatedAt
+  customers                   Customer[]
+  notifications               Notification[]
+  notificationSettings        NotificationSetting[]
+  notificationTemplates       NotificationTemplate[]
+  notificationEscalationRules NotificationEscalationRule[]
+  bulkNotificationLimits      BulkNotificationLimit[]
 }
 
 model BusinessSettings {
@@ -224,9 +232,10 @@ model Contract {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  customer  Customer              @relation(fields: [customerId], references: [id])
-  assets    ContractAsset[]
-  schedules InstallmentSchedule[]
+  customer      Customer              @relation(fields: [customerId], references: [id])
+  assets        ContractAsset[]
+  schedules     InstallmentSchedule[]
+  notifications Notification[]
 
   @@index([businessId])
   @@index([customerId])
@@ -440,9 +449,132 @@ model AuditLog {
   createdAt  DateTime @default(now())
 }
 
-//////////////////////////////////////////////////////
+///////////////////////////////////
+// NOTIFICATIONS
+///////////////////////////////////
+model Notification {
+  id String @id @default(uuid())
+
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id])
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id])
+
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id])
+
+  contractId String?
+  contract   Contract? @relation(fields: [contractId], references: [id])
+
+  type    String // UPCOMING | DUE | OVERDUE | ESCALATION | BULK
+  channel String // IN_APP | PUSH | SMS | WHATSAPP | EMAIL
+
+  title   String
+  message String
+
+  status String // QUEUED | SENT | DELIVERED | READ | FAILED
+
+  retryCount       Int   @default(0)
+  providerResponse Json?
+
+  createdAt DateTime  @default(now())
+  sentAt    DateTime?
+  readAt    DateTime?
+
+  @@index([businessId])
+  @@index([customerId])
+  @@index([userId])
+}
+
+model NotificationSetting {
+  id String @id @default(uuid())
+
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id])
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id])
+
+  enableInApp    Boolean @default(true)
+  enablePush     Boolean @default(true)
+  enableSMS      Boolean @default(true)
+  enableWhatsApp Boolean @default(true)
+  enableEmail    Boolean @default(true)
+
+  daysBeforeDue Int @default(3)
+
+  muteOverdue   Boolean @default(false)
+  muteReminders Boolean @default(false)
+
+  quietHoursStart String?
+  quietHoursEnd   String?
+
+  createdAt DateTime @default(now())
+
+  @@unique([businessId, userId])
+}
+
+model NotificationTemplate {
+  id String @id @default(uuid())
+
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id])
+
+  type   String
+  locale String
+
+  title String @db.VarChar(120)
+  body  String @db.VarChar(500)
+
+  createdAt DateTime @default(now())
+
+  @@unique([businessId, type, locale])
+}
+
+model NotificationEscalationRule {
+  id String @id @default(uuid())
+
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id])
+
+  daysOverdue  Int
+  roleToNotify String // MANAGER | BUSINESS_OWNER
+
+  createdAt DateTime @default(now())
+
+  @@unique([businessId, daysOverdue])
+}
+
+model BulkNotificationLimit {
+  id String @id @default(uuid())
+
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id])
+
+  weekStart DateTime
+  count     Int      @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@unique([businessId, weekStart])
+}
+
+model DeviceToken {
+  id         String   @id @default(uuid())
+  token      String   @unique
+  platform   String
+  userId     String?
+  customerId String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([customerId])
+}
+
+///////////////////////////////////
 // ENUMS
-//////////////////////////////////////////////////////
+///////////////////////////////////
 
 enum UserRole {
   SUPER_ADMIN
