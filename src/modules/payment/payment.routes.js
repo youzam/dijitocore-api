@@ -67,4 +67,15 @@ router.post(
   controller.rejectReversal,
 );
 
+/* =====================================================
+   CUSTOMER PORTAL – MODULE 8 (READ ONLY)
+   ===================================================== */
+
+router.get(
+  "/customer/my-payments",
+  auth,
+  role(["CUSTOMER"]),
+  controller.getMyPayments,
+);
+
 module.exports = router;

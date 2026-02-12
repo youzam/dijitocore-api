@@ -9,6 +9,10 @@ const auth = require("../../middlewares/auth.middleware");
 const tenant = require("../../middlewares/tenant.middleware");
 const role = require("../../middlewares/role.middleware");
 
+/* ===========================
+   BUSINESS / STAFF ROUTES
+   =========================== */
+
 /* CREATE */
 router.post(
   "/",
@@ -73,6 +77,35 @@ router.delete(
   role(["BUSINESS_OWNER"]),
   tenant,
   contractController.deleteContract,
+);
+
+/* ===========================
+   CUSTOMER PORTAL ROUTES
+   (READ ONLY)
+   =========================== */
+
+/* CUSTOMER - LIST MY CONTRACTS */
+router.get(
+  "/customer/my-contracts",
+  auth,
+  role(["CUSTOMER"]),
+  contractController.getMyContracts,
+);
+
+/* CUSTOMER - SINGLE CONTRACT DETAILS */
+router.get(
+  "/customer/my-contracts/:id",
+  auth,
+  role(["CUSTOMER"]),
+  contractController.getMyContractById,
+);
+
+/* CUSTOMER – DOWNLOAD STATEMENT */
+router.get(
+  "/customer/my-contracts/:id/statement",
+  auth,
+  role(["CUSTOMER"]),
+  contractController.downloadMyContractStatement,
 );
 
 module.exports = router;

@@ -100,7 +100,8 @@
     "already_exists": "Mteja tayari yupo",
     "welcome_sms": "Karibu {{business}}. Business code yako ni {{code}}. Tumia hii kukamilisha access ya DijitoTrack.",
     "inactiveBlacklisted": "Akaunti ya mteja huyu haijawashwa au amewekwa kwenye orodha ya marufuku, hivyo hawezi kufanya miamala yoyote. Tafadhali washa mteja kwanza.",
-    "inactive": "Akaunti yako imesitishwa. Tafadhali wasiliana na biashara."
+    "inactive": "Akaunti yako imesitishwa. Tafadhali wasiliana na biashara.",
+    "unauthorized": "Huna ruhusa ya kufikia taarifa zako"
   },
   "contract": {
     "created": "Mkataba umetengenezwa kikamilifu",
@@ -116,12 +117,15 @@
     "invalid-installment": "Kiasi cha malipo si sahihi",
     "custom-days-required": "Idadi ya siku inahitajika kwa malipo ya desturi",
     "balance-not-zero": "Salio la mkataba lazima liwe sifuri ili ukamilike",
-    "closed": "Mkataba umefungwa"
+    "closed": "Mkataba umefungwa",
+    "my_contracts_fetched": "Mikataba yako imepatikana kikamilifu",
+    "my_contract_fetched": "Mkataba wako umepatikana kikamilifu",
+    "my_contract_not_found": "Mkataba haujapatikana"
   },
   "payment": {
     "created": "Malipo yamehifadhiwa kikamilifu",
     "listed": "Orodha ya malipo imepatikana",
-
+    "my_payments_fetched": "Malipo yako yamepatikana kikamilifu",
     "reversal_requested": "Ombi la kurejesha malipo limetumwa",
     "reversal_approved": "Marejesho ya malipo yameidhinishwa",
     "reversal_rejected": "Marejesho ya malipo yamekataliwa",

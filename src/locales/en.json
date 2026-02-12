@@ -98,7 +98,8 @@
     "already_exists": "Customer already exists",
     "welcome_sms": "Welcome to {{business}}. Your business code is {{code}}. Use this to complete your DijitoTrack access.",
     "inactiveBlacklisted": "This customer account is either inactive or blacklisted and cannot perform any transactions. Please activate customer first.",
-    "inactive": "Your account is inactive. Please contact the business."
+    "inactive": "Your account is inactive. Please contact the business.",
+    "unauthorized": "Unauthorized customer access"
   },
   "contract": {
     "created": "Contract created successfully",
@@ -114,12 +115,15 @@
     "invalid-installment": "Invalid installment amount",
     "custom-days-required": "Custom days is required for custom frequency",
     "balance-not-zero": "Contract balance must be zero to complete",
-    "closed": "Contract is closed"
+    "closed": "Contract is closed",
+    "my_contracts_fetched": "Your contracts fetched successfully",
+    "my_contract_fetched": "Your contract fetched successfully",
+    "my_contract_not_found": "Contract not found"
   },
   "payment": {
     "created": "Payment recorded successfully",
     "listed": "Payments fetched successfully",
-
+    "my_payments_fetched": "Your payments have been fetched successfully",
     "reversal_requested": "Payment reversal request submitted",
     "reversal_approved": "Payment reversal approved",
     "reversal_rejected": "Payment reversal rejected",

@@ -401,3 +401,12 @@ exports.listReversals = async (businessId, query) => {
     filterableFields: ["status"],
   });
 };
+exports.getCustomerPayments = async ({ customerId }) => {
+  return prisma.payment.findMany({
+    where: {
+      customerId,
+      status: "POSTED",
+    },
+    orderBy: { createdAt: "desc" },
+  });
+};

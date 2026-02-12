@@ -1,6 +1,8 @@
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 const dayjs = require("dayjs");
+
+const AppError = require("../../utils/AppError");
 const {
   createNotification,
 } = require("../../services/notifications/notification.service");
@@ -124,10 +126,6 @@ exports.createContract = async ({ businessId, userId, payload }) => {
     return created;
   });
 
-  /**
-   * ================= NOTIFICATIONS =================
-   * Contract activated
-   */
   await createNotification({
     businessId,
     customerId,
@@ -324,4 +322,138 @@ exports.softDeleteContract = async ({ businessId, id }) => {
     where: { id },
     data: { deletedAt: new Date() },
   });
+};
+
+/* ======================================================
+   MODULE 8 PATCH — CUSTOMER PORTAL (READ ONLY)
+   ADDED BELOW WITHOUT TOUCHING ABOVE CODE
+   ====================================================== */
+
+exports.getCustomerContracts = async ({ id }) => {
+  const customerId = id;
+  if (!customerId) {
+    throw new AppError("auth.unauthorized", 401);
+  }
+
+  const contracts = await prisma.contract.findMany({
+    where: { customerId },
+    include: {
+      assets: true,
+      schedules: true,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  // get payments grouped by contract
+  const payments = await prisma.payment.findMany({
+    where: {
+      customerId,
+      status: "POSTED", // au CONFIRMED kulingana na schema yako
+    },
+    select: {
+      contractId: true,
+      amount: true,
+    },
+  });
+
+  const paymentsMap = {};
+  for (const p of payments) {
+    paymentsMap[p.contractId] = (paymentsMap[p.contractId] || 0) + p.amount;
+  }
+
+  return contracts.map((contract) => {
+    const totalPaid = paymentsMap[contract.id] || 0;
+
+    return {
+      ...contract,
+      totalPaid,
+      outstandingAmount: contract.totalValue - totalPaid,
+      progress:
+        contract.totalValue > 0
+          ? Math.round((totalPaid / contract.totalValue) * 100)
+          : 0,
+    };
+  });
+};
+
+exports.getCustomerContractById = async ({ contractId, customerId }) => {
+  if (!customerId) {
+    throw new AppError("auth.unauthorized", 401);
+  }
+
+  const contract = await prisma.contract.findFirst({
+    where: {
+      id: contractId,
+      customerId,
+    },
+    include: {
+      assets: true,
+      schedules: true,
+    },
+  });
+
+  if (!contract) return null;
+
+  // fetch payments separately (schema-correct)
+  const payments = await prisma.payment.findMany({
+    where: {
+      contractId,
+      customerId,
+      status: "POSTED", // au CONFIRMED kulingana na schema yako
+    },
+    select: {
+      amount: true,
+    },
+  });
+
+  const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
+
+  return {
+    ...contract,
+    totalPaid,
+    outstandingAmount: contract.totalValue - totalPaid,
+    progress:
+      contract.totalValue > 0
+        ? Math.round((totalPaid / contract.totalValue) * 100)
+        : 0,
+  };
+};
+
+exports.getCustomerContractForStatement = async (contractId, user) => {
+  if (
+    !user.id ||
+    user.isBlacklisted ||
+    user.status === "INACTIVE" ||
+    user.status === "SUSPENDED"
+  )
+    return null;
+
+  const contract = await prisma.contract.findFirst({
+    where: {
+      id: contractId,
+      customerId: user.id,
+    },
+  });
+
+  if (!contract) return null;
+
+  const payments = await prisma.payment.findMany({
+    where: {
+      contractId,
+      customerId: user.customerId,
+      status: "POSTED",
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
+  const totalPaid = payments.reduce((s, p) => s + p.amount, 0);
+
+  return {
+    contract: {
+      ...contract,
+      totalPaid,
+      outstandingAmount: contract.totalValue - totalPaid,
+    },
+    payments,
+  };
 };

@@ -21,9 +21,9 @@ const roleMiddleware = (allowedRoles = []) => {
     }
 
     /**
-     * BUSINESS USERS
+     * BUSINESS & CUSTOMER USERS
      */
-    if (req.auth.identityType !== "business") {
+    if (!["business", "customer"].includes(req.auth.identityType)) {
       return next(new AppError("auth.unauthorized", 401));
     }
 
