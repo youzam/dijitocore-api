@@ -136,12 +136,13 @@ const authMiddleware = async (req, res, next) => {
   if (payload.identity_type === "system") {
     req.auth.system = true;
 
-    if (req.params.businessId) {
-      req.user = {
-        businessId: req.params.businessId,
-        role: "SUPER_ADMIN",
-      };
-    }
+    // Always attach full system user identity
+    req.user = {
+      id: payload.sub,
+      role: payload.role || "SUPER_ADMIN",
+      businessId: req.params.businessId || null,
+      identityType: "system",
+    };
 
     return next();
   }

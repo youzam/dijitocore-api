@@ -162,5 +162,16 @@
   "device": {
     "registered": "Kifaa kimesajiliwa kikamilifu",
     "invalid_payload": "Taarifa za kifaa si sahihi"
+  },
+  "system": {
+    "jobLogged": "Kazi ya mfumo imehifadhiwa kikamilifu",
+    "healthFetched": "Afya ya mfumo imepatikana kikamilifu",
+    "errorLogged": "Hitilafu ya mfumo imehifadhiwa kikamilifu",
+    "integrityChecked": "Ukaguzi wa uadilifu wa mfumo umekamilika kikamilifu"
+  },
+  "incident": {
+    "created": "Tukio la msaada limeundwa kikamilifu",
+    "updated": "Tukio la msaada limesasishwa kikamilifu",
+    "notFound": "Tukio la msaada halijapatikana"
   }
 }

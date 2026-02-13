@@ -159,5 +159,16 @@
   "device": {
     "registered": "Device registered successfully",
     "invalid_payload": "Invalid device data"
+  },
+  "system": {
+    "jobLogged": "System job logged successfully",
+    "healthFetched": "System health fetched successfully",
+    "errorLogged": "System error logged successfully",
+    "integrityChecked": "System integrity checks completed successfully"
+  },
+  "incident": {
+    "created": "Support incident created successfully",
+    "updated": "Support incident updated successfully",
+    "notFound": "Support incident not found"
   }
 }

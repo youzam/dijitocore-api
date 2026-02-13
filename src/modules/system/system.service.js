@@ -37,10 +37,22 @@ exports.bootstrapSystemService = async ({
     await tx.auditLog.create({
       data: {
         action: "SYSTEM_BOOTSTRAP",
-        actorId: superAdmin.id,
-        actorRole: "SUPER_ADMIN",
-        entity: "System",
+
+        // Actor
+        userId: superAdmin.id,
+        businessId: null,
+
+        // Entity
+        entityType: "System",
         entityId: settings.id,
+
+        metadata: {
+          description: "Initial system bootstrap",
+          role: "SUPER_ADMIN",
+        },
+
+        ipAddress: null,
+        userAgent: null,
       },
     });
 
