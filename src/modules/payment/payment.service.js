@@ -1,5 +1,7 @@
 const prisma = require("../../config/prisma");
 const factory = require("../../utils/handlerFactory");
+const { logAudit } = require("../../utils/audit.helper");
+
 const {
   createNotification,
 } = require("../../services/notifications/notification.service");
@@ -207,12 +209,36 @@ exports.requestReversal = async ({
         tx,
       });
 
+      await logAudit({
+        tx,
+        businessId,
+        userId,
+        entityType: "PAYMENT_REVERSAL",
+        entityId: reversal.id,
+        action: "REVERSAL_REQUESTED",
+      });
+
       return { reversal, autoApproved: true };
     }
 
     const reversal = await tx.paymentReversal.create({
       data: { paymentId, reason, requestedBy: userId },
     });
+
+    /* = PREVENT DUPLICATE PENDING REVERSAL = */
+
+    const existingPending = await tx.approvalRequest.findFirst({
+      where: {
+        businessId,
+        entityType: "PAYMENT",
+        entityId: paymentId,
+        status: "PENDING",
+      },
+    });
+
+    if (existingPending) {
+      throw new Error("approval.already_pending");
+    }
 
     const approval = await tx.approvalRequest.create({
       data: {
@@ -271,6 +297,15 @@ exports.approveReversal = async ({
         },
       });
     }
+
+    await logAudit({
+      tx: trx,
+      businessId,
+      userId: approverId,
+      entityType: "PAYMENT_REVERSAL",
+      entityId: reversal.id,
+      action: "REVERSAL_APPROVED",
+    });
 
     const contract = await trx.contract.findFirst({
       where: { id: payment.contractId },
@@ -369,6 +404,15 @@ exports.rejectReversal = async ({ businessId, approvalId, approverId }) => {
     await tx.paymentReversal.update({
       where: { id: approval.entityId },
       data: { status: "REJECTED", approvedBy: approverId },
+    });
+
+    await logAudit({
+      tx,
+      businessId,
+      userId: approverId,
+      entityType: "PAYMENT_REVERSAL",
+      entityId: approval.entityId,
+      action: "REVERSAL_REJECTED",
     });
 
     return true;

@@ -325,20 +325,29 @@ model PaymentReversal {
 }
 
 model ApprovalRequest {
-  id String @id @default(uuid())
+  id           String   @id @default(uuid())
 
-  businessId String
-  entityType String
-  entityId   String
+  businessId   String
 
-  requestedBy String
-  approvedBy  String?
+  type         String   // PAYMENT_REVERSAL | CONTRACT_TERMINATION
+  entityType   String
+  entityId     String
 
-  status ApprovalStatus @default(PENDING)
-  reason String?
+  requestedBy  String
+  approvedBy   String?
 
-  createdAt  DateTime  @default(now())
-  resolvedAt DateTime?
+  status       ApprovalStatus @default(PENDING)
+
+  reason       String?
+  decisionNote String?
+
+  createdAt    DateTime @default(now())
+  resolvedAt   DateTime?
+
+  @@index([businessId])
+  @@index([entityType])
+  @@index([entityId])
+  @@index([status])
 }
 
 model CustomerCredit {
@@ -435,19 +444,9 @@ model DashboardHealth {
   @@unique([businessId, snapshotDate])
 }
 
-////////////////////////////////////////
-//          AUDIT LOG
-////////////////////////////////////
 
-model AuditLog {
-  id         String   @id @default(uuid())
-  action     String
-  businessId String?
-  userId     String?
-  customerId String?
-  metadata   Json?
-  createdAt  DateTime @default(now())
-}
+
+
 
 ///////////////////////////////////
 // NOTIFICATIONS
@@ -570,6 +569,34 @@ model DeviceToken {
 
   @@index([userId])
   @@index([customerId])
+}
+
+////////////////////////////////////////
+//          AUDIT LOG
+////////////////////////////////////
+
+model AuditLog {
+  id          String   @id @default(uuid())
+
+  businessId  String?
+  userId      String?
+  customerId  String?
+
+  entityType  String?
+  entityId    String?
+
+  action      String
+  metadata    Json?
+
+  ipAddress   String?
+  userAgent   String?
+
+  createdAt   DateTime @default(now())
+
+  @@index([businessId])
+  @@index([entityType])
+  @@index([entityId])
+  @@index([createdAt])
 }
 
 ///////////////////////////////////

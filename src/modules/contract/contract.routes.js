@@ -61,6 +61,24 @@ router.post(
   contractController.terminateContract,
 );
 
+/* APPROVE TERMINATION */
+router.post(
+  "/termination/:approvalId/approve",
+  auth,
+  role(["BUSINESS_OWNER"]),
+  tenant,
+  contractController.approveTermination,
+);
+
+/* REJECT TERMINATION */
+router.post(
+  "/termination/:approvalId/reject",
+  auth,
+  role(["BUSINESS_OWNER"]),
+  tenant,
+  contractController.rejectTermination,
+);
+
 /* COMPLETE */
 router.post(
   "/:id/complete",
@@ -106,6 +124,14 @@ router.get(
   auth,
   role(["CUSTOMER"]),
   contractController.downloadMyContractStatement,
+);
+
+router.get(
+  "/terminations",
+  auth,
+  tenant,
+  role(["BUSINESS_OWNER"]),
+  contractController.listTerminationApprovals,
 );
 
 module.exports = router;

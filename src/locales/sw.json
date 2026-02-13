@@ -120,7 +120,11 @@
     "closed": "Mkataba umefungwa",
     "my_contracts_fetched": "Mikataba yako imepatikana kikamilifu",
     "my_contract_fetched": "Mkataba wako umepatikana kikamilifu",
-    "my_contract_not_found": "Mkataba haujapatikana"
+    "my_contract_not_found": "Mkataba haujapatikana",
+    "terminate_success": "Ombi la kusitisha mkataba limetumwa",
+    "termination_approved": "Kusitisha mkataba kumeidhinishwa",
+    "termination_rejected": "Kusitisha mkataba kumeakataliwa",
+    "approval_not_found": "Ombi la idhini halijapatikana"
   },
   "payment": {
     "created": "Malipo yamehifadhiwa kikamilifu",
@@ -136,6 +140,11 @@
     "approval_not_found": "Ombi la idhini halijapatikana",
     "reversal_not_found": "Marejesho ya malipo hayajapatikana"
   },
+
+  "approval": {
+    "already_pending": "Tayari kuna ombi la idhini linalosubiri kwa hatua hii"
+  },
+
   "dashboard": {
     "enterprise_loaded": "Dashibodi ya biashara (enterprise) imepatikana kikamilifu",
     "insights_loaded": "Taarifa za akili ya dashibodi zimepatikana",

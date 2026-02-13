@@ -118,7 +118,10 @@
     "closed": "Contract is closed",
     "my_contracts_fetched": "Your contracts fetched successfully",
     "my_contract_fetched": "Your contract fetched successfully",
-    "my_contract_not_found": "Contract not found"
+    "terminate_success": "Termination request submitted successfully",
+    "termination_approved": "Contract termination approved successfully",
+    "termination_rejected": "Contract termination rejected successfully",
+    "approval_not_found": "Approval request not found"
   },
   "payment": {
     "created": "Payment recorded successfully",
@@ -133,6 +136,10 @@
 
     "approval_not_found": "Approval request not found",
     "reversal_not_found": "Payment reversal not found"
+  },
+
+  "approval": {
+    "already_pending": "There is already a pending approval for this action"
   },
 
   "dashboard": {

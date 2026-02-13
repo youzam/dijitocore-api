@@ -3,6 +3,8 @@ const prisma = new PrismaClient();
 const dayjs = require("dayjs");
 
 const AppError = require("../../utils/AppError");
+const approvalEngine = require("../../services/approval/approval.engine"); // PATCH
+const { logAudit } = require("../../utils/audit.helper"); // PATCH
 const {
   createNotification,
 } = require("../../services/notifications/notification.service");
@@ -63,7 +65,6 @@ exports.createContract = async ({ businessId, userId, payload }) => {
 
   const balance = totalValue - downPayment;
   const totalInstallments = Math.ceil(balance / installmentAmount);
-
   const contractNumber = await generateContractNumber(businessId);
 
   const dates = generateScheduleDates({
@@ -215,19 +216,74 @@ exports.updateContract = async ({ businessId, id, payload }) => {
   });
 };
 
-/* ================= TERMINATE ================= */
+/* === TERMINATE CONTRACT === */
 
 exports.terminateContract = async ({ businessId, id, userId, reason }) => {
-  const contract = await exports.getContractById({ businessId, id });
+  await exports.getContractById({ businessId, id });
 
-  await prisma.$transaction(async (tx) => {
+  return prisma.$transaction(async (tx) => {
+    const existingPending = await tx.approvalRequest.findFirst({
+      where: {
+        businessId,
+        entityType: "CONTRACT",
+        entityId: id,
+        status: "PENDING",
+      },
+    });
+
+    if (existingPending) {
+      throw new Error("approval.already_pending");
+    }
+
+    /* ================= CREATE APPROVAL ================= */
+
+    const approval = await approvalEngine.createApproval({
+      tx,
+      businessId,
+      entityType: "CONTRACT",
+      entityId: id,
+      type: "CONTRACT_TERMINATION",
+      requestedBy: userId,
+      reason,
+    });
+
+    await logAudit({
+      tx,
+      businessId,
+      userId,
+      entityType: "CONTRACT",
+      entityId: id,
+      action: "TERMINATION_REQUESTED",
+    });
+
+    return { approvalId: approval.id };
+  });
+};
+
+/* ================= APPROVE TERMINATION (NEW) ================= */
+
+exports.approveTermination = async ({ businessId, approvalId, approverId }) => {
+  return prisma.$transaction(async (tx) => {
+    const approval = await approvalEngine.approveApproval({
+      tx,
+      approvalId,
+      businessId,
+      approverId,
+    });
+
+    const contract = await tx.contract.findFirst({
+      where: { id: approval.entityId },
+    });
+
+    if (!contract) throw new AppError("contract.not-found", 404);
+
     await tx.contract.update({
-      where: { id },
+      where: { id: contract.id },
       data: {
         status: "TERMINATED",
         terminatedAt: new Date(),
-        terminationReason: reason,
-        terminatedBy: userId,
+        terminationReason: approval.reason,
+        terminatedBy: approverId,
       },
     });
 
@@ -238,23 +294,42 @@ exports.terminateContract = async ({ businessId, id, userId, reason }) => {
         totalOutstanding: { decrement: contract.outstandingAmount },
       },
     });
-  });
 
-  await createNotification({
-    businessId,
-    customerId: contract.customerId,
-    contractId: contract.id,
-    type: "CONTRACT",
-    channel: "IN_APP",
-    titleKey: "notification.contract.terminated.title",
-    messageKey: "notification.contract.terminated.body",
-    templateVars: {
-      contract: contract.contractNumber,
-    },
-    recipient: contract.customerId,
-  });
+    await logAudit({
+      tx,
+      businessId,
+      userId: approverId,
+      entityType: "CONTRACT",
+      entityId: contract.id,
+      action: "TERMINATION_APPROVED",
+    });
 
-  return true;
+    return true;
+  });
+};
+
+/* ================= REJECT TERMINATION (NEW) ================= */
+
+exports.rejectTermination = async ({ businessId, approvalId, approverId }) => {
+  return prisma.$transaction(async (tx) => {
+    const approval = await approvalEngine.rejectApproval({
+      tx,
+      approvalId,
+      businessId,
+      approverId,
+    });
+
+    await logAudit({
+      tx,
+      businessId,
+      userId: approverId,
+      entityType: "CONTRACT",
+      entityId: approval.entityId,
+      action: "TERMINATION_REJECTED",
+    });
+
+    return true;
+  });
 };
 
 /* ================= COMPLETE ================= */
@@ -344,11 +419,10 @@ exports.getCustomerContracts = async ({ id }) => {
     orderBy: { createdAt: "desc" },
   });
 
-  // get payments grouped by contract
   const payments = await prisma.payment.findMany({
     where: {
       customerId,
-      status: "POSTED", // au CONFIRMED kulingana na schema yako
+      status: "POSTED",
     },
     select: {
       contractId: true,
@@ -394,12 +468,11 @@ exports.getCustomerContractById = async ({ contractId, customerId }) => {
 
   if (!contract) return null;
 
-  // fetch payments separately (schema-correct)
   const payments = await prisma.payment.findMany({
     where: {
       contractId,
       customerId,
-      status: "POSTED", // au CONFIRMED kulingana na schema yako
+      status: "POSTED",
     },
     select: {
       amount: true,
@@ -456,4 +529,20 @@ exports.getCustomerContractForStatement = async (contractId, user) => {
     },
     payments,
   };
+};
+
+/* ==== LIST TERMINATION APPROVALS ===== */
+exports.listTerminationApprovals = async ({ businessId, status }) => {
+  const where = {
+    businessId,
+    entityType: "CONTRACT",
+    type: "CONTRACT_TERMINATION",
+  };
+
+  if (status) where.status = status;
+
+  return prisma.approvalRequest.findMany({
+    where,
+    orderBy: { createdAt: "desc" },
+  });
 };
