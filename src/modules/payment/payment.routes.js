@@ -9,11 +9,12 @@ const validate = require("../../middlewares/validate.middleware");
 const controller = require("./payment.controller");
 const validation = require("./payment.validation");
 
+router.use(auth);
+router.use(tenant);
+
 // Record payment (Staff+)
 router.post(
   "/",
-  auth,
-  tenant,
   role(["BUSINESS_OWNER", "MANAGER", "STAFF"]),
   validate(validation.recordPayment),
   controller.recordPayment,
@@ -22,8 +23,6 @@ router.post(
 // List payments
 router.get(
   "/",
-  auth,
-  tenant,
   role(["BUSINESS_OWNER", "MANAGER"]),
   validate(validation.listPayments),
   controller.listPayments,
@@ -32,8 +31,6 @@ router.get(
 // List reversals
 router.get(
   "/reversals",
-  auth,
-  tenant,
   role(["BUSINESS_OWNER", "MANAGER"]),
   validate(validation.listReversals),
   controller.listReversals,
@@ -42,8 +39,6 @@ router.get(
 // Request reversal
 router.post(
   "/:id/reversal-request",
-  auth,
-  tenant,
   role(["BUSINESS_OWNER", "MANAGER"]),
   validate(validation.requestReversal),
   controller.requestReversal,
@@ -52,8 +47,6 @@ router.post(
 // Approve reversal (BUSINESS_OWNER only)
 router.post(
   "/approvals/:id/approve",
-  auth,
-  tenant,
   role(["BUSINESS_OWNER"]),
   controller.approveReversal,
 );
@@ -61,8 +54,6 @@ router.post(
 // Reject reversal (BUSINESS_OWNER only)
 router.post(
   "/approvals/:id/reject",
-  auth,
-  tenant,
   role(["BUSINESS_OWNER"]),
   controller.rejectReversal,
 );
