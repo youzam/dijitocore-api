@@ -15,7 +15,8 @@ const corsConfig = require("./config/cors");
 
 const app = express();
 
-app.set("trust proxy", 1);
+app.set("trust proxy", true);
+
 app.use(helmet());
 app.use(globalRateLimiter);
 
@@ -33,6 +34,15 @@ app.use(
   fileUpload({
     limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
     abortOnLimit: true,
+  }),
+);
+
+app.use(
+  "/webhooks",
+  express.json({
+    verify: (req, res, buf) => {
+      req.rawBody = buf.toString();
+    },
   }),
 );
 

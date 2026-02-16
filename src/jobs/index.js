@@ -3,6 +3,8 @@ const reminderJob = require("./reminder.job");
 const escalationJob = require("./escalation.job");
 const retryJob = require("./retry.job");
 const deviceCleanupJob = require("./device.cleanup.job");
+const subscriptionLifecycleJob = require("./subscription.lifecycle.job");
+const healthService = require("../utils/paymentGateway/gateway.health");
 
 /**
  * Helper: run daily at fixed hour (08:00 server time)
@@ -76,8 +78,6 @@ exports.startJobs = () => {
 
   /**
    * Device token cleanup (daily, background)
-   * - removes stale push tokens
-   * - does NOT affect users
    */
   setInterval(
     async () => {
@@ -88,5 +88,39 @@ exports.startJobs = () => {
       }
     },
     1000 * 60 * 60 * 24,
+  );
+
+  /**
+   * ===========================
+   * SUBSCRIPTION LIFECYCLE JOB
+   * ===========================
+   * - ACTIVE → GRACE
+   * - GRACE → SUSPENDED
+   * Runs daily at 8:20AM (after escalation)
+   */
+  runDailyAt8AM(async () => {
+    setTimeout(
+      async () => {
+        try {
+          await subscriptionLifecycleJob.runSubscriptionLifecycle();
+        } catch (e) {
+          console.error("Subscription lifecycle job failed:", e);
+        }
+      },
+      1000 * 60 * 20,
+    ); // 20 minutes after 8AM
+  });
+
+  /** Update payment provider health status */
+  setInterval(
+    async () => {
+      try {
+        // Example: simple ping
+        await healthService.markHealthy("SELCOM");
+      } catch (e) {
+        await healthService.markDown("SELCOM");
+      }
+    },
+    1000 * 60 * 5,
   );
 };

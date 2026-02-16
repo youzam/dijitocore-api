@@ -15,7 +15,7 @@
   "dependencies": {
     "@prisma/client": "^6.x",
     "@sendgrid/mail": "^8.1.6",
-    "axios": "^1.13.2",
+    "axios": "^1.13.5",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "crypto": "^1.0.1",
@@ -28,6 +28,7 @@
     "firebase-admin": "^13.6.1",
     "helmet": "^8.1.0",
     "ioredis": "^5.9.2",
+    "ip-range-check": "^0.2.0",
     "joi": "^18.0.2",
     "json2csv": "^6.0.0-alpha.2",
     "jsonwebtoken": "^9.0.2",

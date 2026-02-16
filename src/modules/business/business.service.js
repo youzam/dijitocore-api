@@ -62,7 +62,7 @@ exports.createBusiness = async (user, payload) => {
       phone,
       businessCode,
       status: "PENDING",
-      setupCompleted: true,
+      setupCompleted: false,
       settings: {
         create: {
           currency,

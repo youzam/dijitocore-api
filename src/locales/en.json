@@ -79,7 +79,8 @@
     "grace": "Business moved to grace period",
     "suspended": "Business suspended",
     "terminated": "Business terminated",
-    "codeGenerationFailed": "Failed to generate unique business code"
+    "codeGenerationFailed": "Failed to generate unique business code",
+    "inactive": "Your business account is inactive. Please renew your subscription."
   },
   "user": {
     "missingFields": "Missing required user fields",
@@ -130,12 +131,40 @@
     "reversal_requested": "Payment reversal request submitted",
     "reversal_approved": "Payment reversal approved",
     "reversal_rejected": "Payment reversal rejected",
-
     "duplicate_reference": "Payment reference already exists",
-    "not_found": "Payment not found",
-
     "approval_not_found": "Approval request not found",
-    "reversal_not_found": "Payment reversal not found"
+    "reversal_not_found": "Payment reversal not found",
+    "initiated": "Subscription payment initiated successfully.",
+    "confirmed": "Subscription payment confirmed successfully.",
+    "not_found": "Subscription payment not found.",
+    "pending_exists": "There is already a pending payment for this subscription.",
+    "reconciled": "Payment reconciled successfully.",
+    "list_success": "Payments fetched successfully.",
+    "no_external_reference": "Payment does not have an external transaction reference.",
+    "invalid_state": "Payment is not in a valid state for this operation.",
+    "invalid_amount": "Payment amount does not match the expected value.",
+    "invalid_payload": "Invalid payment payload received.",
+    "invalid_signature": "Invalid payment signature.",
+    "webhook_expired": "Webhook request has expired.",
+    "provider_missing": "Payment provider header is missing.",
+    "invalid_gateway": "Invalid payment gateway.",
+    "provider_down": "The selected payment provider is currently unavailable. Please try again later.",
+    "provider_not_active": "The selected payment provider is not active.",
+
+    "selcom_config_missing": "Selcom configuration is missing.",
+    "selcom_invalid_response": "Invalid response received from Selcom.",
+    "selcom_request_failed": "Selcom request failed.",
+    "selcom_unreachable": "Selcom service is unreachable.",
+
+    "mpesa_config_missing": "Mpesa configuration is missing.",
+    "mpesa_auth_failed": "Failed to authenticate with Mpesa.",
+    "mpesa_request_failed": "Mpesa request failed.",
+    "mpesa_unreachable": "Mpesa service is unreachable.",
+
+    "airtel_config_missing": "Airtel configuration is missing.",
+    "airtel_auth_failed": "Failed to authenticate with Airtel.",
+    "airtel_request_failed": "Airtel request failed.",
+    "airtel_unreachable": "Airtel service is unreachable."
   },
 
   "approval": {
@@ -164,11 +193,37 @@
     "jobLogged": "System job logged successfully",
     "healthFetched": "System health fetched successfully",
     "errorLogged": "System error logged successfully",
-    "integrityChecked": "System integrity checks completed successfully"
+    "integrityChecked": "System integrity checks completed successfully",
+    "gateway_fetched": "Active payment gateway fetched successfully.",
+    "gateway_updated": "Active payment gateway updated successfully.",
+    "invalid_gateway": "Invalid payment gateway selected.",
+    "settings_not_found": "System settings not found.",
+    "gateway_switch_blocked": "Cannot switch gateway while there are pending payments.",
+    "settings_missing": "System settings are not configured."
   },
   "incident": {
     "created": "Support incident created successfully",
     "updated": "Support incident updated successfully",
     "notFound": "Support incident not found"
+  },
+  "subscription": {
+    "created": "Subscription created successfully.",
+    "fetched": "Subscription fetched successfully.",
+    "upgraded": "Subscription upgraded successfully.",
+    "already_active": "An active subscription already exists.",
+    "not_found": "Subscription not found.",
+    "not_active": "No active subscription found.",
+    "package_not_available": "Selected package is not available.",
+    "package_not_found": "Subscription package not found.",
+    "package_code_exists": "Subscription package code already exists.",
+    "feature_not_allowed": "This feature is not allowed under your current subscription.",
+    "customer_limit_reached": "You have reached the maximum number of customers allowed for your subscription.",
+    "payment_initiated": "Subscription payment initiated successfully.",
+    "payment_confirmed": "Subscription payment confirmed successfully.",
+    "payment_not_found": "Subscription payment not found.",
+    "package_created": "Subscription package created successfully.",
+    "package_updated": "Subscription package updated successfully.",
+    "payment_pending_exists": "There is already a pending payment for this subscription.",
+    "same_package": "Subscription is already on this package."
   }
 }

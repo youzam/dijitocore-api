@@ -28,12 +28,12 @@ model SuperAdmin {
 }
 
 model SystemSetting {
-  id             String   @id @default(uuid())
-  currency       String
-  trialDays      Int
-  isBootstrapped Boolean  @default(false)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                   String   @id @default(uuid())
+  currency             String
+  activePaymentGateway String   @default("SELCOM")
+  isBootstrapped       Boolean  @default(false)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 }
 
 //////////////////////////////////////////////////////
@@ -132,6 +132,7 @@ model Business {
   invites                     BusinessInvite[]
   settings                    BusinessSettings?
   subscriptions               Subscription[]
+  subscriptionPayments        SubscriptionPayment[]
   createdAt                   DateTime                     @default(now())
   updatedAt                   DateTime                     @updatedAt
   customers                   Customer[]
@@ -168,18 +169,90 @@ model BusinessInvite {
 //////////////////////////////////////////////////////
 // MODULE: SUBSCRIPTION CORE
 //////////////////////////////////////////////////////
+model SubscriptionPackage {
+  id          String  @id @default(uuid())
+  name        String
+  code        String  @unique
+  description String?
+
+  priceMonthly Int
+  priceYearly  Int?
+  setupFee     Int  @default(0)
+  trialDays    Int  @default(0)
+
+  features Json
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  subscriptions Subscription[]
+}
 
 model Subscription {
-  id           String             @id @default(uuid())
-  businessId   String             @unique
-  business     Business           @relation(fields: [businessId], references: [id])
-  plan         SubscriptionPlan
-  status       SubscriptionStatus
-  startDate    DateTime
-  endDate      DateTime?
-  setupFeePaid Boolean            @default(false)
-  createdAt    DateTime           @default(now())
-  updatedAt    DateTime           @updatedAt
+  id String @id @default(uuid())
+
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  packageId String
+  package   SubscriptionPackage @relation(fields: [packageId], references: [id])
+
+  // 🔒 Use enum instead of raw string (data safety)
+  billingCycle BillingCycle
+
+  setupFeeSnapshot     Int
+  priceMonthlySnapshot Int
+  priceYearlySnapshot  Int
+
+  status     SubscriptionStatus
+  startDate  DateTime
+  endDate    DateTime?
+  graceUntil DateTime?
+
+  setupFeePaid Boolean @default(false)
+
+  // 🔒 Enterprise Additions
+  version       Int @default(1)
+  creditBalance Int @default(0)
+
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  subscriptionPayments SubscriptionPayment[]
+
+  @@index([businessId])
+  @@index([status])
+  @@index([businessId, status])
+  @@index([businessId, createdAt])
+}
+
+model SubscriptionPayment {
+  id String @id @default(uuid())
+
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
+
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id])
+
+  amount    Int
+  method    SubscriptionPaymentMethod
+  reference String?
+  status    SubscriptionPaymentStatus
+
+  externalTransactionId String? @unique
+  gatewayPayloadHash    String?
+
+  paidAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([businessId])
+  @@index([subscriptionId])
+  // 🔒 Enterprise performance indexes
+  @@index([status])
+  @@index([createdAt])
+  @@index([subscriptionId, status])
 }
 
 ////////////////////////////////////////
@@ -666,9 +739,23 @@ model SupportIncident {
   @@index([createdAt])
 }
 
+model GatewayHealth {
+  id        String        @id @default(uuid())
+  code      String        @unique
+  status    GatewayStatus @default(UNKNOWN)
+  lastCheck DateTime?
+  updatedAt DateTime      @updatedAt
+}
+
 ///////////////////////////////////
 // ENUMS
 ///////////////////////////////////
+enum GatewayStatus {
+  HEALTHY
+  DEGRADED
+  DOWN
+  UNKNOWN
+}
 
 enum UserRole {
   SUPER_ADMIN
@@ -686,10 +773,16 @@ enum BusinessStatus {
   TERMINATED
 }
 
-enum SubscriptionPlan {
-  STARTER
-  PRO
-  PREMIUM
+enum SubscriptionPaymentMethod {
+  SELCOM
+  MPESA
+  AIRTEL
+}
+
+enum SubscriptionPaymentStatus {
+  PENDING
+  CONFIRMED
+  FAILED
 }
 
 enum SubscriptionStatus {
@@ -757,4 +850,9 @@ enum ApprovalStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+enum BillingCycle {
+  MONTHLY
+  YEARLY
 }

@@ -79,9 +79,8 @@
     "grace": "Biashara imehamishwa kwenye kipindi cha msamaha",
     "suspended": "Biashara imesimamishwa",
     "terminated": "Biashara imefungwa kabisa",
-    "business": {
-      "codeGenerationFailed": "Imeshindikana kutengeneza namba ya kipekee ya biashara"
-    }
+    "inactive": "Akaunti ya biashara yako haifanyi kazi. Tafadhali sasisha usajili wako.",
+    "codeGenerationFailed": "Imeshindikana kutengeneza namba ya kipekee ya biashara"
   },
   "user": {
     "missingFields": "Taarifa muhimu za mtumiaji hazijajazwa",
@@ -133,12 +132,37 @@
     "reversal_requested": "Ombi la kurejesha malipo limetumwa",
     "reversal_approved": "Marejesho ya malipo yameidhinishwa",
     "reversal_rejected": "Marejesho ya malipo yamekataliwa",
-
     "duplicate_reference": "Rejea ya malipo tayari ipo",
     "not_found": "Malipo hayajapatikana",
-
     "approval_not_found": "Ombi la idhini halijapatikana",
-    "reversal_not_found": "Marejesho ya malipo hayajapatikana"
+    "reversal_not_found": "Marejesho ya malipo hayajapatikana",
+    "initiated": "Malipo ya usajili yameanzishwa kwa mafanikio.",
+    "confirmed": "Malipo ya usajili yamethibitishwa kwa mafanikio.",
+    "pending_exists": "Tayari kuna malipo yanayosubiri kwa usajili huu.",
+    "reconciled": "Malipo yamethibitishwa kwa mafanikio.",
+    "list_success": "Orodha ya malipo imepatikana kwa mafanikio.",
+    "no_external_reference": "Malipo hayana kumbukumbu ya muamala wa nje.",
+    "invalid_state": "Malipo hayako katika hali inayoruhusiwa kwa operesheni hii.",
+    "invalid_amount": "Kiasi cha malipo hakilingani na kinachotarajiwa.",
+    "invalid_payload": "Taarifa za malipo zilizopokelewa si sahihi.",
+    "invalid_signature": "Sahihi ya malipo si sahihi.",
+    "webhook_expired": "Ombi la webhook limepitwa na muda.",
+    "provider_missing": "Kichwa cha mtoa huduma ya malipo hakipo.",
+    "invalid_gateway": "Njia ya malipo si sahihi.",
+    "provider_down": "Mtoa huduma wa malipo hayupo kwa sasa. Tafadhali jaribu tena baadaye.",
+    "provider_not_active": "Mtoa huduma wa malipo hajawashwa.",
+    "selcom_config_missing": "Mipangilio ya Selcom haijawekwa.",
+    "selcom_invalid_response": "Majibu yasiyo sahihi kutoka Selcom.",
+    "selcom_request_failed": "Ombi la Selcom limeshindwa.",
+    "selcom_unreachable": "Huduma ya Selcom haipatikani kwa sasa.",
+    "mpesa_config_missing": "Mipangilio ya Mpesa haijawekwa.",
+    "mpesa_auth_failed": "Imeshindikana kuthibitisha Mpesa.",
+    "mpesa_request_failed": "Ombi la Mpesa limeshindwa.",
+    "mpesa_unreachable": "Huduma ya Mpesa haipatikani kwa sasa.",
+    "airtel_config_missing": "Mipangilio ya Airtel haijawekwa.",
+    "airtel_auth_failed": "Imeshindikana kuthibitisha Airtel.",
+    "airtel_request_failed": "Ombi la Airtel limeshindwa.",
+    "airtel_unreachable": "Huduma ya Airtel haipatikani kwa sasa."
   },
 
   "approval": {
@@ -167,11 +191,41 @@
     "jobLogged": "Kazi ya mfumo imehifadhiwa kikamilifu",
     "healthFetched": "Afya ya mfumo imepatikana kikamilifu",
     "errorLogged": "Hitilafu ya mfumo imehifadhiwa kikamilifu",
-    "integrityChecked": "Ukaguzi wa uadilifu wa mfumo umekamilika kikamilifu"
+    "integrityChecked": "Ukaguzi wa uadilifu wa mfumo umekamilika kikamilifu",
+    "gateway_fetched": "Gateway ya malipo imepatikana.",
+    "gateway_updated": "Gateway ya malipo imefanikiwa kusasishwa.",
+    "invalid_gateway": "Gateway ya malipo si sahihi.",
+    "settings_not_found": "Mipangilio ya mfumo haijapatikana.",
+    "gateway_switch_blocked": "Haiwezekani kubadilisha gateway wakati kuna malipo yanayosubiri.",
+    "settings_missing": "Mipangilio ya mfumo haijawekwa."
   },
   "incident": {
     "created": "Tukio la msaada limeundwa kikamilifu",
     "updated": "Tukio la msaada limesasishwa kikamilifu",
     "notFound": "Tukio la msaada halijapatikana"
+  },
+  "subscription": {
+    "created": "Usajili umefanikiwa kuundwa.",
+    "fetched": "Usajili umefanikiwa kupatikana.",
+    "upgraded": "Usajili umefanikiwa kubadilishwa.",
+
+    "already_active": "Tayari kuna usajili unaotumika.",
+    "not_found": "Usajili haujapatikana.",
+    "not_active": "Hakuna usajili unaotumika.",
+    "package_not_available": "Kifurushi kilichochaguliwa hakipatikani.",
+    "package_not_found": "Kifurushi cha usajili hakijapatikana.",
+    "package_code_exists": "Msimbo wa kifurushi tayari upo.",
+
+    "feature_not_allowed": "Huduma hii hairuhusiwi kwenye kifurushi chako cha sasa.",
+    "customer_limit_reached": "Umefikia kikomo cha wateja kinachoruhusiwa kwenye kifurushi chako.",
+
+    "payment_initiated": "Malipo ya usajili yameanzishwa.",
+    "payment_confirmed": "Malipo ya usajili yamethibitishwa.",
+    "payment_not_found": "Malipo ya usajili hayajapatikana.",
+
+    "package_created": "Kifurushi cha usajili kimefanikiwa kuundwa.",
+    "package_updated": "Kifurushi cha usajili kimefanikiwa kusasishwa.",
+    "payment_pending_exists": "Kuna malipo yanayosubiri kwa usajili huu.",
+    "same_package": "Usajili tayari upo kwenye kifurushi hiki."
   }
 }

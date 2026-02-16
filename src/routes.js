@@ -10,6 +10,9 @@ const paymentRoutes = require("./modules/payment/payment.routes");
 const dashboardRoutes = require("./modules/dashboard/dashboard.routes");
 const notificationRoutes = require("./modules/notification/notification.routes");
 const deviceRoutes = require("./modules/device/device.routes");
+const subscriptionRoutes = require("./modules/subscription/subscription.routes");
+
+const webhookRoutes = require("./modules/webhooks/webhooks.routes");
 
 const router = express.Router();
 
@@ -37,5 +40,8 @@ router.use("/payments", paymentRoutes);
 router.use("/dashboards", dashboardRoutes);
 router.use("/notifications", notificationRoutes);
 router.use("/devices", deviceRoutes);
+router.use("/subscriptions", subscriptionRoutes);
+
+router.use("/webhooks", webhookRoutes);
 
 module.exports = router;

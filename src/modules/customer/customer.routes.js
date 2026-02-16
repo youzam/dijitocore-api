@@ -3,12 +3,15 @@ const router = express.Router();
 
 const auth = require("../../middlewares/auth.middleware");
 const role = require("../../middlewares/role.middleware");
+const tenant = require("../../middlewares/tenant.middleware");
 const validate = require("../../middlewares/validate.middleware");
 
 const controller = require("./customer.controller");
 const validator = require("./customer.validation");
+const subscriptionFeature = require("../../middlewares/subscriptionFeature.middleware");
 
 router.use(auth);
+router.use(tenant);
 
 // Create customer
 router.post(
@@ -60,6 +63,7 @@ router.patch(
 router.post(
   "/import",
   role(["BUSINESS_OWNER", "MANAGER"]),
+  subscriptionFeature("allowImport"),
   controller.importCustomers,
 );
 

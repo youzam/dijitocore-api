@@ -1,11 +1,12 @@
 const AppError = require("../utils/AppError");
+const prisma = require("../config/prisma");
 
 /**
  * =====================================================
  * TENANT ISOLATION MIDDLEWARE
  * =====================================================
  */
-const tenantMiddleware = (req, res, next) => {
+const tenantMiddleware = async (req, res, next) => {
   if (!req.auth) {
     return next(new AppError("auth.unauthorized", 401));
   }
@@ -54,6 +55,49 @@ const tenantMiddleware = (req, res, next) => {
    */
   if (req.params.businessId && req.params.businessId !== req.auth.businessId) {
     return next(new AppError("auth.unauthorized", 403));
+  }
+
+  /**
+   * =====================================================
+   * HARDENING PATCH: BUSINESS + SUBSCRIPTION ENFORCEMENT
+   * =====================================================
+   */
+
+  try {
+    const business = await prisma.business.findUnique({
+      where: { id: req.auth.businessId },
+      select: {
+        status: true,
+      },
+    });
+
+    if (!business) {
+      return next(new AppError("auth.unauthorized", 403));
+    }
+
+    /**
+     * If business is not ACTIVE → block access
+     */
+    if (business.status !== "ACTIVE") {
+      return next(new AppError("business.inactive", 403));
+    }
+
+    /**
+     * Ensure active subscription exists
+     */
+    const activeSubscription = await prisma.subscription.findFirst({
+      where: {
+        businessId: req.auth.businessId,
+        status: "ACTIVE",
+      },
+      select: { id: true },
+    });
+
+    if (!activeSubscription) {
+      return next(new AppError("subscription.required", 403));
+    }
+  } catch (error) {
+    return next(error);
   }
 
   /**
