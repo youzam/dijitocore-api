@@ -76,6 +76,9 @@ exports.createSubscription = async ({
     endDate = new Date(startDate.getTime() + pkg.trialDays * 86400000);
   }
 
+  const featuresSnapshot = pkg.features?.features || {};
+  const limitsSnapshot = pkg.features?.limits || {};
+
   const subscription = await prisma.subscription.create({
     data: {
       businessId,
@@ -84,6 +87,8 @@ exports.createSubscription = async ({
       setupFeeSnapshot: pkg.setupFee,
       priceMonthlySnapshot: pkg.priceMonthly,
       priceYearlySnapshot: pkg.priceYearly,
+      featuresSnapshot,
+      limitsSnapshot,
       status,
       startDate,
       endDate,
@@ -124,6 +129,7 @@ exports.upgradeSubscription = async ({
 
   const subscription = await prisma.subscription.findFirst({
     where: { id: subscriptionId, businessId },
+    include: { package: true },
   });
 
   if (!subscription) {
@@ -170,7 +176,8 @@ exports.upgradeSubscription = async ({
      DOWNGRADE SAFETY CHECK
   =========================== */
 
-  await validateDowngradeLimits(businessId, pkg.features);
+  const newLimits = pkg.features?.limits || {};
+  await validateDowngradeLimits(businessId, newLimits);
 
   /* ===========================
      PRORATION ENGINE
@@ -189,15 +196,13 @@ exports.upgradeSubscription = async ({
         : subscription.priceMonthlySnapshot;
 
     const totalDays = subscription.billingCycle === "YEARLY" ? 365 : 30;
-
     const dailyRate = oldPrice / totalDays;
 
     credit = Math.floor(dailyRate * remainingDays);
   }
 
-  /* ===========================
-     OPTIMISTIC LOCKING UPDATE
-  =========================== */
+  const featuresSnapshot = pkg.features?.features || {};
+  const limitsSnapshot = pkg.features?.limits || {};
 
   let updated;
 
@@ -213,6 +218,8 @@ exports.upgradeSubscription = async ({
         setupFeeSnapshot: pkg.setupFee,
         priceMonthlySnapshot: pkg.priceMonthly,
         priceYearlySnapshot: pkg.priceYearly,
+        featuresSnapshot,
+        limitsSnapshot,
         creditBalance: {
           increment: credit,
         },

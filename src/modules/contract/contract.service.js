@@ -8,6 +8,7 @@ const { logAudit } = require("../../utils/audit.helper"); // PATCH
 const {
   createNotification,
 } = require("../../services/notifications/notification.service");
+const subscriptionAuthority = require("../subscription/subscription.authority.service");
 
 /* ================= UTILITIES ================= */
 
@@ -49,8 +50,28 @@ exports.createContract = async ({ businessId, userId, payload }) => {
     startDate,
   } = payload;
 
+  // 🔒 Enforce active subscription
+  await subscriptionAuthority.assertActiveSubscription(businessId);
+
+  // 🔒 Enforce maxActiveContracts limit
+  const activeContractsCount = await prisma.contract.count({
+    where: {
+      businessId,
+      status: "ACTIVE",
+      deletedAt: null,
+    },
+  });
+
+  await subscriptionAuthority.assertLimit(
+    businessId,
+    "maxActiveContracts",
+    activeContractsCount,
+  );
+
   if (downPayment > totalValue) throw new Error("contract.invalid-downpayment");
+
   if (installmentAmount <= 0) throw new Error("contract.invalid-installment");
+
   if (frequency === "CUSTOM" && !customDays)
     throw new Error("contract.custom-days-required");
 
@@ -59,6 +80,7 @@ exports.createContract = async ({ businessId, userId, payload }) => {
   });
 
   if (!customer) throw new Error("contract.customer-not-found");
+
   if (customer.status === "INACTIVE" || customer.isBlacklisted) {
     throw new Error("customer.inactiveBlacklisted");
   }

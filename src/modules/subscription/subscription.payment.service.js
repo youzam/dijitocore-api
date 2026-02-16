@@ -219,42 +219,38 @@ exports.processGatewayWebhook = async ({
     throw new AppError("payment.invalid_signature", 401);
   }
 
-  const payment = await prisma.subscriptionPayment.findUnique({
-    where: { id: reference },
-    include: { subscription: true },
-  });
-
-  if (!payment) {
-    throw new AppError("subscription.payment_not_found", 404);
-  }
-
-  if (payment.status === "CONFIRMED") {
-    return payment;
-  }
-
-  if (payment.externalTransactionId) {
-    return payment;
-  }
-
-  if (payment.status !== "PENDING") {
-    throw new AppError("payment.invalid_state", 400);
-  }
-
-  if (!Number.isInteger(amount) || payment.amount !== amount) {
-    throw new AppError("payment.amount_mismatch", 400);
-  }
-
-  if (externalTransactionId) {
-    const existing = await prisma.subscriptionPayment.findFirst({
-      where: { externalTransactionId },
+  await prisma.$transaction(async (tx) => {
+    const payment = await tx.subscriptionPayment.findUnique({
+      where: { id: reference },
+      include: { subscription: true },
     });
 
-    if (existing) {
-      return existing;
+    if (!payment) {
+      throw new AppError("subscription.payment_not_found", 404);
     }
-  }
 
-  await prisma.$transaction(async (tx) => {
+    if (payment.status === "CONFIRMED") {
+      return;
+    }
+
+    if (payment.status !== "PENDING") {
+      throw new AppError("payment.invalid_state", 400);
+    }
+
+    if (!Number.isInteger(amount) || payment.amount !== amount) {
+      throw new AppError("payment.amount_mismatch", 400);
+    }
+
+    if (externalTransactionId) {
+      const existing = await tx.subscriptionPayment.findFirst({
+        where: { externalTransactionId },
+      });
+
+      if (existing && existing.id !== payment.id) {
+        throw new AppError("payment.duplicate_transaction", 409);
+      }
+    }
+
     await tx.subscriptionPayment.update({
       where: { id: payment.id },
       data: {
@@ -269,12 +265,16 @@ exports.processGatewayWebhook = async ({
       where: { id: payment.subscriptionId },
     });
 
+    if (!freshSubscription) {
+      throw new AppError("subscription.not_found", 404);
+    }
+
     const isInitial = !freshSubscription.setupFeePaid;
 
     await activateSubscriptionEngine(tx, freshSubscription, payment, isInitial);
   });
 
-  return payment;
+  return true;
 };
 
 /* ======================================================

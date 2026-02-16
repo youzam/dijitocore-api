@@ -6,6 +6,7 @@ const jwtConfig = require("../../config/jwt");
 const AppError = require("../../utils/AppError");
 const { signToken, verifyToken } = require("../../utils/auth.helper");
 const notifications = require("../../services/notifications");
+const subscriptionAuthority = require("../subscription/subscription.authority.service");
 
 /**
  * OWNER SIGNUP (NO JWT – SEND 6 DIGIT CODE)
@@ -256,6 +257,20 @@ const acceptInvite = async ({ token, password }) => {
   if (!invite) {
     throw new AppError("auth.token_invalid", 400);
   }
+
+  // 🔒 Enforce subscription active
+  await subscriptionAuthority.assertActiveSubscription(invite.businessId);
+
+  // 🔒 Enforce maxUsers limit
+  const currentUsers = await prisma.user.count({
+    where: { businessId: invite.businessId },
+  });
+
+  await subscriptionAuthority.assertLimit(
+    invite.businessId,
+    "maxUsers",
+    currentUsers,
+  );
 
   const passwordHash = await bcrypt.hash(password, 12);
 

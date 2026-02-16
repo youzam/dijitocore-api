@@ -12,6 +12,15 @@ exports.createApproval = async ({
 }) => {
   const db = tx || prisma;
 
+  // 🔒 Enforce active subscription
+  await subscriptionAuthority.assertActiveSubscription(businessId);
+
+  // 🔒 Enforce monthly approval limit
+  await subscriptionAuthority.assertMonthlyLimit(
+    businessId,
+    "maxApprovalRequests",
+  );
+
   // 🔒 Prevent duplicate pending approval for same entity
   const existing = await db.approvalRequest.findFirst({
     where: {
@@ -26,7 +35,7 @@ exports.createApproval = async ({
     throw new AppError("approval.already_pending", 400);
   }
 
-  return db.approvalRequest.create({
+  const approval = await db.approvalRequest.create({
     data: {
       businessId,
       entityType,
@@ -36,6 +45,11 @@ exports.createApproval = async ({
       reason,
     },
   });
+
+  // 🔒 Track usage after successful creation
+  await subscriptionAuthority.trackUsage(businessId, "maxApprovalRequests", 1);
+
+  return approval;
 };
 
 exports.approveApproval = async ({

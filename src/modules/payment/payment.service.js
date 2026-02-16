@@ -5,10 +5,8 @@ const { logAudit } = require("../../utils/audit.helper");
 const {
   createNotification,
 } = require("../../services/notifications/notification.service");
+const approvalEngine = require("../../services/approval/approval.engine");
 
-/**
- * RECORD PAYMENT (IDEMPOTENT)
- */
 /**
  * RECORD PAYMENT (HARDENED & SAFE)
  */
@@ -218,12 +216,10 @@ exports.requestReversal = async ({
 
     if (!payment) throw new Error("payment.not_found");
 
-    // 🔒 Prevent double reversal
     if (payment.status === "REVERSED") {
       throw new Error("payment.already_reversed");
     }
 
-    // 🔒 Prevent duplicate pending approval
     const existingPending = await tx.approvalRequest.findFirst({
       where: {
         businessId,
@@ -237,7 +233,7 @@ exports.requestReversal = async ({
       throw new Error("approval.already_pending");
     }
 
-    // ================= OWNER AUTO-APPROVAL =================
+    // OWNER AUTO APPROVAL
     if (role === "BUSINESS_OWNER") {
       const reversal = await tx.paymentReversal.create({
         data: {
@@ -270,7 +266,6 @@ exports.requestReversal = async ({
       return { reversal, autoApproved: true };
     }
 
-    // ================= NORMAL FLOW =================
     const reversal = await tx.paymentReversal.create({
       data: {
         paymentId,
@@ -280,14 +275,14 @@ exports.requestReversal = async ({
       },
     });
 
-    const approval = await tx.approvalRequest.create({
-      data: {
-        businessId,
-        entityType: "PAYMENT",
-        entityId: reversal.id,
-        requestedBy: userId,
-        reason,
-      },
+    const approval = await approvalEngine.createApproval({
+      tx,
+      businessId,
+      entityType: "PAYMENT",
+      entityId: reversal.id,
+      type: "PAYMENT_REVERSAL",
+      requestedBy: userId,
+      reason,
     });
 
     return {
@@ -313,11 +308,12 @@ exports.approveReversal = async ({
     let payment = internalPayment;
 
     if (!reversal) {
-      const approval = await trx.approvalRequest.findFirst({
-        where: { id: approvalId, businessId, status: "PENDING" },
+      const approval = await approvalEngine.approveApproval({
+        tx: trx,
+        approvalId,
+        businessId,
+        approverId,
       });
-
-      if (!approval) throw new Error("payment.approval_not_found");
 
       reversal = await trx.paymentReversal.findFirst({
         where: { id: approval.entityId },
@@ -327,18 +323,8 @@ exports.approveReversal = async ({
       if (!reversal) throw new Error("payment.reversal_not_found");
 
       payment = reversal.Payment;
-
-      await trx.approvalRequest.update({
-        where: { id: approvalId },
-        data: {
-          status: "APPROVED",
-          approvedBy: approverId,
-          resolvedAt: new Date(),
-        },
-      });
     }
 
-    // 🔒 Prevent double reversal
     if (payment.status === "REVERSED") {
       throw new Error("payment.already_reversed");
     }
@@ -363,7 +349,6 @@ exports.approveReversal = async ({
       throw new Error("contract.closed");
     }
 
-    // 🔒 Safety: ensure valid amount
     if (payment.amount <= 0) {
       throw new Error("payment.invalid_reversal_amount");
     }
@@ -402,7 +387,6 @@ exports.approveReversal = async ({
       },
     });
 
-    // 🔒 Ledger reversal entry
     await trx.payment.create({
       data: {
         businessId,

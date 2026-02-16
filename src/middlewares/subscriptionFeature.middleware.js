@@ -1,12 +1,11 @@
-const featureFlags = require("../utils/featureFlags");
 const AppError = require("../utils/AppError");
+const subscriptionAuthority = require("../modules/subscription/subscription.authority.service");
 
 /**
  * Usage:
  * subscriptionFeature("allowImport")
  */
 module.exports = (featureKey) => {
-  // 🔒 Guard invalid feature key definition
   if (!featureKey || typeof featureKey !== "string") {
     throw new Error(
       "subscriptionFeature middleware requires a valid featureKey string",
@@ -15,7 +14,6 @@ module.exports = (featureKey) => {
 
   return async (req, res, next) => {
     try {
-      // 🔒 Defensive guards (non-breaking)
       if (!req.user) {
         return next(new AppError("auth.unauthorized", 401));
       }
@@ -24,8 +22,13 @@ module.exports = (featureKey) => {
         return next(new AppError("tenant.missing_business_context", 400));
       }
 
-      // Core SaaS enforcement (unchanged)
-      await featureFlags.hasFeature(req.user.businessId, featureKey);
+      const businessId = req.user.businessId;
+
+      // 🔒 Enforce ACTIVE / TRIAL / GRACE
+      await subscriptionAuthority.assertActiveSubscription(businessId);
+
+      // 🔒 Enforce feature access
+      await subscriptionAuthority.assertFeature(businessId, featureKey);
 
       next();
     } catch (error) {
