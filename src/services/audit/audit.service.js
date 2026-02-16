@@ -1,19 +1,30 @@
-const prisma = require("../../config/prisma");
+const { logAudit } = require("../../utils/audit.helper");
 
-exports.logAction = async ({
-  action,
+/**
+ * Centralized audit service wrapper
+ * Keeps backward compatibility with existing calls
+ */
+
+exports.createAuditLog = async ({
+  tx,
   businessId,
-  userId,
-  customerId,
-  metadata,
+  userId = null,
+  customerId = null,
+  entityType = null,
+  entityId = null,
+  action,
+  metadata = {},
 }) => {
-  await prisma.auditLog.create({
-    data: {
-      action,
-      businessId,
-      userId,
+  return logAudit({
+    tx,
+    businessId,
+    userId,
+    entityType,
+    entityId,
+    action,
+    metadata: {
+      ...metadata,
       customerId,
-      metadata,
     },
   });
 };

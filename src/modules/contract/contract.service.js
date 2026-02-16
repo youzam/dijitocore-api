@@ -205,7 +205,12 @@ exports.getContractById = async ({ businessId, id }) => {
 /* ================= UPDATE ================= */
 
 exports.updateContract = async ({ businessId, id, payload }) => {
-  await exports.getContractById({ businessId, id });
+  const contract = await exports.getContractById({ businessId, id });
+
+  // 🔒 Only DRAFT contracts can be edited
+  if (contract.status !== "DRAFT") {
+    throw new AppError("contract.edit_not_allowed", 400);
+  }
 
   return prisma.contract.update({
     where: { id },
@@ -219,7 +224,11 @@ exports.updateContract = async ({ businessId, id, payload }) => {
 /* === TERMINATE CONTRACT === */
 
 exports.terminateContract = async ({ businessId, id, userId, reason }) => {
-  await exports.getContractById({ businessId, id });
+  const contract = await exports.getContractById({ businessId, id });
+
+  if (["TERMINATED", "COMPLETED"].includes(contract.status)) {
+    throw new AppError("contract.invalid_termination", 400);
+  }
 
   return prisma.$transaction(async (tx) => {
     const existingPending = await tx.approvalRequest.findFirst({
@@ -232,10 +241,8 @@ exports.terminateContract = async ({ businessId, id, userId, reason }) => {
     });
 
     if (existingPending) {
-      throw new Error("approval.already_pending");
+      throw new AppError("approval.already_pending", 400);
     }
-
-    /* ================= CREATE APPROVAL ================= */
 
     const approval = await approvalEngine.createApproval({
       tx,
@@ -391,11 +398,24 @@ exports.completeContract = async ({ businessId, id }) => {
 /* ================= SOFT DELETE ================= */
 
 exports.softDeleteContract = async ({ businessId, id }) => {
-  await exports.getContractById({ businessId, id });
+  const contract = await exports.getContractById({ businessId, id });
 
-  return prisma.contract.update({
-    where: { id },
-    data: { deletedAt: new Date() },
+  return prisma.$transaction(async (tx) => {
+    // If active contract, adjust aggregates
+    if (contract.status === "ACTIVE") {
+      await tx.customer.update({
+        where: { id: contract.customerId },
+        data: {
+          activeContracts: { decrement: 1 },
+          totalOutstanding: { decrement: contract.outstandingAmount },
+        },
+      });
+    }
+
+    return tx.contract.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
   });
 };
 
@@ -441,7 +461,7 @@ exports.getCustomerContracts = async ({ id }) => {
     return {
       ...contract,
       totalPaid,
-      outstandingAmount: contract.totalValue - totalPaid,
+      outstandingAmount: contract.outstandingAmount,
       progress:
         contract.totalValue > 0
           ? Math.round((totalPaid / contract.totalValue) * 100)
@@ -484,7 +504,7 @@ exports.getCustomerContractById = async ({ contractId, customerId }) => {
   return {
     ...contract,
     totalPaid,
-    outstandingAmount: contract.totalValue - totalPaid,
+    outstandingAmount: contract.outstandingAmount,
     progress:
       contract.totalValue > 0
         ? Math.round((totalPaid / contract.totalValue) * 100)
@@ -525,7 +545,7 @@ exports.getCustomerContractForStatement = async (contractId, user) => {
     contract: {
       ...contract,
       totalPaid,
-      outstandingAmount: contract.totalValue - totalPaid,
+      outstandingAmount: contract.outstandingAmount,
     },
     payments,
   };

@@ -10,7 +10,23 @@ exports.createApproval = async ({
   requestedBy,
   reason,
 }) => {
-  return (tx || prisma).approvalRequest.create({
+  const db = tx || prisma;
+
+  // 🔒 Prevent duplicate pending approval for same entity
+  const existing = await db.approvalRequest.findFirst({
+    where: {
+      businessId,
+      entityType,
+      entityId,
+      status: "PENDING",
+    },
+  });
+
+  if (existing) {
+    throw new AppError("approval.already_pending", 400);
+  }
+
+  return db.approvalRequest.create({
     data: {
       businessId,
       entityType,
@@ -28,16 +44,30 @@ exports.approveApproval = async ({
   businessId,
   approverId,
 }) => {
-  const approval = await (tx || prisma).approvalRequest.findFirst({
-    where: { id: approvalId, businessId, status: "PENDING" },
+  const db = tx || prisma;
+
+  const approval = await db.approvalRequest.findFirst({
+    where: {
+      id: approvalId,
+      businessId,
+      status: "PENDING",
+    },
   });
 
   if (!approval) {
     throw new AppError("approval.not_found", 404);
   }
 
-  return (tx || prisma).approvalRequest.update({
-    where: { id: approvalId },
+  // 🔒 Prevent self-approval
+  if (approval.requestedBy === approverId) {
+    throw new AppError("approval.self_not_allowed", 403);
+  }
+
+  return db.approvalRequest.update({
+    where: {
+      id: approvalId,
+      status: "PENDING", // optimistic guard
+    },
     data: {
       status: "APPROVED",
       approvedBy: approverId,
@@ -47,16 +77,30 @@ exports.approveApproval = async ({
 };
 
 exports.rejectApproval = async ({ tx, approvalId, businessId, approverId }) => {
-  const approval = await (tx || prisma).approvalRequest.findFirst({
-    where: { id: approvalId, businessId, status: "PENDING" },
+  const db = tx || prisma;
+
+  const approval = await db.approvalRequest.findFirst({
+    where: {
+      id: approvalId,
+      businessId,
+      status: "PENDING",
+    },
   });
 
   if (!approval) {
     throw new AppError("approval.not_found", 404);
   }
 
-  return (tx || prisma).approvalRequest.update({
-    where: { id: approvalId },
+  // 🔒 Prevent self-reject
+  if (approval.requestedBy === approverId) {
+    throw new AppError("approval.self_not_allowed", 403);
+  }
+
+  return db.approvalRequest.update({
+    where: {
+      id: approvalId,
+      status: "PENDING",
+    },
     data: {
       status: "REJECTED",
       approvedBy: approverId,

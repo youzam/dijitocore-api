@@ -75,10 +75,8 @@ const tenantMiddleware = async (req, res, next) => {
       return next(new AppError("auth.unauthorized", 403));
     }
 
-    /**
-     * If business is not ACTIVE → block access
-     */
-    if (business.status !== "ACTIVE") {
+    // Allow ACTIVE and GRACE businesses
+    if (!["ACTIVE", "GRACE"].includes(business.status)) {
       return next(new AppError("business.inactive", 403));
     }
 

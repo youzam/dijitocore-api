@@ -106,6 +106,16 @@ const systemLogin = catchAsync(async (req, res) => {
   return response.success(req, res, data);
 });
 
+/**
+ * =====================================================
+ * SUPER ADMIN — FORCE LOGOUT USER
+ * =====================================================
+ */
+const forceLogoutUser = catchAsync(async (req, res) => {
+  await authService.forceLogoutUser(req.params.userId);
+  return response.success(req, res, {});
+});
+
 module.exports = {
   ownerSignup,
   login,
@@ -119,4 +129,5 @@ module.exports = {
   verifyEmail,
   acceptInvite,
   systemLogin,
+  forceLogoutUser,
 };

@@ -100,14 +100,61 @@ const login = async ({ email, password }) => {
     where: { email },
   });
 
-  if (!user || user.status !== "ACTIVE") {
+  if (!user) {
     throw new AppError("auth.invalid_credentials", 401);
   }
 
+  // ✅ Load security config from SystemSetting
+  const systemSetting = await prisma.systemSetting.findUnique({
+    where: { id: "SYSTEM" },
+    select: {
+      maxLoginAttempts: true,
+      lockTimeMinutes: true,
+    },
+  });
+
+  const MAX_ATTEMPTS = systemSetting?.maxLoginAttempts || 5;
+  const LOCK_TIME_MS = (systemSetting?.lockTimeMinutes || 15) * 60 * 1000;
+
+  // 🔒 Check if account locked
+  if (user.lockUntil && user.lockUntil > new Date()) {
+    throw new AppError("auth.account_locked", 423);
+  }
+
   const valid = await bcrypt.compare(password, user.passwordHash);
+
   if (!valid) {
+    const attempts = user.failedLoginAttempts + 1;
+
+    const updateData = {
+      failedLoginAttempts: attempts,
+    };
+
+    if (attempts >= MAX_ATTEMPTS) {
+      updateData.lockUntil = new Date(Date.now() + LOCK_TIME_MS);
+    }
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: updateData,
+    });
+
     throw new AppError("auth.invalid_credentials", 401);
   }
+
+  if (user.status !== "ACTIVE") {
+    throw new AppError("auth.invalid_credentials", 401);
+  }
+
+  // ✅ Reset failed attempts after successful login
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      failedLoginAttempts: 0,
+      lockUntil: null,
+      lastLoginAt: new Date(),
+    },
+  });
 
   const tokens = signToken({
     sub: user.id,
@@ -116,9 +163,13 @@ const login = async ({ email, password }) => {
     businessId: user.businessId,
   });
 
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { lastLoginAt: new Date() },
+  // ✅ Store refresh token
+  await prisma.refreshToken.create({
+    data: {
+      token: tokens.refreshToken,
+      userId: user.id,
+      expiresAt: new Date(Date.now() + jwtConfig.refreshExpiresInMs),
+    },
   });
 
   return {
@@ -140,6 +191,18 @@ const login = async ({ email, password }) => {
 const refresh = async (refreshToken) => {
   const payload = verifyToken(refreshToken, jwtConfig.refreshSecret);
 
+  const storedToken = await prisma.refreshToken.findUnique({
+    where: { token: refreshToken },
+  });
+
+  if (
+    !storedToken ||
+    storedToken.revokedAt ||
+    storedToken.expiresAt < new Date()
+  ) {
+    throw new AppError("auth.session_invalid", 401);
+  }
+
   const user = await prisma.user.findUnique({
     where: { id: payload.sub },
   });
@@ -148,12 +211,31 @@ const refresh = async (refreshToken) => {
     throw new AppError("auth.session_invalid", 401);
   }
 
-  return signToken({
+  const newTokens = signToken({
     sub: user.id,
     identity_type: "business",
     role: user.role,
     businessId: user.businessId,
   });
+
+  await prisma.$transaction([
+    prisma.refreshToken.update({
+      where: { id: storedToken.id },
+      data: {
+        revokedAt: new Date(),
+        replacedByToken: newTokens.refreshToken,
+      },
+    }),
+    prisma.refreshToken.create({
+      data: {
+        token: newTokens.refreshToken,
+        userId: user.id,
+        expiresAt: new Date(Date.now() + jwtConfig.refreshExpiresInMs),
+      },
+    }),
+  ]);
+
+  return newTokens;
 };
 
 /**
@@ -212,10 +294,24 @@ const acceptInvite = async ({ token, password }) => {
 
 /**
  * =====================================================
- * LOGOUT (STATELESS)
+ * LOGOUT
  * =====================================================
  */
-const logout = async () => true;
+const logout = async (auth) => {
+  if (!auth || !auth.refreshToken) return true;
+
+  await prisma.refreshToken.updateMany({
+    where: {
+      token: auth.refreshToken,
+      revokedAt: null,
+    },
+    data: {
+      revokedAt: new Date(),
+    },
+  });
+
+  return true;
+};
 
 /**
  * =====================================================
@@ -272,6 +368,7 @@ const resetPassword = async (token, newPassword) => {
       passwordResetExpires: null,
     },
   });
+  await revokeAllUserSessions(user.id);
 
   const tokens = signToken({
     sub: user.id,
@@ -424,6 +521,45 @@ const systemLogin = async ({ email, password }) => {
   };
 };
 
+const revokeAllUserSessions = async (userId) => {
+  await prisma.refreshToken.updateMany({
+    where: {
+      userId,
+      revokedAt: null,
+    },
+    data: {
+      revokedAt: new Date(),
+    },
+  });
+};
+
+/**
+ * =====================================================
+ * FORCE LOGOUT (SUPER ADMIN)
+ * =====================================================
+ */
+const forceLogoutUser = async (userId) => {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (!user) {
+    throw new AppError("auth.user_not_found", 404);
+  }
+
+  await prisma.refreshToken.updateMany({
+    where: {
+      userId,
+      revokedAt: null,
+    },
+    data: {
+      revokedAt: new Date(),
+    },
+  });
+
+  return true;
+};
+
 module.exports = {
   ownerSignup,
   login,
@@ -437,4 +573,5 @@ module.exports = {
   verifyEmail,
   acceptInvite,
   systemLogin,
+  forceLogoutUser,
 };

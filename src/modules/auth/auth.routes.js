@@ -4,6 +4,7 @@ const authController = require("./auth.controller");
 const validate = require("../../middlewares/validate.middleware");
 const { authRateLimiter } = require("../../middlewares/rateLimit.middleware");
 const authMiddleware = require("../../middlewares/auth.middleware");
+const roleMiddleware = require("../../middlewares/role.middleware");
 const customerAuthController = require("./customer.auth.controller");
 const customerAuthValidation = require("./customer.auth.validation");
 
@@ -135,6 +136,13 @@ router.post(
   authRateLimiter,
   validate(customerAuthValidation.requestOtp),
   customerAuthController.requestOtp,
+);
+
+router.post(
+  "/system/users/:userId/force-logout",
+  authMiddleware,
+  roleMiddleware(["SUPER_ADMIN"]),
+  authController.forceLogoutUser,
 );
 
 module.exports = router;

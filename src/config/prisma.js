@@ -7,7 +7,7 @@ const { PrismaClient } = require("@prisma/client");
  * - No process lifecycle ownership
  */
 
-const prisma = new PrismaClient({
+const basePrisma = new PrismaClient({
   log: [
     { level: "query", emit: "event" },
     { level: "warn", emit: "event" },
@@ -16,12 +16,35 @@ const prisma = new PrismaClient({
 });
 
 /**
+ * 🔒 Prevent audit log modification (append-only enforcement)
+ * Prisma v5+ compatible using $extends
+ */
+const prisma = basePrisma.$extends({
+  query: {
+    auditLog: {
+      async update() {
+        throw new Error("Audit logs are immutable and cannot be modified.");
+      },
+      async updateMany() {
+        throw new Error("Audit logs are immutable and cannot be modified.");
+      },
+      async delete() {
+        throw new Error("Audit logs are immutable and cannot be modified.");
+      },
+      async deleteMany() {
+        throw new Error("Audit logs are immutable and cannot be modified.");
+      },
+    },
+  },
+});
+
+/**
  * =========================
  * DATABASE OBSERVABILITY
  * =========================
  */
 
-prisma.$on("query", (e) => {
+basePrisma.$on("query", (e) => {
   console.log("[DB QUERY]", {
     query: e.query,
     params: e.params,
@@ -29,11 +52,11 @@ prisma.$on("query", (e) => {
   });
 });
 
-prisma.$on("warn", (e) => {
+basePrisma.$on("warn", (e) => {
   console.warn("[DB WARN]", e.message);
 });
 
-prisma.$on("error", (e) => {
+basePrisma.$on("error", (e) => {
   console.error("[DB ERROR]", e.message);
 });
 

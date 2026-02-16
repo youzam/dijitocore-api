@@ -148,6 +148,25 @@ const createNotification = async ({
   const title = translate(titleKey, locale, templateVars);
   const message = translate(messageKey, locale, templateVars);
 
+  // 🔒 Duplicate guard (prevent rapid duplicate spam)
+  const recentDuplicate = await prisma.notification.findFirst({
+    where: {
+      businessId,
+      userId,
+      customerId,
+      contractId,
+      type,
+      channel,
+      createdAt: {
+        gte: new Date(Date.now() - 60 * 1000), // last 60 seconds
+      },
+    },
+  });
+
+  if (recentDuplicate) {
+    return recentDuplicate;
+  }
+
   const notification = await prisma.notification.create({
     data: {
       businessId,
@@ -211,7 +230,9 @@ const createNotification = async ({
        * 📤 OTHER CHANNELS
        */
       const adapter = CHANNEL_MAP[channel];
-      if (!adapter) throw new Error("Unsupported channel");
+      if (!adapter) {
+        throw new Error(`Unsupported channel: ${channel}`);
+      }
 
       await adapter.send({
         recipient,
@@ -258,6 +279,7 @@ const retryNotifications = async () => {
     where: {
       status: "FAILED",
       retryCount: { lt: MAX_NOTIFICATION_RETRIES },
+      businessId: { not: null },
     },
   });
 
@@ -311,7 +333,27 @@ const retryNotifications = async () => {
   }
 };
 
-const markNotificationRead = async (notificationId) => {
+const markNotificationRead = async ({
+  notificationId,
+  businessId,
+  userId = null,
+  customerId = null,
+}) => {
+  const notification = await prisma.notification.findFirst({
+    where: {
+      id: notificationId,
+      businessId,
+      OR: [
+        userId ? { userId } : null,
+        customerId ? { customerId } : null,
+      ].filter(Boolean),
+    },
+  });
+
+  if (!notification) {
+    throw new Error("notification.not_found_or_unauthorized");
+  }
+
   return prisma.notification.update({
     where: { id: notificationId },
     data: {

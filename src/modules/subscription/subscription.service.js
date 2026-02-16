@@ -2,6 +2,7 @@ const prisma = require("../../config/prisma");
 const AppError = require("../../utils/AppError");
 const auditHelper = require("../../utils/audit.helper");
 const { SubscriptionStatus } = require("@prisma/client");
+const { validateDowngradeLimits } = require("../../utils/featureFlags");
 
 /* ===========================
    INTERNAL
@@ -164,6 +165,12 @@ exports.upgradeSubscription = async ({
   if (billingCycle === "YEARLY" && !pkg.priceYearly) {
     throw new AppError("subscription.yearly_not_available", 400);
   }
+
+  /* ===========================
+     DOWNGRADE SAFETY CHECK
+  =========================== */
+
+  await validateDowngradeLimits(businessId, pkg.features);
 
   /* ===========================
      PRORATION ENGINE

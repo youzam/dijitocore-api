@@ -5,32 +5,27 @@ const prisma = require("../../config/prisma");
 const AppError = require("../../utils/AppError");
 const notificationService = require("../../services/notifications/notification.service");
 
+/**
+ * =========================
+ * CREATE CUSTOMER
+ * =========================
+ */
 exports.createCustomer = async (businessId, payload, req) => {
-  // duplicate detection (phone / altPhone / nationalId)
-  const conditions = [];
+  const { phone, altPhone, nationalId } = payload;
 
-  if (payload.phone) {
-    conditions.push({ phone: payload.phone });
-  }
-
-  if (payload.altPhone) {
-    conditions.push({ altPhone: payload.altPhone });
-  }
-
-  if (payload.nationalId) {
-    conditions.push({ nationalId: payload.nationalId });
-  }
-
-  let duplicate = null;
-
-  if (conditions.length) {
-    duplicate = await prisma.customer.findFirst({
-      where: {
-        businessId,
-        OR: conditions,
-      },
-    });
-  }
+  // Strict duplicate detection (cross-field)
+  const duplicate = await prisma.customer.findFirst({
+    where: {
+      businessId,
+      OR: [
+        { phone },
+        { altPhone: phone },
+        { phone: altPhone },
+        { altPhone },
+        { nationalId },
+      ].filter(Boolean),
+    },
+  });
 
   if (duplicate) {
     throw new AppError("customer.already_exists", 409);
@@ -45,7 +40,6 @@ exports.createCustomer = async (businessId, payload, req) => {
     },
   });
 
-  // Send business code to customer via SMS (async, non-blocking)
   try {
     const business = await prisma.business.findUnique({
       where: { id: businessId },
@@ -67,14 +61,17 @@ exports.createCustomer = async (businessId, payload, req) => {
   return customer;
 };
 
+/**
+ * =========================
+ * LIST CUSTOMERS
+ * =========================
+ */
 exports.listCustomers = async (businessId, query) => {
   const page = parseInt(query.page || 1);
   const limit = parseInt(query.limit || 20);
   const skip = (page - 1) * limit;
 
-  const where = {
-    businessId,
-  };
+  const where = { businessId };
 
   if (query.search) {
     where.OR = [
@@ -103,14 +100,15 @@ exports.listCustomers = async (businessId, query) => {
 
   return {
     data: customers,
-    meta: {
-      total,
-      page,
-      limit,
-    },
+    meta: { total, page, limit },
   };
 };
 
+/**
+ * =========================
+ * GET CUSTOMER
+ * =========================
+ */
 exports.getCustomer = async (businessId, id) => {
   const customer = await prisma.customer.findFirst({
     where: { id, businessId },
@@ -123,10 +121,37 @@ exports.getCustomer = async (businessId, id) => {
   return customer;
 };
 
+/**
+ * =========================
+ * UPDATE CUSTOMER
+ * =========================
+ */
 exports.updateCustomer = async (businessId, id, payload) => {
-  await exports.getCustomer(businessId, id);
+  const existing = await exports.getCustomer(businessId, id);
 
-  // protect financial fields
+  const { phone, altPhone, nationalId } = payload;
+
+  if (phone || altPhone || nationalId) {
+    const duplicate = await prisma.customer.findFirst({
+      where: {
+        businessId,
+        NOT: { id },
+        OR: [
+          { phone },
+          { altPhone: phone },
+          { phone: altPhone },
+          { altPhone },
+          { nationalId },
+        ].filter(Boolean),
+      },
+    });
+
+    if (duplicate) {
+      throw new AppError("customer.already_exists", 409);
+    }
+  }
+
+  // Protect financial fields
   delete payload.totalPaid;
   delete payload.totalOutstanding;
   delete payload.totalContracts;
@@ -138,6 +163,11 @@ exports.updateCustomer = async (businessId, id, payload) => {
   });
 };
 
+/**
+ * =========================
+ * UPDATE STATUS
+ * =========================
+ */
 exports.updateStatus = async (businessId, id, status) => {
   await exports.getCustomer(businessId, id);
 
@@ -147,6 +177,11 @@ exports.updateStatus = async (businessId, id, status) => {
   });
 };
 
+/**
+ * =========================
+ * UPDATE BLACKLIST
+ * =========================
+ */
 exports.updateBlacklist = async (businessId, id, isBlacklisted) => {
   await exports.getCustomer(businessId, id);
 
@@ -159,6 +194,11 @@ exports.updateBlacklist = async (businessId, id, isBlacklisted) => {
   });
 };
 
+/**
+ * =========================
+ * IMPORT CUSTOMERS (TRANSACTION SAFE)
+ * =========================
+ */
 exports.importCustomers = async (businessId, req) => {
   if (!req.files || !req.files.file) {
     throw new AppError("customer.file_required", 400);
@@ -182,38 +222,50 @@ exports.importCustomers = async (businessId, req) => {
   let imported = 0;
   let skipped = 0;
 
-  for (const r of rows) {
-    if (!r.fullName || !r.phone) {
-      skipped++;
-      continue;
+  await prisma.$transaction(async (tx) => {
+    for (const r of rows) {
+      if (!r.fullName || !r.phone) {
+        skipped++;
+        continue;
+      }
+
+      const exists = await tx.customer.findFirst({
+        where: {
+          businessId,
+          OR: [{ phone: r.phone }, { altPhone: r.phone }],
+        },
+      });
+
+      if (exists) {
+        skipped++;
+        continue;
+      }
+
+      await tx.customer.create({
+        data: {
+          businessId,
+          fullName: r.fullName,
+          phone: r.phone,
+          email: r.email,
+          nationalId: r.nationalId,
+          status: "ACTIVE",
+          riskScore: 0,
+        },
+      });
+
+      imported++;
     }
 
-    const exists = await prisma.customer.findFirst({
-      where: {
-        businessId,
-        phone: r.phone,
-      },
-    });
-
-    if (exists) {
-      skipped++;
-      continue;
-    }
-
-    await prisma.customer.create({
+    await tx.customerImportLog.create({
       data: {
         businessId,
-        fullName: r.fullName,
-        phone: r.phone,
-        email: r.email,
-        nationalId: r.nationalId,
-        status: "ACTIVE",
-        riskScore: 0,
+        fileName: file.name,
+        totalRows: rows.length,
+        imported,
+        skipped,
       },
     });
-
-    imported++;
-  }
+  });
 
   return { imported, skipped };
 };

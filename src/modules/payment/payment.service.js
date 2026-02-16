@@ -9,6 +9,9 @@ const {
 /**
  * RECORD PAYMENT (IDEMPOTENT)
  */
+/**
+ * RECORD PAYMENT (HARDENED & SAFE)
+ */
 exports.recordPayment = async ({
   businessId,
   contractId,
@@ -23,6 +26,9 @@ exports.recordPayment = async ({
   userId,
 }) => {
   const payment = await prisma.$transaction(async (tx) => {
+    /* =====================================================
+       IDEMPOTENCY CHECK
+       ===================================================== */
     if (idempotencyKey) {
       const existing = await tx.payment.findFirst({
         where: { businessId, idempotencyKey },
@@ -30,6 +36,9 @@ exports.recordPayment = async ({
       if (existing) return existing;
     }
 
+    /* =====================================================
+       VALIDATE CUSTOMER
+       ===================================================== */
     const customer = await tx.customer.findFirst({
       where: { id: customerId, businessId },
     });
@@ -40,6 +49,9 @@ exports.recordPayment = async ({
       throw new Error("customer.inactiveBlacklisted");
     }
 
+    /* =====================================================
+       VALIDATE CONTRACT
+       ===================================================== */
     const contract = await tx.contract.findFirst({
       where: { id: contractId, businessId },
       include: {
@@ -55,9 +67,20 @@ exports.recordPayment = async ({
     });
 
     if (!contract) throw new Error("contract.not_found");
-    if (contract.status === "TERMINATED")
-      throw new Error("contract.terminated");
 
+    // 🔒 Ensure contract belongs to same customer
+    if (contract.customerId !== customerId) {
+      throw new Error("payment.customer_mismatch");
+    }
+
+    // 🔒 Prevent payments on closed contracts
+    if (["TERMINATED", "COMPLETED"].includes(contract.status)) {
+      throw new Error("contract.closed");
+    }
+
+    /* =====================================================
+       CALCULATE PAYABLE
+       ===================================================== */
     const payable = Math.min(amount, contract.outstandingAmount);
     let remaining = payable;
 
@@ -84,10 +107,16 @@ exports.recordPayment = async ({
       data: {
         paidAmount: newPaidAmount,
         outstandingAmount: newOutstanding,
-        ...(newOutstanding === 0 && { completedAt: new Date() }),
+        ...(newOutstanding === 0 && {
+          completedAt: new Date(),
+          status: "COMPLETED",
+        }),
       },
     });
 
+    /* =====================================================
+       CREATE PAYMENT ENTRY (EXPLICIT STATUS)
+       ===================================================== */
     return tx.payment.create({
       data: {
         businessId,
@@ -103,17 +132,16 @@ exports.recordPayment = async ({
         balanceBefore: contract.outstandingAmount,
         balanceAfter: newOutstanding,
         recordedBy: userId,
+        status: "POSTED", // 🔒 explicit
       },
     });
   });
 
-  /**
-   * =====================================================
-   * NOTIFICATIONS (AFTER TRANSACTION)
-   * =====================================================
-   */
+  /* =====================================================
+     NOTIFICATIONS (UNCHANGED STRUCTURE)
+     ===================================================== */
 
-  // notify customer
+  // Notify customer (SMS)
   await createNotification({
     businessId,
     customerId,
@@ -129,6 +157,7 @@ exports.recordPayment = async ({
     recipient: customerId,
   });
 
+  // Notify customer (In-app)
   await createNotification({
     businessId,
     customerId,
@@ -144,7 +173,7 @@ exports.recordPayment = async ({
     recipient: customerId,
   });
 
-  // notify business users (in-app)
+  // Notify business users (In-app)
   const businessUsers = await prisma.user.findMany({
     where: {
       businessId,
@@ -173,7 +202,7 @@ exports.recordPayment = async ({
 };
 
 /**
- * REQUEST REVERSAL
+ * REQUEST REVERSAL (HARDENED)
  */
 exports.requestReversal = async ({
   businessId,
@@ -189,6 +218,26 @@ exports.requestReversal = async ({
 
     if (!payment) throw new Error("payment.not_found");
 
+    // 🔒 Prevent double reversal
+    if (payment.status === "REVERSED") {
+      throw new Error("payment.already_reversed");
+    }
+
+    // 🔒 Prevent duplicate pending approval
+    const existingPending = await tx.approvalRequest.findFirst({
+      where: {
+        businessId,
+        entityType: "PAYMENT",
+        entityId: paymentId,
+        status: "PENDING",
+      },
+    });
+
+    if (existingPending) {
+      throw new Error("approval.already_pending");
+    }
+
+    // ================= OWNER AUTO-APPROVAL =================
     if (role === "BUSINESS_OWNER") {
       const reversal = await tx.paymentReversal.create({
         data: {
@@ -221,24 +270,15 @@ exports.requestReversal = async ({
       return { reversal, autoApproved: true };
     }
 
+    // ================= NORMAL FLOW =================
     const reversal = await tx.paymentReversal.create({
-      data: { paymentId, reason, requestedBy: userId },
-    });
-
-    /* = PREVENT DUPLICATE PENDING REVERSAL = */
-
-    const existingPending = await tx.approvalRequest.findFirst({
-      where: {
-        businessId,
-        entityType: "PAYMENT",
-        entityId: paymentId,
+      data: {
+        paymentId,
+        reason,
+        requestedBy: userId,
         status: "PENDING",
       },
     });
-
-    if (existingPending) {
-      throw new Error("approval.already_pending");
-    }
 
     const approval = await tx.approvalRequest.create({
       data: {
@@ -258,7 +298,7 @@ exports.requestReversal = async ({
 };
 
 /**
- * APPROVE REVERSAL
+ * APPROVE REVERSAL (HARDENED)
  */
 exports.approveReversal = async ({
   businessId,
@@ -298,6 +338,11 @@ exports.approveReversal = async ({
       });
     }
 
+    // 🔒 Prevent double reversal
+    if (payment.status === "REVERSED") {
+      throw new Error("payment.already_reversed");
+    }
+
     await logAudit({
       tx: trx,
       businessId,
@@ -312,8 +357,15 @@ exports.approveReversal = async ({
       include: { schedules: true },
     });
 
+    if (!contract) throw new Error("contract.not_found");
+
     if (contract.completedAt) {
       throw new Error("contract.closed");
+    }
+
+    // 🔒 Safety: ensure valid amount
+    if (payment.amount <= 0) {
+      throw new Error("payment.invalid_reversal_amount");
     }
 
     let rollback = payment.amount;
@@ -334,6 +386,7 @@ exports.approveReversal = async ({
     }
 
     const newPaidAmount = Math.max(contract.paidAmount - payment.amount, 0);
+
     const newOutstanding = Math.min(
       contract.totalValue - newPaidAmount,
       contract.totalValue,
@@ -345,9 +398,11 @@ exports.approveReversal = async ({
         paidAmount: newPaidAmount,
         outstandingAmount: newOutstanding,
         completedAt: null,
+        status: "ACTIVE",
       },
     });
 
+    // 🔒 Ledger reversal entry
     await trx.payment.create({
       data: {
         businessId,
@@ -360,6 +415,7 @@ exports.approveReversal = async ({
         balanceAfter: newOutstanding,
         recordedBy: approverId,
         receivedAt: new Date(),
+        status: "POSTED",
       },
     });
 
@@ -422,11 +478,11 @@ exports.rejectReversal = async ({ businessId, approvalId, approverId }) => {
 /**
  * LIST PAYMENTS (USING FACTORY)
  */
-exports.listPayments = async (businessId, query) => {
+exports.listPayments = async (req) => {
   return factory.list({
     model: prisma.payment,
-    query,
-    businessFilter: { businessId },
+    query: req.query,
+    businessFilter: { businessId: req.user.businessId },
     searchableFields: ["reference"],
     filterableFields: ["contractId", "customerId", "status"],
   });
@@ -435,16 +491,17 @@ exports.listPayments = async (businessId, query) => {
 /**
  * LIST REVERSALS (USING FACTORY)
  */
-exports.listReversals = async (businessId, query) => {
+exports.listReversals = async (req) => {
   return factory.list({
     model: prisma.paymentReversal,
-    query,
+    query: req.query,
     businessFilter: {
-      Payment: { businessId },
+      Payment: { businessId: req.user.businessId },
     },
     filterableFields: ["status"],
   });
 };
+
 exports.getCustomerPayments = async ({ customerId }) => {
   return prisma.payment.findMany({
     where: {

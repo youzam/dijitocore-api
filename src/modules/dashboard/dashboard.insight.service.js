@@ -18,7 +18,10 @@ exports.generateInsights = async (businessId) => {
     where: { businessId, snapshotDate: yesterday.toDate() },
   });
 
-  if (!todaySnap || !yesterdaySnap) return;
+  // 🔒 Always return consistent type
+  if (!todaySnap || !yesterdaySnap) {
+    return [];
+  }
 
   const insights = [];
 
@@ -58,18 +61,32 @@ exports.generateInsights = async (businessId) => {
   }
 
   /**
-   * Persist insights
+   * Persist insights safely (prevent duplicates)
    */
   for (const i of insights) {
-    await prisma.dashboardInsight.create({
-      data: {
+    const existing = await prisma.dashboardInsight.findFirst({
+      where: {
         businessId,
         type: i.type,
-        messageKey: i.messageKey,
-        payload: i.payload,
+        createdAt: {
+          gte: today.toDate(),
+        },
       },
     });
+
+    if (!existing) {
+      await prisma.dashboardInsight.create({
+        data: {
+          businessId,
+          type: i.type,
+          messageKey: i.messageKey,
+          payload: i.payload,
+        },
+      });
+    }
   }
+
+  return insights;
 };
 
 /**

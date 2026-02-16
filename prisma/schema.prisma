@@ -28,29 +28,40 @@ model SuperAdmin {
 }
 
 model SystemSetting {
-  id                   String   @id @default(uuid())
+  id                   String  @id @default("SYSTEM")
   currency             String
-  activePaymentGateway String   @default("SELCOM")
-  isBootstrapped       Boolean  @default(false)
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
+  activePaymentGateway String  @default("SELCOM")
+  isBootstrapped       Boolean @default(false)
+
+  // ✅ SECURITY SETTINGS
+  maxLoginAttempts Int @default(5)
+  lockTimeMinutes  Int @default(15)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 //////////////////////////////////////////////////////
 // AUTH & USERS
 //////////////////////////////////////////////////////
-
 model User {
-  id                   String                @id @default(uuid())
-  email                String
-  passwordHash         String
-  role                 UserRole
-  status               UserStatus
-  businessId           String?
-  business             Business?             @relation(fields: [businessId], references: [id])
+  id           String     @id @default(uuid())
+  email        String
+  passwordHash String
+  role         UserRole
+  status       UserStatus
+  businessId   String?
+  business     Business?  @relation(fields: [businessId], references: [id])
+
   passwordResetToken   String?
   passwordResetExpires DateTime?
-  lastLoginAt          DateTime?
+
+  lastLoginAt DateTime?
+
+  // ✅ BRUTE FORCE PROTECTION
+  failedLoginAttempts Int       @default(0)
+  lockUntil           DateTime?
+
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
   emailVerified        Boolean               @default(false)
@@ -107,14 +118,28 @@ model Customer {
   @@unique([phone, businessId])
 }
 
-model RefreshToken {
+model CustomerImportLog {
   id         String   @id @default(uuid())
-  token      String   @unique
-  userId     String?
-  user       User?    @relation(fields: [userId], references: [id])
-  customerId String? // ← ADD
-  expiresAt  DateTime
+  businessId String
+  fileName   String
+  totalRows  Int
+  imported   Int
+  skipped    Int
   createdAt  DateTime @default(now())
+
+  @@index([businessId])
+}
+
+model RefreshToken {
+  id              String    @id @default(uuid())
+  token           String    @unique
+  userId          String?
+  user            User?     @relation(fields: [userId], references: [id])
+  customerId      String? // ← ADD
+  expiresAt       DateTime
+  createdAt       DateTime  @default(now())
+  revokedAt       DateTime?
+  replacedByToken String?
 }
 
 //////////////////////////////////////////////////////
