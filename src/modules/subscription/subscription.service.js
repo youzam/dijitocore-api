@@ -3,6 +3,7 @@ const AppError = require("../../utils/AppError");
 const auditHelper = require("../../utils/audit.helper");
 const { SubscriptionStatus } = require("@prisma/client");
 const { validateDowngradeLimits } = require("../../utils/featureFlags");
+const registry = require("../../utils/subscriptionFeatureRegistry");
 
 /* ===========================
    INTERNAL
@@ -295,6 +296,87 @@ exports.updatePackage = async (id, data, userId) => {
     entityType: "SUBSCRIPTION_PACKAGE",
     entityId: id,
     action: "UPDATE",
+  });
+
+  return updated;
+};
+
+/* =====================================================
+   PACKAGE CONFIGURATION ENGINE (ADMIN SAFE UPDATE)
+===================================================== */
+
+function sanitizeFeatures(input = {}) {
+  const clean = {};
+  const allowedKeys = registry.getFeatureKeys();
+
+  for (const key of allowedKeys) {
+    if (Object.prototype.hasOwnProperty.call(input, key)) {
+      const value = input[key];
+
+      if (typeof value === "boolean") {
+        clean[key] = value;
+      }
+    }
+  }
+
+  return clean;
+}
+
+function sanitizeLimits(input = {}) {
+  const clean = {};
+  const allowedKeys = registry.getLimitKeys();
+
+  for (const key of allowedKeys) {
+    if (Object.prototype.hasOwnProperty.call(input, key)) {
+      const value = input[key];
+
+      if (value === null) {
+        clean[key] = null; // unlimited
+      } else if (typeof value === "number" && value >= 0) {
+        clean[key] = value;
+      }
+    }
+  }
+
+  return clean;
+}
+
+function deepMergeValidated(existing = {}, updates = {}) {
+  return {
+    ...existing,
+    ...updates,
+  };
+}
+
+exports.updatePackageConfiguration = async (packageId, payload) => {
+  const existing = await prisma.subscriptionPackage.findUnique({
+    where: { id: packageId },
+  });
+
+  if (!existing) {
+    throw new AppError("subscription.package_not_found", 404);
+  }
+
+  const sanitizedFeatures = sanitizeFeatures(payload.features || {});
+  const sanitizedLimits = sanitizeLimits(payload.limits || {});
+
+  const mergedFeatures = deepMergeValidated(
+    existing.features || {},
+    sanitizedFeatures,
+  );
+
+  const mergedLimits = deepMergeValidated(
+    existing.limits || {},
+    sanitizedLimits,
+  );
+
+  const updated = await prisma.subscriptionPackage.update({
+    where: { id: packageId },
+    data: {
+      features: mergedFeatures,
+      limits: mergedLimits,
+      updatedAt: new Date(),
+    },
   });
 
   return updated;

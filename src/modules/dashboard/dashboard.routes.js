@@ -88,4 +88,16 @@ router.get(
   controller.getRoleDashboard,
 );
 
+router.get(
+  "/analytics/advanced-metrics",
+  role(["BUSINESS_OWNER", "MANAGER"]),
+  controller.getAdvancedPortfolioMetrics,
+);
+
+router.get(
+  "/analytics/advanced-metrics",
+  role(["BUSINESS_OWNER", "MANAGER"]),
+  controller.getAdvancedPortfolioMetrics,
+);
+
 module.exports = router;

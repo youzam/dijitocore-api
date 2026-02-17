@@ -105,4 +105,16 @@ router.get(
   subscriptionController.getAllPayments,
 );
 
+router.get(
+  "/packages/:id/schema",
+  role(["SUPER_ADMIN"]),
+  subscriptionController.getPackageSchema,
+);
+
+router.patch(
+  "/packages/:id/config",
+  role(["SUPER_ADMIN"]),
+  subscriptionController.updatePackageConfiguration,
+);
+
 module.exports = router;

@@ -179,7 +179,8 @@
     "cohorts_loaded": "Customer cohort analysis loaded successfully",
     "projections_loaded": "Forward projections loaded successfully",
     "audit_loaded": "Audit dashboard loaded successfully",
-    "role_loaded": "Role based dashboard loaded successfully"
+    "role_loaded": "Role based dashboard loaded successfully",
+    "advanced_metrics_loaded": "Taarifa za kina za portfolio zimepakiwa kwa mafanikio."
   },
   "insights": {
     "overdue_spike": "Overdue increased by {{percent}}%",

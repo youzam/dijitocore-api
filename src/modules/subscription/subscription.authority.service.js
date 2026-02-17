@@ -1,6 +1,7 @@
 const prisma = require("../../config/prisma");
 const AppError = require("../../utils/AppError");
 const { SubscriptionStatus } = require("@prisma/client");
+const registry = require("../../utils/subscriptionFeatureRegistry");
 
 /* ===========================
    INTERNAL
@@ -63,6 +64,11 @@ exports.assertActiveSubscription = async (businessId) => {
 };
 
 exports.assertFeature = async (businessId, featureKey) => {
+  // ✅ Registry validation (NEW — safe addition)
+  if (!registry.isValidFeatureKey(featureKey)) {
+    throw new AppError(`Invalid feature configuration: ${featureKey}`, 500);
+  }
+
   const subscription = await getCurrentSubscription(businessId);
 
   const features = subscription.featuresSnapshot || {};
@@ -75,6 +81,11 @@ exports.assertFeature = async (businessId, featureKey) => {
 };
 
 exports.assertLimit = async (businessId, limitKey, currentValue) => {
+  // ✅ Registry validation (NEW — safe addition)
+  if (!registry.isValidLimitKey(limitKey)) {
+    throw new AppError(`Invalid limit configuration: ${limitKey}`, 500);
+  }
+
   const subscription = await getCurrentSubscription(businessId);
 
   const limits = subscription.limitsSnapshot || {};
@@ -93,6 +104,11 @@ exports.assertLimit = async (businessId, limitKey, currentValue) => {
 };
 
 exports.assertMonthlyLimit = async (businessId, metric) => {
+  // ✅ Registry validation (NEW — safe addition)
+  if (!registry.isValidLimitKey(metric)) {
+    throw new AppError(`Invalid monthly limit configuration: ${metric}`, 500);
+  }
+
   const subscription = await getCurrentSubscription(businessId);
 
   const limits = subscription.limitsSnapshot || {};

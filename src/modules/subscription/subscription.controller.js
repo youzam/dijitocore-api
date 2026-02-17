@@ -3,6 +3,7 @@ const { success } = require("../../utils/response");
 const subscriptionService = require("./subscription.service");
 const paymentService = require("./subscription.payment.service");
 const prisma = require("../../config/prisma");
+const registry = require("../../utils/subscriptionFeatureRegistry");
 
 /* ===========================
    BUSINESS OPERATIONS
@@ -122,4 +123,38 @@ exports.getAllPayments = catchAsync(async (req, res) => {
   });
 
   return success(req, res, payments, 200, "payment.list_success");
+});
+
+/* ===========================
+   SUBSCRIPTION PACKAGE ADMIN
+=========================== */
+
+exports.getPackageSchema = catchAsync(async (req, res) => {
+  const pkg = await prisma.subscriptionPackage.findUnique({
+    where: { id: req.params.id },
+  });
+
+  if (!pkg) {
+    throw new AppError("subscription.package_not_found", 404);
+  }
+
+  return success(
+    req,
+    res,
+    {
+      registry,
+      package: pkg,
+    },
+    200,
+    "subscription.package_schema_fetched",
+  );
+});
+
+exports.updatePackageConfiguration = catchAsync(async (req, res) => {
+  const updated = await subscriptionService.updatePackageConfiguration(
+    req.params.id,
+    req.body,
+  );
+
+  return success(req, res, updated, 200, "subscription.package_updated");
 });

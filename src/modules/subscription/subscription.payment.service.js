@@ -68,35 +68,67 @@ const activateSubscriptionEngine = async (
         status: "ACTIVE",
       },
     });
-  } else {
-    const baseDate =
-      subscription.endDate && subscription.endDate > now
-        ? subscription.endDate
-        : now;
 
-    const extendedEndDate = new Date(
-      baseDate.getTime() + durationDays * 86400000,
-    );
-
-    await tx.subscription.update({
-      where: {
-        id: subscription.id,
-        version: baseVersion,
-      },
-      data: {
-        status: SubscriptionStatus.ACTIVE,
-        endDate: extendedEndDate,
-        graceUntil: null,
-        creditBalance: 0,
-        version: { increment: 1 },
-      },
-    });
-
-    await tx.business.update({
-      where: { id: subscription.businessId },
-      data: { status: "ACTIVE" },
-    });
+    return;
   }
+
+  /* ======================================================
+     RENEWAL FLOW
+  ====================================================== */
+
+  const baseDate =
+    subscription.endDate && subscription.endDate > now
+      ? subscription.endDate
+      : now;
+
+  const extendedEndDate = new Date(
+    baseDate.getTime() + durationDays * 86400000,
+  );
+
+  const pkg = await tx.subscriptionPackage.findUnique({
+    where: { id: subscription.packageId },
+  });
+
+  const updateData = {
+    status: SubscriptionStatus.ACTIVE,
+    endDate: extendedEndDate,
+    graceUntil: null,
+    creditBalance: 0,
+    version: { increment: 1 },
+  };
+
+  if (pkg) {
+    const packageChanged = pkg.updatedAt > subscription.updatedAt;
+
+    if (packageChanged) {
+      // Stage detection using version parity
+      const adoptionStage = subscription.version % 2;
+
+      // Always update feature & limit snapshots on package change
+      updateData.featuresSnapshot = pkg.features || {};
+      updateData.limitsSnapshot = pkg.limits || {};
+
+      if (adoptionStage === 1) {
+        // SECOND renewal → adopt new pricing
+        updateData.priceMonthlySnapshot = pkg.priceMonthly;
+        updateData.priceYearlySnapshot = pkg.priceYearly;
+      }
+      // FIRST renewal → pricing untouched
+    }
+  }
+
+  await tx.subscription.update({
+    where: {
+      id: subscription.id,
+      version: baseVersion,
+    },
+    data: updateData,
+  });
+
+  await tx.business.update({
+    where: { id: subscription.businessId },
+    data: { status: "ACTIVE" },
+  });
 };
 
 /* ======================================================

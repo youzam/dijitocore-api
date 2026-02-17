@@ -3,6 +3,7 @@ const response = require("../../utils/response");
 
 const dashboardService = require("./dashboard.service");
 const analyticsService = require("./dashboard.analytics.service");
+const subscriptionAuthority = require("../subscription/subscription.authority.service");
 
 /**
  * ===============================
@@ -172,4 +173,23 @@ exports.getRoleDashboard = catchAsync(async (req, res) => {
   }
 
   return response.success(req, res, base, 200, "dashboard.role_loaded");
+});
+
+/**
+ * ===========================
+ * ADVANCED PORTFOLIO METRICS
+ * ===========================
+ */
+exports.getAdvancedPortfolioMetrics = catchAsync(async (req, res) => {
+  const { businessId } = req.user;
+
+  const data = await analyticsService.getAdvancedPortfolioMetrics(businessId);
+
+  return response.success(
+    req,
+    res,
+    data,
+    200,
+    "dashboard.advanced_metrics_loaded",
+  );
 });

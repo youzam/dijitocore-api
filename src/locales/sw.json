@@ -177,7 +177,8 @@
     "cohorts_loaded": "Uchambuzi wa makundi ya wateja umepatikana kikamilifu",
     "projections_loaded": "Makadirio ya mapato yajayo yamepatikana kikamilifu",
     "audit_loaded": "Dashibodi ya ukaguzi imepatikana kikamilifu",
-    "role_loaded": "Dashibodi kulingana na nafasi ya mtumiaji imepatikana kikamilifu"
+    "role_loaded": "Dashibodi kulingana na nafasi ya mtumiaji imepatikana kikamilifu",
+    "advanced_metrics_loaded": "Taarifa za kina za portfolio zimepakiwa kwa mafanikio."
   },
   "insights": {
     "overdue_spike": "Madeni yameongezeka kwa {{percent}}%",

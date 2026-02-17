@@ -199,3 +199,154 @@ exports.getAuditDashboard = async (businessId) => {
     take: 50,
   });
 };
+
+/**
+ * ===========================
+ * ADVANCED PORTFOLIO METRICS
+ * ===========================
+ */
+exports.getAdvancedPortfolioMetrics = async (businessId) => {
+  // 🔒 Feature Gating
+  await require("../subscription/subscription.authority.service").assertFeature(
+    businessId,
+    "allowAdvancedAnalytics",
+  );
+
+  const now = new Date();
+
+  /* =========================
+     ACTIVE CONTRACTS
+  ========================= */
+  const activeContracts = await prisma.contract.findMany({
+    where: {
+      businessId,
+      status: "ACTIVE",
+      deletedAt: null,
+    },
+    select: {
+      id: true,
+      totalValue: true,
+      paidAmount: true,
+      outstandingAmount: true,
+    },
+  });
+
+  const totalPortfolio = activeContracts.reduce(
+    (sum, c) => sum + (c.totalValue || 0),
+    0,
+  );
+
+  const totalPaid = activeContracts.reduce(
+    (sum, c) => sum + (c.paidAmount || 0),
+    0,
+  );
+
+  const totalOutstanding = activeContracts.reduce(
+    (sum, c) => sum + (c.outstandingAmount || 0),
+    0,
+  );
+
+  /* =========================
+     OVERDUE SCHEDULES
+  ========================= */
+  const overdueSchedules = await prisma.installmentSchedule.findMany({
+    where: {
+      status: "DUE",
+      dueDate: { lt: now },
+      contract: {
+        businessId,
+        status: "ACTIVE",
+      },
+    },
+    select: {
+      amount: true,
+      dueDate: true,
+      contractId: true,
+    },
+  });
+
+  const totalOverdue = overdueSchedules.reduce(
+    (sum, s) => sum + (s.amount || 0),
+    0,
+  );
+
+  const overdueContractsCount = new Set(
+    overdueSchedules.map((s) => s.contractId),
+  ).size;
+
+  /* =========================
+     DELINQUENCY + EFFICIENCY
+  ========================= */
+  const delinquencyRatio =
+    totalOutstanding > 0
+      ? Number(((totalOverdue / totalOutstanding) * 100).toFixed(2))
+      : 0;
+
+  const collectionEfficiency =
+    totalPortfolio > 0
+      ? Number(((totalPaid / totalPortfolio) * 100).toFixed(2))
+      : 0;
+
+  /* =========================
+     OVERDUE AGING BUCKETS
+  ========================= */
+  const aging = {
+    "0_30": 0,
+    "31_60": 0,
+    "61_90": 0,
+    "90_plus": 0,
+  };
+
+  overdueSchedules.forEach((s) => {
+    const days = (now - new Date(s.dueDate)) / (1000 * 60 * 60 * 24);
+
+    if (days <= 30) aging["0_30"] += s.amount;
+    else if (days <= 60) aging["31_60"] += s.amount;
+    else if (days <= 90) aging["61_90"] += s.amount;
+    else aging["90_plus"] += s.amount;
+  });
+
+  /* =========================
+     MONTHLY CASHFLOW (LAST 6 MONTHS)
+  ========================= */
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+  const payments = await prisma.payment.findMany({
+    where: {
+      businessId,
+      receivedAt: { gte: sixMonthsAgo },
+      status: "POSTED",
+    },
+    select: {
+      amount: true,
+      receivedAt: true,
+    },
+  });
+
+  const monthlyCashflow = {};
+
+  payments.forEach((p) => {
+    const d = new Date(p.receivedAt);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
+      2,
+      "0",
+    )}`;
+
+    if (!monthlyCashflow[key]) monthlyCashflow[key] = 0;
+    monthlyCashflow[key] += p.amount;
+  });
+
+  return {
+    totalPortfolio,
+    totalPaid,
+    totalOutstanding,
+    totalOverdue,
+    delinquencyRatio,
+    collectionEfficiency,
+    activeContractsCount: activeContracts.length,
+    overdueContractsCount,
+    overdueAging: aging,
+    monthlyCashflow,
+  };
+};
