@@ -64,7 +64,6 @@ exports.assertActiveSubscription = async (businessId) => {
 };
 
 exports.assertFeature = async (businessId, featureKey) => {
-  // ✅ Registry validation (NEW — safe addition)
   if (!registry.isValidFeatureKey(featureKey)) {
     throw new AppError(`Invalid feature configuration: ${featureKey}`, 500);
   }
@@ -81,7 +80,6 @@ exports.assertFeature = async (businessId, featureKey) => {
 };
 
 exports.assertLimit = async (businessId, limitKey, currentValue) => {
-  // ✅ Registry validation (NEW — safe addition)
   if (!registry.isValidLimitKey(limitKey)) {
     throw new AppError(`Invalid limit configuration: ${limitKey}`, 500);
   }
@@ -89,7 +87,6 @@ exports.assertLimit = async (businessId, limitKey, currentValue) => {
   const subscription = await getCurrentSubscription(businessId);
 
   const limits = subscription.limitsSnapshot || {};
-
   const limit = limits[limitKey];
 
   if (limit === undefined || limit === null) {
@@ -104,7 +101,6 @@ exports.assertLimit = async (businessId, limitKey, currentValue) => {
 };
 
 exports.assertMonthlyLimit = async (businessId, metric) => {
-  // ✅ Registry validation (NEW — safe addition)
   if (!registry.isValidLimitKey(metric)) {
     throw new AppError(`Invalid monthly limit configuration: ${metric}`, 500);
   }
@@ -112,7 +108,6 @@ exports.assertMonthlyLimit = async (businessId, metric) => {
   const subscription = await getCurrentSubscription(businessId);
 
   const limits = subscription.limitsSnapshot || {};
-
   const limit = limits[metric];
 
   if (limit === undefined || limit === null) {

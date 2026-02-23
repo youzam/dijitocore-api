@@ -261,6 +261,12 @@ const acceptInvite = async ({ token, password }) => {
   // 🔒 Enforce subscription active
   await subscriptionAuthority.assertActiveSubscription(invite.businessId);
 
+  // 🔒 Enforce multi-user feature
+  await subscriptionAuthority.assertFeature(
+    invite.businessId,
+    "allowMultiUser",
+  );
+
   // 🔒 Enforce maxUsers limit
   const currentUsers = await prisma.user.count({
     where: { businessId: invite.businessId },

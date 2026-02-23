@@ -1,99 +1,128 @@
 const prisma = require("../config/prisma");
+const jobService = require("../modules/system/system.job.service");
 const auditHelper = require("../utils/audit.helper");
-const { SubscriptionStatus } = require("@prisma/client");
 
-module.exports = async function subscriptionLifecycleJob() {
-  const now = new Date();
+const BATCH_SIZE = 200;
 
-  /* ======================================================
-     MOVE ACTIVE/TRIAL → GRACE
-  ====================================================== */
+async function runSubscriptionLifecycle() {
+  const startedAt = new Date();
 
-  const toGrace = await prisma.subscription.findMany({
-    where: {
-      status: {
-        in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.TRIAL],
-      },
-      endDate: { not: null, lt: now },
-      graceUntil: null,
-    },
-    select: {
-      id: true,
-      businessId: true,
-    },
-  });
+  try {
+    const now = new Date();
+    let cursor = null;
 
-  for (const sub of toGrace) {
-    try {
-      await prisma.$transaction(async (tx) => {
-        await tx.subscription.update({
-          where: { id: sub.id },
-          data: {
-            status: SubscriptionStatus.GRACE,
-            graceUntil: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
+    while (true) {
+      const subscriptions = await prisma.subscription.findMany({
+        where: {
+          status: {
+            in: ["ACTIVE", "TRIAL", "GRACE"],
           },
-        });
-
-        await auditHelper.logAudit({
-          tx,
-          businessId: sub.businessId,
-          entityType: "SUBSCRIPTION",
-          entityId: sub.id,
-          action: "MOVED_TO_GRACE",
-        });
-      });
-    } catch (error) {
-      // Prevent one failure from stopping entire job
-      console.error(
-        `Lifecycle GRACE transition failed for subscription ${sub.id}`,
-        error,
-      );
-    }
-  }
-
-  /* ======================================================
-     HANDLE GRACE → SUSPENDED
-  ====================================================== */
-
-  const expiredGrace = await prisma.subscription.findMany({
-    where: {
-      status: SubscriptionStatus.GRACE,
-      graceUntil: { not: null, lt: now },
-    },
-    select: {
-      id: true,
-      businessId: true,
-    },
-  });
-
-  for (const sub of expiredGrace) {
-    try {
-      await prisma.$transaction(async (tx) => {
-        await tx.subscription.update({
-          where: { id: sub.id },
-          data: { status: SubscriptionStatus.SUSPENDED },
-        });
-
-        await tx.business.update({
-          where: { id: sub.businessId },
-          data: {
-            status: "INACTIVE",
+          endDate: {
+            not: null,
+            lte: now,
           },
-        });
-
-        await auditHelper.logAudit({
-          tx,
-          businessId: sub.businessId,
-          entityType: "SUBSCRIPTION",
-          entityId: sub.id,
-          action: "SUSPENDED_EXPIRED",
-        });
+        },
+        take: BATCH_SIZE,
+        ...(cursor && {
+          skip: 1,
+          cursor: { id: cursor },
+        }),
+        orderBy: { id: "asc" },
       });
-    } catch (error) {
-      console.error(
-        `Lifecycle SUSPEND transition failed for subscription ${sub.id}`,
-        error,
-      );
+
+      if (!subscriptions.length) break;
+
+      for (const sub of subscriptions) {
+        cursor = sub.id;
+
+        try {
+          /**
+           * ACTIVE/TRIAL → GRACE
+           */
+          if (
+            ["ACTIVE", "TRIAL"].includes(sub.status) &&
+            sub.endDate &&
+            sub.endDate <= now &&
+            !sub.graceUntil
+          ) {
+            await prisma.$transaction(async (tx) => {
+              await tx.subscription.update({
+                where: { id: sub.id },
+                data: {
+                  status: "GRACE",
+                  graceUntil: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
+                },
+              });
+
+              await auditHelper.logAudit({
+                tx,
+                businessId: sub.businessId,
+                entityType: "SUBSCRIPTION",
+                entityId: sub.id,
+                action: "MOVED_TO_GRACE",
+              });
+            });
+
+            continue;
+          }
+
+          /**
+           * GRACE → SUSPENDED
+           */
+          if (
+            sub.status === "GRACE" &&
+            sub.graceUntil &&
+            sub.graceUntil <= now
+          ) {
+            await prisma.$transaction(async (tx) => {
+              await tx.subscription.update({
+                where: { id: sub.id },
+                data: { status: "SUSPENDED" },
+              });
+
+              await tx.business.update({
+                where: { id: sub.businessId },
+                data: { status: "INACTIVE" },
+              });
+
+              await auditHelper.logAudit({
+                tx,
+                businessId: sub.businessId,
+                entityType: "SUBSCRIPTION",
+                entityId: sub.id,
+                action: "SUSPENDED_EXPIRED",
+              });
+            });
+          }
+        } catch (err) {
+          console.error(
+            "Subscription lifecycle transition failed:",
+            sub.id,
+            err,
+          );
+        }
+      }
     }
+
+    await jobService.logJobExecution({
+      jobName: "subscription_lifecycle_job",
+      status: "success",
+      startedAt,
+      finishedAt: new Date(),
+    });
+  } catch (error) {
+    await jobService.logJobExecution({
+      jobName: "subscription_lifecycle_job",
+      status: "failed",
+      startedAt,
+      finishedAt: new Date(),
+      errorMessage: error.message,
+    });
+
+    console.error("Subscription lifecycle cron failed:", error);
   }
+}
+
+module.exports = {
+  runSubscriptionLifecycle,
 };

@@ -10,6 +10,8 @@ const inAppChannel = require("./channels/inapp.channel");
 const pushChannel = require("./channels/push.channel");
 const whatsappChannel = require("./channels/whatsapp.channel");
 
+const subscriptionAuthority = require("../../modules/subscription/subscription.authority.service");
+
 const isProd = process.env.NODE_ENV !== "development";
 const emailChannel = isProd ? emailProd : emailDev;
 const smsChannel = isProd ? smsProd : smsDev;
@@ -158,7 +160,7 @@ const createNotification = async ({
       type,
       channel,
       createdAt: {
-        gte: new Date(Date.now() - 60 * 1000), // last 60 seconds
+        gte: new Date(Date.now() - 60 * 1000),
       },
     },
   });
@@ -183,12 +185,11 @@ const createNotification = async ({
 
   try {
     /**
-     * 🔐 LOAD NOTIFICATION SETTINGS (NO ASSUMPTIONS)
+     * 🔐 LOAD NOTIFICATION SETTINGS
      */
     const setting = await getNotificationSetting({ businessId, userId });
 
     if (setting) {
-      // channel enable flags
       if (channel === "IN_APP" && !setting.enableInApp) return notification;
       if (channel === "PUSH" && !setting.enablePush) return notification;
       if (channel === "SMS" && !setting.enableSMS) return notification;
@@ -196,16 +197,14 @@ const createNotification = async ({
         return notification;
       if (channel === "EMAIL" && !setting.enableEmail) return notification;
 
-      // mute logic
       if (type === "OVERDUE" && setting.muteOverdue) return notification;
       if (type === "REMINDER" && setting.muteReminders) return notification;
 
-      // quiet hours
       if (isWithinQuietHours(setting)) return notification;
     }
 
     /**
-     * 🔔 PUSH — SPECIAL HANDLING (DEVICE TOKENS)
+     * 🔔 PUSH — SPECIAL HANDLING
      */
     if (channel === "PUSH") {
       const tokens = await prisma.deviceToken.findMany({
@@ -234,11 +233,26 @@ const createNotification = async ({
         throw new Error(`Unsupported channel: ${channel}`);
       }
 
+      // 🔒 SMS SUBSCRIPTION ENFORCEMENT
+      if (channel === "SMS") {
+        await subscriptionAuthority.assertActiveSubscription(businessId);
+        await subscriptionAuthority.assertFeature(businessId, "allowSMS");
+        await subscriptionAuthority.assertMonthlyLimit(
+          businessId,
+          "maxMonthlySms",
+        );
+      }
+
       await adapter.send({
         recipient,
         title,
         message,
       });
+
+      // 📊 TRACK SMS USAGE ONLY AFTER SUCCESS
+      if (channel === "SMS") {
+        await subscriptionAuthority.trackUsage(businessId, "maxMonthlySms", 1);
+      }
     }
 
     await prisma.notification.update({
@@ -275,60 +289,75 @@ const createNotification = async ({
 };
 
 const retryNotifications = async () => {
-  const failed = await prisma.notification.findMany({
-    where: {
-      status: "FAILED",
-      retryCount: { lt: MAX_NOTIFICATION_RETRIES },
-      businessId: { not: null },
-    },
-  });
+  const BATCH_SIZE = 200;
+  let cursor = null;
 
-  for (const n of failed) {
-    try {
-      if (n.channel === "PUSH") {
-        const tokens = await prisma.deviceToken.findMany({
-          where: {
-            OR: [
-              n.userId ? { userId: n.userId } : null,
-              n.customerId ? { customerId: n.customerId } : null,
-            ].filter(Boolean),
-          },
-          select: { token: true },
-        });
+  while (true) {
+    const failed = await prisma.notification.findMany({
+      where: {
+        status: "FAILED",
+        retryCount: { lt: MAX_NOTIFICATION_RETRIES },
+        businessId: { not: null },
+      },
+      take: BATCH_SIZE,
+      ...(cursor && {
+        skip: 1,
+        cursor: { id: cursor },
+      }),
+      orderBy: { id: "asc" },
+    });
 
-        for (const t of tokens) {
-          await pushChannel.send({
-            token: t.token,
+    if (!failed.length) break;
+
+    for (const n of failed) {
+      cursor = n.id;
+
+      try {
+        if (n.channel === "PUSH") {
+          const tokens = await prisma.deviceToken.findMany({
+            where: {
+              OR: [
+                n.userId ? { userId: n.userId } : null,
+                n.customerId ? { customerId: n.customerId } : null,
+              ].filter(Boolean),
+            },
+            select: { token: true },
+          });
+
+          for (const t of tokens) {
+            await pushChannel.send({
+              token: t.token,
+              title: n.title,
+              body: n.message,
+            });
+          }
+        } else {
+          const adapter = CHANNEL_MAP[n.channel];
+          if (!adapter) continue;
+
+          await adapter.send({
+            recipient: n.customerId || n.userId,
             title: n.title,
-            body: n.message,
+            message: n.message,
           });
         }
-      } else {
-        const adapter = CHANNEL_MAP[n.channel];
-        if (!adapter) continue;
 
-        await adapter.send({
-          recipient: n.customerId || n.userId,
-          title: n.title,
-          message: n.message,
+        await prisma.notification.update({
+          where: { id: n.id },
+          data: {
+            status: "SENT",
+            sentAt: new Date(),
+          },
+        });
+      } catch (e) {
+        await prisma.notification.update({
+          where: { id: n.id },
+          data: {
+            retryCount: { increment: 1 },
+            providerResponse: { error: e.message },
+          },
         });
       }
-
-      await prisma.notification.update({
-        where: { id: n.id },
-        data: {
-          status: "SENT",
-          sentAt: new Date(),
-        },
-      });
-    } catch (e) {
-      await prisma.notification.update({
-        where: { id: n.id },
-        data: {
-          retryCount: { increment: 1 },
-          providerResponse: { error: e.message },
-        },
-      });
     }
   }
 };

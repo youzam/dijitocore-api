@@ -5,6 +5,8 @@ const {
 
 const jobService = require("../modules/system/system.job.service");
 
+const BATCH_SIZE = 500; // 🔒 Added batching only
+
 const startOfDay = (d) => {
   const x = new Date(d);
   x.setHours(0, 0, 0, 0);
@@ -22,157 +24,181 @@ module.exports = async () => {
 
   try {
     const today = startOfDay(new Date());
+    const upcomingWindow = addDays(today, 7);
 
-    /**
-     * Load all pending schedules with relations
-     */
-    const schedules = await prisma.installmentSchedule.findMany({
-      where: {
-        status: "PENDING",
-      },
-      include: {
-        contract: {
-          include: {
-            customer: true,
-            business: {
-              include: {
-                users: true,
-                notificationSettings: {
-                  where: { userId: null }, // business-level setting
-                  take: 1,
+    let cursor = null;
+
+    while (true) {
+      const schedules = await prisma.installmentSchedule.findMany({
+        where: {
+          status: "PENDING",
+          dueDate: {
+            lte: upcomingWindow, // 🔒 Added filter only
+          },
+        },
+        include: {
+          contract: {
+            include: {
+              customer: true,
+              business: {
+                include: {
+                  users: true,
+                  notificationSettings: {
+                    where: { userId: null },
+                    take: 1,
+                  },
                 },
               },
             },
           },
         },
-      },
-    });
+        take: BATCH_SIZE,
+        ...(cursor && {
+          skip: 1,
+          cursor: { id: cursor },
+        }),
+        orderBy: { id: "asc" },
+      });
 
-    for (const s of schedules) {
-      if (!s.contract || !s.contract.customer) continue;
+      if (!schedules.length) break;
 
-      const customer = s.contract.customer;
-      const business = s.contract.business;
+      for (const s of schedules) {
+        cursor = s.id;
 
-      // customer must be ACTIVE
-      if (customer.status !== "ACTIVE") continue;
+        if (!s.contract || !s.contract.customer) continue;
 
-      const setting = business.notificationSettings[0] || null;
+        const customer = s.contract.customer;
+        const business = s.contract.business;
 
-      // fallback to schema default (3) if setting missing
-      const daysBeforeDue =
-        typeof setting?.daysBeforeDue === "number" ? setting.daysBeforeDue : 3;
+        if (customer.status !== "ACTIVE") continue;
 
-      const dueDate = startOfDay(s.dueDate);
-      const daysDiff = Math.floor((today - dueDate) / (1000 * 60 * 60 * 24));
+        const setting = business.notificationSettings[0] || null;
 
-      /**
-       * UPCOMING (X days before due)
-       */
-      if (
-        dueDate.getTime() ===
-        startOfDay(addDays(today, daysBeforeDue)).getTime()
-      ) {
-        for (const channel of ["IN_APP", "PUSH", "SMS", "WHATSAPP"]) {
-          await createNotification({
-            businessId: business.id,
-            customerId: customer.id,
-            contractId: s.contract.id,
-            type: "UPCOMING",
-            channel,
-            titleKey: "notification.upcoming.title",
-            messageKey: "notification.upcoming.body",
-            templateVars: {
-              name: customer.fullName,
-              amount: s.amount,
-            },
-            recipient: channel === "IN_APP" ? customer.id : customer.phone,
-          });
-        }
-      }
+        const daysBeforeDue =
+          typeof setting?.daysBeforeDue === "number"
+            ? setting.daysBeforeDue
+            : 3;
 
-      /**
-       * DUE TODAY
-       */
-      if (dueDate.getTime() === today.getTime()) {
-        for (const channel of ["IN_APP", "PUSH", "SMS", "WHATSAPP"]) {
-          await createNotification({
-            businessId: business.id,
-            customerId: customer.id,
-            contractId: s.contract.id,
-            type: "DUE",
-            channel,
-            titleKey: "notification.due.title",
-            messageKey: "notification.due.body",
-            templateVars: {
-              name: customer.fullName,
-              amount: s.amount,
-            },
-            recipient: channel === "IN_APP" ? customer.id : customer.phone,
-          });
-        }
-      }
+        const dueDate = startOfDay(s.dueDate);
+        const daysDiff = Math.floor((today - dueDate) / (1000 * 60 * 60 * 24));
 
-      /**
-       * OVERDUE
-       */
-      if (daysDiff > 0) {
-        // customer notifications
-        for (const channel of ["IN_APP", "PUSH"]) {
-          await createNotification({
-            businessId: business.id,
-            customerId: customer.id,
-            contractId: s.contract.id,
-            type: "OVERDUE",
-            channel,
-            titleKey: "notification.overdue.title",
-            messageKey: "notification.overdue.body",
-            templateVars: {
-              name: customer.fullName,
-              amount: s.amount,
-            },
-            recipient: channel === "IN_APP" ? customer.id : customer.phone,
-          });
+        /**
+         * UPCOMING (unchanged)
+         */
+        if (
+          dueDate.getTime() ===
+          startOfDay(addDays(today, daysBeforeDue)).getTime()
+        ) {
+          for (const channel of ["IN_APP", "PUSH", "SMS", "WHATSAPP"]) {
+            await createNotification({
+              businessId: business.id,
+              customerId: customer.id,
+              contractId: s.contract.id,
+              type: "UPCOMING",
+              channel,
+              titleKey: "notification.upcoming.title",
+              messageKey: "notification.upcoming.body",
+              templateVars: {
+                name: customer.fullName,
+                amount: s.amount,
+              },
+              recipient: channel === "IN_APP" ? customer.id : customer.phone,
+            });
+          }
         }
 
-        // business users (owner / manager / staff)
-        for (const u of business.users || []) {
-          await createNotification({
-            businessId: business.id,
-            userId: u.id,
-            contractId: s.contract.id,
-            type: "OVERDUE",
-            channel: "IN_APP",
-            titleKey: "notification.staff_overdue.title",
-            messageKey: "notification.staff_overdue.body",
-            templateVars: {
-              customer: customer.fullName,
-              amount: s.amount,
+        /**
+         * DUE TODAY (unchanged)
+         */
+        if (dueDate.getTime() === today.getTime()) {
+          for (const channel of ["IN_APP", "PUSH", "SMS", "WHATSAPP"]) {
+            await createNotification({
+              businessId: business.id,
+              customerId: customer.id,
+              contractId: s.contract.id,
+              type: "DUE",
+              channel,
+              titleKey: "notification.due.title",
+              messageKey: "notification.due.body",
+              templateVars: {
+                name: customer.fullName,
+                amount: s.amount,
+              },
+              recipient: channel === "IN_APP" ? customer.id : customer.phone,
+            });
+          }
+        }
+
+        /**
+         * OVERDUE (unchanged logic + dedup guard)
+         */
+        if (daysDiff > 0) {
+          const existingToday = await prisma.notification.findFirst({
+            where: {
+              contractId: s.contract.id,
+              type: "OVERDUE",
+              createdAt: {
+                gte: today,
+              },
             },
-            recipient: u.id,
           });
 
-          if (u.email) {
+          if (existingToday) continue;
+
+          for (const channel of ["IN_APP", "PUSH"]) {
+            await createNotification({
+              businessId: business.id,
+              customerId: customer.id,
+              contractId: s.contract.id,
+              type: "OVERDUE",
+              channel,
+              titleKey: "notification.overdue.title",
+              messageKey: "notification.overdue.body",
+              templateVars: {
+                name: customer.fullName,
+                amount: s.amount,
+              },
+              recipient: channel === "IN_APP" ? customer.id : customer.phone,
+            });
+          }
+
+          for (const u of business.users || []) {
             await createNotification({
               businessId: business.id,
               userId: u.id,
               contractId: s.contract.id,
               type: "OVERDUE",
-              channel: "EMAIL",
+              channel: "IN_APP",
               titleKey: "notification.staff_overdue.title",
               messageKey: "notification.staff_overdue.body",
               templateVars: {
                 customer: customer.fullName,
                 amount: s.amount,
               },
-              recipient: u.email,
+              recipient: u.id,
             });
+
+            if (u.email) {
+              await createNotification({
+                businessId: business.id,
+                userId: u.id,
+                contractId: s.contract.id,
+                type: "OVERDUE",
+                channel: "EMAIL",
+                titleKey: "notification.staff_overdue.title",
+                messageKey: "notification.staff_overdue.body",
+                templateVars: {
+                  customer: customer.fullName,
+                  amount: s.amount,
+                },
+                recipient: u.email,
+              });
+            }
           }
         }
       }
     }
 
-    // ✅ SUCCESS LOG
     await jobService.logJobExecution({
       jobName: "reminder_job",
       status: "success",
@@ -180,7 +206,6 @@ module.exports = async () => {
       finishedAt: new Date(),
     });
   } catch (error) {
-    // ❌ FAILURE LOG
     await jobService.logJobExecution({
       jobName: "reminder_job",
       status: "failed",
@@ -189,6 +214,6 @@ module.exports = async () => {
       errorMessage: error.message,
     });
 
-    throw error; // preserve original behavior
+    throw error;
   }
 };

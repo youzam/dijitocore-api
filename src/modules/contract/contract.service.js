@@ -53,6 +53,9 @@ exports.createContract = async ({ businessId, userId, payload }) => {
   // 🔒 Enforce active subscription
   await subscriptionAuthority.assertActiveSubscription(businessId);
 
+  // 🔒 Enforce feature access (NEW — correct enforcement)
+  await subscriptionAuthority.assertFeature(businessId, "allowContracts");
+
   // 🔒 Enforce maxActiveContracts limit
   const activeContractsCount = await prisma.contract.count({
     where: {
@@ -246,6 +249,14 @@ exports.updateContract = async ({ businessId, id, payload }) => {
 /* === TERMINATE CONTRACT === */
 
 exports.terminateContract = async ({ businessId, id, userId, reason }) => {
+  await subscriptionAuthority.assertActiveSubscription(businessId);
+
+  // 🔒 Ensure contracts feature enabled
+  await subscriptionAuthority.assertFeature(businessId, "allowContracts");
+
+  // 🔒 Ensure approvals feature enabled
+  await subscriptionAuthority.assertFeature(businessId, "allowApprovals");
+
   const contract = await exports.getContractById({ businessId, id });
 
   if (["TERMINATED", "COMPLETED"].includes(contract.status)) {
@@ -265,6 +276,20 @@ exports.terminateContract = async ({ businessId, id, userId, reason }) => {
     if (existingPending) {
       throw new AppError("approval.already_pending", 400);
     }
+
+    // 🔒 Enforce approval limit
+    const approvalCount = await tx.approvalRequest.count({
+      where: {
+        businessId,
+        status: "PENDING",
+      },
+    });
+
+    await subscriptionAuthority.assertLimit(
+      businessId,
+      "maxApprovalRequests",
+      approvalCount,
+    );
 
     const approval = await approvalEngine.createApproval({
       tx,
@@ -292,6 +317,14 @@ exports.terminateContract = async ({ businessId, id, userId, reason }) => {
 /* ================= APPROVE TERMINATION (NEW) ================= */
 
 exports.approveTermination = async ({ businessId, approvalId, approverId }) => {
+  await subscriptionAuthority.assertActiveSubscription(businessId);
+
+  // 🔒 Ensure approvals feature enabled
+  await subscriptionAuthority.assertFeature(businessId, "allowApprovals");
+
+  // 🔒 Ensure contracts feature enabled
+  await subscriptionAuthority.assertFeature(businessId, "allowContracts");
+
   return prisma.$transaction(async (tx) => {
     const approval = await approvalEngine.approveApproval({
       tx,
@@ -320,7 +353,9 @@ exports.approveTermination = async ({ businessId, approvalId, approverId }) => {
       where: { id: contract.customerId },
       data: {
         activeContracts: { decrement: 1 },
-        totalOutstanding: { decrement: contract.outstandingAmount },
+        totalOutstanding: {
+          decrement: contract.outstandingAmount,
+        },
       },
     });
 
@@ -340,6 +375,14 @@ exports.approveTermination = async ({ businessId, approvalId, approverId }) => {
 /* ================= REJECT TERMINATION (NEW) ================= */
 
 exports.rejectTermination = async ({ businessId, approvalId, approverId }) => {
+  await subscriptionAuthority.assertActiveSubscription(businessId);
+
+  // 🔒 Ensure approvals feature enabled
+  await subscriptionAuthority.assertFeature(businessId, "allowApprovals");
+
+  // 🔒 Ensure contracts feature enabled
+  await subscriptionAuthority.assertFeature(businessId, "allowContracts");
+
   return prisma.$transaction(async (tx) => {
     const approval = await approvalEngine.rejectApproval({
       tx,

@@ -6,6 +6,7 @@ const {
   createNotification,
 } = require("../../services/notifications/notification.service");
 const approvalEngine = require("../../services/approval/approval.engine");
+const subscriptionAuthority = require("../subscription/subscription.authority.service");
 
 /**
  * RECORD PAYMENT (HARDENED & SAFE)
@@ -23,6 +24,10 @@ exports.recordPayment = async ({
   receivedAt,
   userId,
 }) => {
+  // 🔒 SUBSCRIPTION ENFORCEMENT (SAFE INJECTION)
+  await subscriptionAuthority.assertActiveSubscription(businessId);
+  await subscriptionAuthority.assertFeature(businessId, "allowPayments");
+
   const payment = await prisma.$transaction(async (tx) => {
     /* =====================================================
        IDEMPOTENCY CHECK
@@ -66,12 +71,10 @@ exports.recordPayment = async ({
 
     if (!contract) throw new Error("contract.not_found");
 
-    // 🔒 Ensure contract belongs to same customer
     if (contract.customerId !== customerId) {
       throw new Error("payment.customer_mismatch");
     }
 
-    // 🔒 Prevent payments on closed contracts
     if (["TERMINATED", "COMPLETED"].includes(contract.status)) {
       throw new Error("contract.closed");
     }
@@ -130,7 +133,7 @@ exports.recordPayment = async ({
         balanceBefore: contract.outstandingAmount,
         balanceAfter: newOutstanding,
         recordedBy: userId,
-        status: "POSTED", // 🔒 explicit
+        status: "POSTED",
       },
     });
   });
@@ -139,7 +142,6 @@ exports.recordPayment = async ({
      NOTIFICATIONS (UNCHANGED STRUCTURE)
      ===================================================== */
 
-  // Notify customer (SMS)
   await createNotification({
     businessId,
     customerId,
@@ -155,7 +157,6 @@ exports.recordPayment = async ({
     recipient: customerId,
   });
 
-  // Notify customer (In-app)
   await createNotification({
     businessId,
     customerId,
@@ -171,7 +172,6 @@ exports.recordPayment = async ({
     recipient: customerId,
   });
 
-  // Notify business users (In-app)
   const businessUsers = await prisma.user.findMany({
     where: {
       businessId,
@@ -209,6 +209,11 @@ exports.requestReversal = async ({
   userId,
   role,
 }) => {
+  // 🔒 SUBSCRIPTION ENFORCEMENT (SAFE INJECTION)
+  await subscriptionAuthority.assertActiveSubscription(businessId);
+  await subscriptionAuthority.assertFeature(businessId, "allowReversal");
+  await subscriptionAuthority.assertFeature(businessId, "allowApprovals");
+
   return prisma.$transaction(async (tx) => {
     const payment = await tx.payment.findFirst({
       where: { id: paymentId, businessId },
@@ -232,6 +237,20 @@ exports.requestReversal = async ({
     if (existingPending) {
       throw new Error("approval.already_pending");
     }
+
+    // 🔒 LIMIT ENFORCEMENT (SAFE INJECTION)
+    const pendingApprovalsCount = await tx.approvalRequest.count({
+      where: {
+        businessId,
+        status: "PENDING",
+      },
+    });
+
+    await subscriptionAuthority.assertLimit(
+      businessId,
+      "maxApprovalRequests",
+      pendingApprovalsCount,
+    );
 
     // OWNER AUTO APPROVAL
     if (role === "BUSINESS_OWNER") {

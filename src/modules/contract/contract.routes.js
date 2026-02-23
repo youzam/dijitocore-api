@@ -8,6 +8,7 @@ const contractValidation = require("./contract.validation");
 const auth = require("../../middlewares/auth.middleware");
 const tenant = require("../../middlewares/tenant.middleware");
 const role = require("../../middlewares/role.middleware");
+const subscriptionFeature = require("../../middlewares/subscriptionFeature.middleware");
 
 router.use(auth);
 router.use(tenant);
@@ -16,6 +17,7 @@ router.use(tenant);
 router.post(
   "/",
   role(["BUSINESS_OWNER", "MANAGER"]),
+  subscriptionFeature("allowContracts"),
   validate(contractValidation.createContract),
   contractController.createContract,
 );
@@ -24,6 +26,7 @@ router.post(
 router.get(
   "/",
   role(["BUSINESS_OWNER", "MANAGER", "STAFF"]),
+  subscriptionFeature("allowContracts"),
   contractController.getContracts,
 );
 
@@ -31,6 +34,7 @@ router.get(
 router.get(
   "/:id",
   role(["BUSINESS_OWNER", "MANAGER", "STAFF"]),
+  subscriptionFeature("allowContracts"),
   contractController.getContractById,
 );
 
@@ -38,6 +42,7 @@ router.get(
 router.patch(
   "/:id",
   role(["BUSINESS_OWNER", "MANAGER"]),
+  subscriptionFeature("allowContracts"),
   validate(contractValidation.updateContract),
   contractController.updateContract,
 );
@@ -46,6 +51,7 @@ router.patch(
 router.post(
   "/:id/terminate",
   role(["BUSINESS_OWNER"]),
+  subscriptionFeature("allowContracts"),
   validate(contractValidation.terminateContract),
   contractController.terminateContract,
 );
@@ -54,6 +60,7 @@ router.post(
 router.post(
   "/termination/:approvalId/approve",
   role(["BUSINESS_OWNER"]),
+  subscriptionFeature("allowContracts"),
   contractController.approveTermination,
 );
 
@@ -61,6 +68,7 @@ router.post(
 router.post(
   "/termination/:approvalId/reject",
   role(["BUSINESS_OWNER"]),
+  subscriptionFeature("allowContracts"),
   contractController.rejectTermination,
 );
 
@@ -68,6 +76,7 @@ router.post(
 router.post(
   "/:id/complete",
   role(["BUSINESS_OWNER"]),
+  subscriptionFeature("allowContracts"),
   contractController.completeContract,
 );
 
@@ -75,39 +84,33 @@ router.post(
 router.delete(
   "/:id",
   role(["BUSINESS_OWNER"]),
+  subscriptionFeature("allowContracts"),
   contractController.deleteContract,
 );
 
 /* ===========================
    CUSTOMER PORTAL ROUTES
-   (READ ONLY)
    =========================== */
 
-/* CUSTOMER - LIST MY CONTRACTS */
 router.get(
   "/customer/my-contracts",
   role(["CUSTOMER"]),
+  subscriptionFeature("allowCustomerPortal"),
   contractController.getMyContracts,
 );
 
-/* CUSTOMER - SINGLE CONTRACT DETAILS */
 router.get(
   "/customer/my-contracts/:id",
   role(["CUSTOMER"]),
+  subscriptionFeature("allowCustomerPortal"),
   contractController.getMyContractById,
 );
 
-/* CUSTOMER – DOWNLOAD STATEMENT */
 router.get(
   "/customer/my-contracts/:id/statement",
   role(["CUSTOMER"]),
+  subscriptionFeature("allowCustomerPortal"),
   contractController.downloadMyContractStatement,
-);
-
-router.get(
-  "/terminations",
-  role(["BUSINESS_OWNER"]),
-  contractController.listTerminationApprovals,
 );
 
 module.exports = router;

@@ -63,7 +63,7 @@ router.patch(
 router.post(
   "/import",
   role(["BUSINESS_OWNER", "MANAGER"]),
-  subscriptionFeature("allowImport"),
+  subscriptionFeature("allowImportCustomers"),
   controller.importCustomers,
 );
 

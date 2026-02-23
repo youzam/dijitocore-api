@@ -5,6 +5,7 @@ const auth = require("../../middlewares/auth.middleware");
 const tenant = require("../../middlewares/tenant.middleware");
 const role = require("../../middlewares/role.middleware");
 const validate = require("../../middlewares/validate.middleware");
+const subscriptionFeature = require("../../middlewares/subscriptionFeature.middleware");
 
 const controller = require("./payment.controller");
 const validation = require("./payment.validation");
@@ -12,49 +13,55 @@ const validation = require("./payment.validation");
 router.use(auth);
 router.use(tenant);
 
-// Record payment (Staff+)
+// ================= RECORD PAYMENT =================
 router.post(
   "/",
   role(["BUSINESS_OWNER", "MANAGER", "STAFF"]),
+  subscriptionFeature("allowPayments"),
   validate(validation.recordPayment),
   controller.recordPayment,
 );
 
-// List payments
+// ================= LIST PAYMENTS =================
 router.get(
   "/",
   role(["BUSINESS_OWNER", "MANAGER"]),
+  subscriptionFeature("allowPayments"),
   validate(validation.listPayments),
   controller.listPayments,
 );
 
-// List reversals
+// ================= LIST REVERSALS =================
 router.get(
   "/reversals",
   role(["BUSINESS_OWNER", "MANAGER"]),
+  subscriptionFeature("allowPayments"),
   validate(validation.listReversals),
   controller.listReversals,
 );
 
-// Request reversal
+// ================= REQUEST REVERSAL =================
 router.post(
   "/:id/reversal-request",
   role(["BUSINESS_OWNER", "MANAGER"]),
+  subscriptionFeature("allowReversal"),
   validate(validation.requestReversal),
   controller.requestReversal,
 );
 
-// Approve reversal (BUSINESS_OWNER only)
+// ================= APPROVE REVERSAL =================
 router.post(
   "/approvals/:id/approve",
   role(["BUSINESS_OWNER"]),
+  subscriptionFeature("allowReversal"),
   controller.approveReversal,
 );
 
-// Reject reversal (BUSINESS_OWNER only)
+// ================= REJECT REVERSAL =================
 router.post(
   "/approvals/:id/reject",
   role(["BUSINESS_OWNER"]),
+  subscriptionFeature("allowReversal"),
   controller.rejectReversal,
 );
 
@@ -64,8 +71,8 @@ router.post(
 
 router.get(
   "/customer/my-payments",
-  auth,
   role(["CUSTOMER"]),
+  subscriptionFeature("allowCustomerPortal"),
   controller.getMyPayments,
 );
 
