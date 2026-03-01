@@ -715,9 +715,6 @@ model AuditLog {
   @@index([createdAt])
 }
 
-///////////////////////////////////
-// SYSTEM ERRORS
-///////////////////////////////////
 model SystemJobLog {
   id           String    @id @default(uuid())
   jobName      String
@@ -792,6 +789,16 @@ model GatewayHealth {
   status    GatewayStatus @default(UNKNOWN)
   lastCheck DateTime?
   updatedAt DateTime      @updatedAt
+}
+
+model JobLock {
+  id          String   @id @default(cuid())
+  jobName     String   @unique
+  lockedAt    DateTime
+  lockedUntil DateTime
+  instanceId  String
+
+  @@index([lockedUntil])
 }
 
 ///////////////////////////////////

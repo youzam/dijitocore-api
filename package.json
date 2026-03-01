@@ -10,7 +10,10 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate:dev": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "check:locale": "node scripts/check-locale-parity.js",
+    "check:locale-structure": "node scripts/check-locale-structure.js",
+    "check:locale-unused": "node scripts/check-unused-locale-keys.js"
   },
   "dependencies": {
     "@prisma/client": "^6.x",

@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const { validateLocaleKey } = require("./i18n.validator");
 
 const locales = {};
 
@@ -28,6 +29,8 @@ const interpolate = (text, vars = {}) => {
 
 const translate = (key, locale = "en", vars = {}) => {
   const data = locales[locale] || locales.en;
+
+  validateLocaleKey(key);
 
   let value = getNestedValue(data, key);
 

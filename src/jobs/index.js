@@ -1,126 +1,85 @@
+const { runSafeJob, gracefulShutdown } = require("../utils/jobRunner");
+
 const dashboardSnapshotJob = require("./dashboard.snapshot.job");
-const reminderJob = require("./reminder.job");
-const escalationJob = require("./escalation.job");
-const retryJob = require("./retry.job");
 const deviceCleanupJob = require("./device.cleanup.job");
+const escalationJob = require("./escalation.job");
+const reminderJob = require("./reminder.job");
+const notificationRetryJob = require("./notification.job");
 const subscriptionLifecycleJob = require("./subscription.lifecycle.job");
-const healthService = require("../utils/paymentGateway/gateway.health");
 
 /**
- * Helper: run daily at fixed hour (08:00 server time)
+ * Central Job Registry
+ * Used by:
+ * - Scheduler
+ * - Admin manual trigger
  */
-const runDailyAt8AM = (jobFn) => {
-  const now = new Date();
-  const next = new Date();
-
-  next.setHours(8, 0, 0, 0);
-
-  if (next <= now) {
-    next.setDate(next.getDate() + 1);
-  }
-
-  const delay = next.getTime() - now.getTime();
-
-  setTimeout(() => {
-    jobFn();
-
-    // repeat every 24h after first run
-    setInterval(jobFn, 1000 * 60 * 60 * 24);
-  }, delay);
+const jobRegistry = {
+  dashboard_snapshot: dashboardSnapshotJob,
+  device_cleanup: deviceCleanupJob,
+  escalation: escalationJob,
+  reminder: reminderJob,
+  retry: notificationRetryJob,
+  subscription_lifecycle: subscriptionLifecycleJob,
 };
 
-exports.startJobs = () => {
-  /**
-   * Existing snapshot job (UNCHANGED)
-   */
-  dashboardSnapshotJob.start();
+function scheduleJob(jobName, jobFn, intervalMs, ttlSeconds, intervals) {
+  // Run immediately on boot
+  runSafeJob(jobName, jobFn, ttlSeconds);
 
-  /**
-   * Reminder job (daily 8AM)
-   */
-  runDailyAt8AM(async () => {
-    try {
-      await reminderJob();
-    } catch (e) {
-      console.error("Reminder job failed:", e);
-    }
-  });
+  // Schedule recurring
+  intervals.push(
+    setInterval(async () => {
+      await runSafeJob(jobName, jobFn, ttlSeconds);
+    }, intervalMs),
+  );
+}
 
-  /**
-   * Escalation job (daily 8:10AM, slightly after reminder)
-   */
-  runDailyAt8AM(async () => {
-    setTimeout(
-      async () => {
-        try {
-          await escalationJob();
-        } catch (e) {
-          console.error("Escalation job failed:", e);
-        }
-      },
-      1000 * 60 * 10,
-    ); // 10 minutes after reminder
-  });
+function startJobs() {
+  const intervals = [];
 
-  /**
-   * Retry failed notifications (hourly)
-   */
-  setInterval(
-    async () => {
-      try {
-        await retryJob();
-      } catch (e) {
-        console.error("Retry job failed:", e);
-      }
-    },
-    1000 * 60 * 60,
+  // Heavy jobs → 30 min TTL
+  scheduleJob(
+    "dashboard_snapshot",
+    dashboardSnapshotJob.run,
+    60 * 60 * 1000,
+    1800,
+    intervals,
   );
 
-  /**
-   * Device token cleanup (daily, background)
-   */
-  setInterval(
-    async () => {
-      try {
-        await deviceCleanupJob();
-      } catch (e) {
-        console.error("Device cleanup job failed:", e);
-      }
-    },
-    1000 * 60 * 60 * 24,
+  scheduleJob(
+    "subscription_lifecycle",
+    subscriptionLifecycleJob.run,
+    60 * 60 * 1000,
+    1800,
+    intervals,
   );
 
-  /**
-   * ===========================
-   * SUBSCRIPTION LIFECYCLE JOB
-   * ===========================
-   * - ACTIVE → GRACE
-   * - GRACE → SUSPENDED
-   * Runs daily at 8:20AM (after escalation)
-   */
-  runDailyAt8AM(async () => {
-    setTimeout(
-      async () => {
-        try {
-          await subscriptionLifecycleJob.runSubscriptionLifecycle();
-        } catch (e) {
-          console.error("Subscription lifecycle job failed:", e);
-        }
-      },
-      1000 * 60 * 20,
-    ); // 20 minutes after 8AM
-  });
-
-  /** Update payment provider health status */
-  setInterval(
-    async () => {
-      try {
-        // Example: simple ping
-        await healthService.markHealthy("SELCOM");
-      } catch (e) {
-        await healthService.markDown("SELCOM");
-      }
-    },
-    1000 * 60 * 5,
+  // Medium jobs → 15 min TTL
+  scheduleJob(
+    "device_cleanup",
+    deviceCleanupJob.run,
+    60 * 60 * 1000,
+    900,
+    intervals,
   );
+
+  scheduleJob("reminder", reminderJob.run, 60 * 60 * 1000, 900, intervals);
+
+  // Fast jobs → 10 min TTL
+  scheduleJob("escalation", escalationJob.run, 10 * 60 * 1000, 600, intervals);
+
+  scheduleJob(
+    "retry",
+    notificationRetryJob.run,
+    10 * 60 * 1000,
+    600,
+    intervals,
+  );
+
+  gracefulShutdown(intervals);
+}
+
+module.exports = {
+  startJobs,
+  jobRegistry,
 };

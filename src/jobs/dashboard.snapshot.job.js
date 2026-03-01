@@ -1,18 +1,19 @@
 const prisma = require("../config/prisma");
 const dashboardService = require("../modules/dashboard/dashboard.service");
 const insightService = require("../modules/dashboard/dashboard.insight.service");
-const jobService = require("../modules/system/system.job.service");
 const dayjs = require("dayjs");
 
-const BATCH_SIZE = 50; // 🔒 Added batching only
+const BATCH_SIZE = 50;
+const MAX_LOOPS = 1000;
 
-async function runDashboardSnapshot() {
-  const startedAt = new Date();
+async function run() {
+  let cursor = null;
+  let loopGuard = 0;
 
   try {
-    let cursor = null;
+    while (loopGuard < MAX_LOOPS) {
+      loopGuard++;
 
-    while (true) {
       const businesses = await prisma.business.findMany({
         select: { id: true },
         take: BATCH_SIZE,
@@ -30,12 +31,6 @@ async function runDashboardSnapshot() {
         const businessId = b.id;
 
         try {
-          /**
-           * =========================
-           * AGGREGATIONS (unchanged)
-           * =========================
-           */
-
           const health =
             await dashboardService.calculateHealthScore(businessId);
 
@@ -73,12 +68,8 @@ async function runDashboardSnapshot() {
 
           const today = dayjs().startOf("day").toDate();
 
-          /**
-           * =========================
-           * WRITES (atomic per business)
-           * =========================
-           */
           await prisma.$transaction(async (tx) => {
+            // Snapshot upsert
             await tx.dashboardSnapshot.upsert({
               where: {
                 businessId_snapshotDate: {
@@ -108,6 +99,14 @@ async function runDashboardSnapshot() {
               },
             });
 
+            // Idempotent refresh of staff metrics
+            await tx.dashboardStaffMetric.deleteMany({
+              where: {
+                businessId,
+                snapshotDate: today,
+              },
+            });
+
             for (const s of staff) {
               await tx.dashboardStaffMetric.create({
                 data: {
@@ -120,6 +119,14 @@ async function runDashboardSnapshot() {
                 },
               });
             }
+
+            // Idempotent refresh of asset metrics
+            await tx.dashboardAssetMetric.deleteMany({
+              where: {
+                businessId,
+                snapshotDate: today,
+              },
+            });
 
             for (const a of assets) {
               await tx.dashboardAssetMetric.create({
@@ -168,31 +175,10 @@ async function runDashboardSnapshot() {
         }
       }
     }
-
-    await jobService.logJobExecution({
-      jobName: "dashboard_snapshot_job",
-      status: "success",
-      startedAt,
-      finishedAt: new Date(),
-    });
   } catch (error) {
-    await jobService.logJobExecution({
-      jobName: "dashboard_snapshot_job",
-      status: "failed",
-      startedAt,
-      finishedAt: new Date(),
-      errorMessage: error.message,
-    });
-
     console.error("Dashboard snapshot cron failed:", error);
+    throw error;
   }
 }
 
-module.exports.start = () => {
-  setInterval(
-    async () => {
-      await runDashboardSnapshot();
-    },
-    24 * 60 * 60 * 1000,
-  );
-};
+module.exports = { run };

@@ -14,6 +14,7 @@ const integrityController = require("./system.integrity.controller");
 const monitorController = require("./system.monitor.controller");
 const gatewayController = require("./system.gateway.controller");
 const gatewayValidation = require("./system.gateway.validation");
+const { triggerJob } = require("./system.job.controller");
 
 const router = express.Router();
 
@@ -46,6 +47,13 @@ router.patch(
   authMiddleware,
   roleMiddleware(["SUPER_ADMIN"]),
   systemController.updateActiveGateway,
+);
+
+router.post(
+  "/admin/jobs/:jobName/trigger",
+  authMiddleware,
+  roleMiddleware(["SUPER_ADMIN"]),
+  triggerJob,
 );
 
 module.exports = router;

@@ -44,13 +44,13 @@ const prisma = basePrisma.$extends({
  * =========================
  */
 
-basePrisma.$on("query", (e) => {
-  console.log("[DB QUERY]", {
-    query: e.query,
-    params: e.params,
-    durationMs: e.duration,
-  });
-});
+// basePrisma.$on("query", (e) => {
+//   console.log("[DB QUERY]", {
+//     query: e.query,
+//     params: e.params,
+//     durationMs: e.duration,
+//   });
+// });
 
 basePrisma.$on("warn", (e) => {
   console.warn("[DB WARN]", e.message);

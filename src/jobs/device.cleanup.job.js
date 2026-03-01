@@ -1,39 +1,47 @@
 const prisma = require("../config/prisma");
-const jobService = require("../modules/system/system.job.service");
 
-module.exports.start = () => {
-  setInterval(
-    async () => {
-      const startedAt = new Date();
+const BATCH_SIZE = 200;
+const MAX_LOOPS = 1000;
 
-      try {
-        const threshold = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+async function run() {
+  let cursor = null;
+  let loopGuard = 0;
 
-        await prisma.deviceToken.deleteMany({
-          where: { createdAt: { lt: threshold } },
-        });
+  try {
+    while (loopGuard < MAX_LOOPS) {
+      loopGuard++;
 
-        // ✅ SUCCESS LOG
-        await jobService.logJobExecution({
-          jobName: "device_cleanup_job",
-          status: "success",
-          startedAt,
-          finishedAt: new Date(),
-        });
-      } catch (error) {
-        // ❌ FAILURE LOG
-        await jobService.logJobExecution({
-          jobName: "device_cleanup_job",
-          status: "failed",
-          startedAt,
-          finishedAt: new Date(),
-          errorMessage: error.message,
-        });
+      const devices = await prisma.deviceToken.findMany({
+        where: {
+          userId: null,
+          customerId: null,
+        },
+        take: BATCH_SIZE,
+        ...(cursor && {
+          skip: 1,
+          cursor: { id: cursor },
+        }),
+        orderBy: { id: "asc" },
+        select: { id: true },
+      });
 
-        console.error("Device cleanup job failed:", error);
-        // Do NOT throw — prevent interval crash
-      }
-    },
-    24 * 60 * 60 * 1000,
-  );
-};
+      if (!devices.length) break;
+
+      const ids = devices.map((d) => d.id);
+
+      cursor = ids[ids.length - 1];
+
+      // Efficient atomic batch delete
+      await prisma.deviceToken.deleteMany({
+        where: {
+          id: { in: ids },
+        },
+      });
+    }
+  } catch (error) {
+    console.error("Device cleanup cron failed:", error);
+    throw error;
+  }
+}
+
+module.exports = { run };

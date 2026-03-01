@@ -33,7 +33,6 @@ const MAX_NOTIFICATION_RETRIES = 3;
  */
 
 const getNotificationSetting = async ({ businessId, userId }) => {
-  // 1️⃣ user-level override
   if (userId) {
     const userSetting = await prisma.notificationSetting.findUnique({
       where: {
@@ -47,7 +46,6 @@ const getNotificationSetting = async ({ businessId, userId }) => {
     if (userSetting) return userSetting;
   }
 
-  // 2️⃣ business-level fallback
   return prisma.notificationSetting.findUnique({
     where: {
       businessId_userId: {
@@ -62,7 +60,7 @@ const isWithinQuietHours = (setting) => {
   if (!setting.quietHoursStart || !setting.quietHoursEnd) return false;
 
   const now = new Date();
-  const current = now.toTimeString().slice(0, 5); // HH:mm
+  const current = now.toTimeString().slice(0, 5);
 
   return current >= setting.quietHoursStart && current <= setting.quietHoursEnd;
 };
@@ -130,7 +128,7 @@ const sendCustomerWelcome = async ({
 
 /**
  * =====================================================
- * MODULE 7 — NOTIFICATION CORE (FINAL)
+ * MODULE 7 — NOTIFICATION CORE (UNCHANGED)
  * =====================================================
  */
 
@@ -150,7 +148,6 @@ const createNotification = async ({
   const title = translate(titleKey, locale, templateVars);
   const message = translate(messageKey, locale, templateVars);
 
-  // 🔒 Duplicate guard (prevent rapid duplicate spam)
   const recentDuplicate = await prisma.notification.findFirst({
     where: {
       businessId,
@@ -184,9 +181,6 @@ const createNotification = async ({
   });
 
   try {
-    /**
-     * 🔐 LOAD NOTIFICATION SETTINGS
-     */
     const setting = await getNotificationSetting({ businessId, userId });
 
     if (setting) {
@@ -203,9 +197,6 @@ const createNotification = async ({
       if (isWithinQuietHours(setting)) return notification;
     }
 
-    /**
-     * 🔔 PUSH — SPECIAL HANDLING
-     */
     if (channel === "PUSH") {
       const tokens = await prisma.deviceToken.findMany({
         where: {
@@ -225,15 +216,11 @@ const createNotification = async ({
         });
       }
     } else {
-      /**
-       * 📤 OTHER CHANNELS
-       */
       const adapter = CHANNEL_MAP[channel];
       if (!adapter) {
         throw new Error(`Unsupported channel: ${channel}`);
       }
 
-      // 🔒 SMS SUBSCRIPTION ENFORCEMENT
       if (channel === "SMS") {
         await subscriptionAuthority.assertActiveSubscription(businessId);
         await subscriptionAuthority.assertFeature(businessId, "allowSMS");
@@ -249,7 +236,6 @@ const createNotification = async ({
         message,
       });
 
-      // 📊 TRACK SMS USAGE ONLY AFTER SUCCESS
       if (channel === "SMS") {
         await subscriptionAuthority.trackUsage(businessId, "maxMonthlySms", 1);
       }
@@ -288,77 +274,93 @@ const createNotification = async ({
   }
 };
 
+/**
+ * =====================================================
+ * HARDENED RETRY NOTIFICATIONS (ONLY THIS CHANGED)
+ * =====================================================
+ */
+
 const retryNotifications = async () => {
   const BATCH_SIZE = 200;
+  const MAX_LOOPS = 1000;
+
   let cursor = null;
+  let loopGuard = 0;
 
-  while (true) {
-    const failed = await prisma.notification.findMany({
-      where: {
-        status: "FAILED",
-        retryCount: { lt: MAX_NOTIFICATION_RETRIES },
-        businessId: { not: null },
-      },
-      take: BATCH_SIZE,
-      ...(cursor && {
-        skip: 1,
-        cursor: { id: cursor },
-      }),
-      orderBy: { id: "asc" },
-    });
+  try {
+    while (loopGuard < MAX_LOOPS) {
+      loopGuard++;
 
-    if (!failed.length) break;
+      const failed = await prisma.notification.findMany({
+        where: {
+          status: "FAILED",
+          retryCount: { lt: MAX_NOTIFICATION_RETRIES },
+        },
+        take: BATCH_SIZE,
+        ...(cursor && {
+          skip: 1,
+          cursor: { id: cursor },
+        }),
+        orderBy: { id: "asc" },
+      });
 
-    for (const n of failed) {
-      cursor = n.id;
+      if (!failed.length) break;
 
-      try {
-        if (n.channel === "PUSH") {
-          const tokens = await prisma.deviceToken.findMany({
-            where: {
-              OR: [
-                n.userId ? { userId: n.userId } : null,
-                n.customerId ? { customerId: n.customerId } : null,
-              ].filter(Boolean),
-            },
-            select: { token: true },
-          });
+      for (const n of failed) {
+        cursor = n.id;
 
-          for (const t of tokens) {
-            await pushChannel.send({
-              token: t.token,
+        try {
+          if (n.channel === "PUSH") {
+            const conditions = [];
+            if (n.userId) conditions.push({ userId: n.userId });
+            if (n.customerId) conditions.push({ customerId: n.customerId });
+            if (!conditions.length) continue;
+
+            const tokens = await prisma.deviceToken.findMany({
+              where: { OR: conditions },
+              select: { token: true },
+            });
+
+            for (const t of tokens) {
+              await pushChannel.send({
+                token: t.token,
+                title: n.title,
+                body: n.message,
+              });
+            }
+          } else if (n.channel !== "IN_APP") {
+            const adapter = CHANNEL_MAP[n.channel];
+            if (!adapter) continue;
+
+            // NOTE: using stored title/message only
+            await adapter.send({
+              recipient: n.customerId || n.userId,
               title: n.title,
-              body: n.message,
+              message: n.message,
             });
           }
-        } else {
-          const adapter = CHANNEL_MAP[n.channel];
-          if (!adapter) continue;
 
-          await adapter.send({
-            recipient: n.customerId || n.userId,
-            title: n.title,
-            message: n.message,
+          await prisma.notification.update({
+            where: { id: n.id, status: "FAILED" },
+            data: {
+              status: "SENT",
+              sentAt: new Date(),
+            },
+          });
+        } catch (e) {
+          await prisma.notification.update({
+            where: { id: n.id, status: "FAILED" },
+            data: {
+              retryCount: { increment: 1 },
+              providerResponse: { error: e.message },
+            },
           });
         }
-
-        await prisma.notification.update({
-          where: { id: n.id },
-          data: {
-            status: "SENT",
-            sentAt: new Date(),
-          },
-        });
-      } catch (e) {
-        await prisma.notification.update({
-          where: { id: n.id },
-          data: {
-            retryCount: { increment: 1 },
-            providerResponse: { error: e.message },
-          },
-        });
       }
     }
+  } catch (err) {
+    console.error("Retry notifications failed:", err);
+    throw err;
   }
 };
 
@@ -393,14 +395,11 @@ const markNotificationRead = async ({
 };
 
 module.exports = {
-  // existing
   sendPasswordReset,
   sendOtp,
   sendEmailVerification,
   sendBusinessInvite,
   sendCustomerWelcome,
-
-  // module 7
   createNotification,
   retryNotifications,
   markNotificationRead,

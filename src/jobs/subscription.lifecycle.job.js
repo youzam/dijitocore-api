@@ -1,22 +1,22 @@
 const prisma = require("../config/prisma");
-const jobService = require("../modules/system/system.job.service");
 const auditHelper = require("../utils/audit.helper");
 
 const BATCH_SIZE = 200;
+const GRACE_DAYS = 7;
+const MAX_LOOPS = 1000;
 
-async function runSubscriptionLifecycle() {
-  const startedAt = new Date();
+async function run() {
+  const now = new Date();
+  let cursor = null;
+  let loopGuard = 0;
 
   try {
-    const now = new Date();
-    let cursor = null;
+    while (loopGuard < MAX_LOOPS) {
+      loopGuard++;
 
-    while (true) {
       const subscriptions = await prisma.subscription.findMany({
         where: {
-          status: {
-            in: ["ACTIVE", "TRIAL", "GRACE"],
-          },
+          status: { in: ["ACTIVE", "TRIAL", "GRACE"] },
           endDate: {
             not: null,
             lte: now,
@@ -46,11 +46,26 @@ async function runSubscriptionLifecycle() {
             !sub.graceUntil
           ) {
             await prisma.$transaction(async (tx) => {
+              // Defensive re-check inside transaction
+              const current = await tx.subscription.findUnique({
+                where: { id: sub.id },
+              });
+
+              if (
+                !current ||
+                !["ACTIVE", "TRIAL"].includes(current.status) ||
+                current.graceUntil
+              ) {
+                return;
+              }
+
               await tx.subscription.update({
                 where: { id: sub.id },
                 data: {
                   status: "GRACE",
-                  graceUntil: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000),
+                  graceUntil: new Date(
+                    now.getTime() + GRACE_DAYS * 24 * 60 * 60 * 1000,
+                  ),
                 },
               });
 
@@ -75,6 +90,19 @@ async function runSubscriptionLifecycle() {
             sub.graceUntil <= now
           ) {
             await prisma.$transaction(async (tx) => {
+              const current = await tx.subscription.findUnique({
+                where: { id: sub.id },
+              });
+
+              if (
+                !current ||
+                current.status !== "GRACE" ||
+                !current.graceUntil ||
+                current.graceUntil > now
+              ) {
+                return;
+              }
+
               await tx.subscription.update({
                 where: { id: sub.id },
                 data: { status: "SUSPENDED" },
@@ -103,26 +131,12 @@ async function runSubscriptionLifecycle() {
         }
       }
     }
-
-    await jobService.logJobExecution({
-      jobName: "subscription_lifecycle_job",
-      status: "success",
-      startedAt,
-      finishedAt: new Date(),
-    });
   } catch (error) {
-    await jobService.logJobExecution({
-      jobName: "subscription_lifecycle_job",
-      status: "failed",
-      startedAt,
-      finishedAt: new Date(),
-      errorMessage: error.message,
-    });
-
     console.error("Subscription lifecycle cron failed:", error);
+    throw error;
   }
 }
 
 module.exports = {
-  runSubscriptionLifecycle,
+  run,
 };
