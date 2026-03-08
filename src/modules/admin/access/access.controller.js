@@ -1,18 +1,10 @@
 const catchAsync = require("../../../utils/catchAsync");
-const { bootstrapSystemService } = require("./access.service");
+const response = require("../../../utils/response");
 
-exports.bootstrapSystem = catchAsync(async (req, res) => {
-  const { email, password, currency = "TZS", trialDays = 14 } = req.body;
+const accessService = require("./access.service");
 
-  await bootstrapSystemService({
-    email,
-    password,
-    currency,
-    trialDays,
-  });
+exports.adminLogin = catchAsync(async (req, res) => {
+  const result = await accessService.adminLogin(req.body);
 
-  res.status(201).json({
-    success: true,
-    message: "System bootstrapped successfully",
-  });
+  return response.success(req, res, result);
 });

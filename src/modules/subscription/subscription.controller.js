@@ -63,22 +63,6 @@ exports.getPackages = catchAsync(async (req, res) => {
   return success(req, res, packages, 200, "subscription.fetched");
 });
 
-exports.createPackage = catchAsync(async (req, res) => {
-  const pkg = await subscriptionService.createPackage(req.body, req.user.id);
-
-  return success(req, res, pkg, 201, "subscription.package_created");
-});
-
-exports.updatePackage = catchAsync(async (req, res) => {
-  const pkg = await subscriptionService.updatePackage(
-    req.params.id,
-    req.body,
-    req.user.id,
-  );
-
-  return success(req, res, pkg, 200, "subscription.package_updated");
-});
-
 /* ===========================
    PAYMENT OPERATIONS
 =========================== */
@@ -99,36 +83,9 @@ exports.initiatePayment = catchAsync(async (req, res) => {
   );
 });
 
-exports.manualConfirmPayment = catchAsync(async (req, res) => {
-  const payment = await paymentService.adminManualConfirm({
-    paymentId: req.params.id,
-    userId: req.user.id,
-  });
-
-  return success(req, res, payment, 200, "subscription.payment_confirmed");
-});
-
-exports.reconcilePayment = catchAsync(async (req, res) => {
-  const payment = await paymentService.reconcilePayment({
-    paymentId: req.params.id,
-    userId: req.user.id,
-  });
-
-  return success(req, res, payment, 200, "payment.reconciled");
-});
-
-exports.getAllPayments = catchAsync(async (req, res) => {
-  const payments = await prisma.subscriptionPayment.findMany({
-    orderBy: { createdAt: "desc" },
-  });
-
-  return success(req, res, payments, 200, "payment.list_success");
-});
-
 /* ===========================
    SUBSCRIPTION PACKAGE ADMIN
 =========================== */
-
 exports.getPackageSchema = catchAsync(async (req, res) => {
   const pkg = await prisma.subscriptionPackage.findUnique({
     where: { id: req.params.id },
@@ -148,13 +105,4 @@ exports.getPackageSchema = catchAsync(async (req, res) => {
     200,
     "subscription.package_schema_fetched",
   );
-});
-
-exports.updatePackageConfiguration = catchAsync(async (req, res) => {
-  const updated = await subscriptionService.updatePackageConfiguration(
-    req.params.id,
-    req.body,
-  );
-
-  return success(req, res, updated, 200, "subscription.package_updated");
 });

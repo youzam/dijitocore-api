@@ -16,7 +16,6 @@ const {
   passwordResetRequestSchema,
   passwordResetSchema,
   acceptInviteSchema,
-  adminLoginSchema,
 } = require("./auth.validation");
 
 const router = express.Router();
@@ -54,18 +53,6 @@ router.post(
 );
 
 router.post("/logout", authMiddleware, authController.logout);
-
-/**
- * =====================================================
- * SYSTEM (SUPER ADMIN) LOGIN
- * =====================================================
- */
-router.post(
-  "/admin/login",
-  authRateLimiter,
-  validate(adminLoginSchema),
-  authController.systemLogin,
-);
 
 /**
  * =====================================================
@@ -136,13 +123,6 @@ router.post(
   authRateLimiter,
   validate(customerAuthValidation.requestOtp),
   customerAuthController.requestOtp,
-);
-
-router.post(
-  "/admin/users/:userId/force-logout",
-  authMiddleware,
-  roleMiddleware(["SUPER_ADMIN"]),
-  authController.forceLogoutUser,
 );
 
 module.exports = router;

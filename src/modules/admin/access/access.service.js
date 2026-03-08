@@ -1,5 +1,7 @@
 const bcrypt = require("bcryptjs");
 const prisma = require("../../../config/prisma");
+const AppError = require("../../../utils/AppError");
+const { signToken } = require("../../../utils/auth.helper");
 
 exports.bootstrapSystemService = async ({
   email,
@@ -60,5 +62,29 @@ exports.bootstrapSystemService = async ({
     });
 
     return settings;
+  });
+};
+
+exports.adminLogin = async ({ email, password }) => {
+  const admin = await prisma.user.findFirst({
+    where: {
+      email,
+      role: "SUPER_ADMIN",
+    },
+  });
+
+  if (!admin) {
+    throw new AppError("auth.invalid_credentials", 401);
+  }
+
+  const valid = await bcrypt.compare(password, admin.passwordHash);
+
+  if (!valid) {
+    throw new AppError("auth.invalid_credentials", 401);
+  }
+
+  return signToken({
+    sub: admin.id,
+    role: admin.role,
   });
 };

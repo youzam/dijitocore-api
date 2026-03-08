@@ -96,26 +96,6 @@ const customerVerifyOtp = catchAsync(async (req, res) => {
   return response.success(req, res, result);
 });
 
-/**
- * =====================================================
- * SYSTEM LOGIN (SUPER ADMIN)
- * =====================================================
- */
-const systemLogin = catchAsync(async (req, res) => {
-  const data = await authService.systemLogin(req.body);
-  return response.success(req, res, data);
-});
-
-/**
- * =====================================================
- * SUPER ADMIN — FORCE LOGOUT USER
- * =====================================================
- */
-const forceLogoutUser = catchAsync(async (req, res) => {
-  await authService.forceLogoutUser(req.params.userId);
-  return response.success(req, res, {});
-});
-
 module.exports = {
   ownerSignup,
   login,
@@ -128,6 +108,4 @@ module.exports = {
   customerVerifyOtp,
   verifyEmail,
   acceptInvite,
-  systemLogin,
-  forceLogoutUser,
 };

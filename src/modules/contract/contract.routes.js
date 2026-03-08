@@ -61,6 +61,7 @@ router.post(
   "/termination/:approvalId/approve",
   role(["BUSINESS_OWNER"]),
   subscriptionFeature("allowContracts"),
+  validate(contractValidation.approveTermination),
   contractController.approveTermination,
 );
 
@@ -69,6 +70,7 @@ router.post(
   "/termination/:approvalId/reject",
   role(["BUSINESS_OWNER"]),
   subscriptionFeature("allowContracts"),
+  validate(contractValidation.rejectTermination),
   contractController.rejectTermination,
 );
 

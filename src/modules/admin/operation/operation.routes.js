@@ -3,7 +3,6 @@ const express = require("express");
 const operationController = require("./operation.controller");
 const requirePermission = require("../../../middlewares/permission.middleware");
 const authMiddleware = require("../../../middlewares/auth.middleware");
-const roleMiddleware = require("../../../middlewares/role.middleware");
 
 const router = express.Router();
 
@@ -17,7 +16,6 @@ router.get("/jobs", operationController.getJobs);
 router.post(
   "/admin/jobs/:jobName/trigger",
   authMiddleware,
-  roleMiddleware(["SUPER_ADMIN"]),
   requirePermission({
     module: "OPERATIONS",
     action: "EXECUTE",

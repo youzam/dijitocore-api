@@ -13,9 +13,11 @@ const subscriptionRoutes = require("./modules/subscription/subscription.routes")
 const webhookRoutes = require("./modules/webhooks/webhooks.routes");
 
 const accessRoutes = require("./modules/admin/access/access.routes");
-const operationsRoutes = require("./modules/admin/operation/operation.routes");
+const governanceRoutes = require("./modules/admin/governance/governance.routes");
+const commerceRoutes = require("./modules/admin/commerce/commerce.routes");
 const securityRoutes = require("./modules/admin/security/security.routes");
-const settingsRoutes = require("./modules/admin/setting/setting.routes");
+const operationRoutes = require("./modules/admin/operation/operation.routes");
+const settingRoutes = require("./modules/admin/setting/setting.routes");
 
 const router = express.Router();
 
@@ -35,9 +37,11 @@ router.get("/metrics", async (req, res) => {
 });
 
 router.use("/admin/access", accessRoutes);
-router.use("/admin/operations", operationsRoutes);
+router.use("/admin/governance", governanceRoutes);
+router.use("/admin/commerce", commerceRoutes);
 router.use("/admin/security", securityRoutes);
-router.use("/admin/settings", settingsRoutes);
+router.use("/admin/operations", operationRoutes);
+router.use("/admin/settings", settingRoutes);
 
 router.use("/auth", authRoutes);
 router.use("/businesses", businessRoutes);

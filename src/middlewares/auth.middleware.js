@@ -69,7 +69,6 @@ const authMiddleware = async (req, res, next) => {
       return next(new AppError("auth.unauthorized", 401));
     }
 
-    // Owner before business creation is allowed
     if (payload.businessId && user.businessId !== payload.businessId) {
       return next(new AppError("auth.unauthorized", 401));
     }
@@ -125,6 +124,7 @@ const authMiddleware = async (req, res, next) => {
 
     req.auth.customer = customer;
     req.user = customer;
+
     return next();
   }
 
@@ -134,13 +134,24 @@ const authMiddleware = async (req, res, next) => {
    * =====================================================
    */
   if (payload.identity_type === "system") {
+    const admin = await prisma.user.findUnique({
+      where: { id: payload.sub },
+      select: {
+        id: true,
+        role: true,
+        status: true,
+      },
+    });
+
+    if (!admin || admin.status !== "ACTIVE") {
+      return next(new AppError("auth.unauthorized", 401));
+    }
+
     req.auth.system = true;
 
-    // Always attach full system user identity
     req.user = {
-      id: payload.sub,
-      role: payload.role || "SUPER_ADMIN",
-      businessId: req.params.businessId || null,
+      id: admin.id,
+      role: admin.role || "SUPER_ADMIN",
       identityType: "system",
     };
 

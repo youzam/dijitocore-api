@@ -42,14 +42,6 @@ router.post(
   subscriptionController.initiatePayment,
 );
 
-/* MANUAL PAYMENT CONFIRM (SUPER_ADMIN ONLY) */
-router.post(
-  "/payments/:id/manual-confirm",
-  auth,
-  role(["SUPER_ADMIN"]),
-  subscriptionController.manualConfirmPayment,
-);
-
 /* GET CURRENT SUBSCRIPTION */
 router.get(
   "/current",
@@ -59,62 +51,11 @@ router.get(
   subscriptionController.getCurrentSubscription,
 );
 
-/* ===========================
-   PACKAGE MANAGEMENT (SYSTEM)
-   =========================== */
-
-/* LIST PACKAGES */
 router.get(
   "/packages",
   auth,
-  role(["SUPER_ADMIN", "BUSINESS_OWNER"]),
+  role(["BUSINESS_OWNER"]),
   subscriptionController.getPackages,
-);
-
-/* CREATE PACKAGE */
-router.post(
-  "/packages",
-  auth,
-  role(["SUPER_ADMIN"]),
-  validate(subscriptionValidation.createPackage),
-  subscriptionController.createPackage,
-);
-
-/* UPDATE PACKAGE */
-router.patch(
-  "/packages/:id",
-  auth,
-  role(["SUPER_ADMIN"]),
-  validate(subscriptionValidation.updatePackage),
-  subscriptionController.updatePackage,
-);
-
-router.post(
-  "/payments/:id/reconcile",
-  auth,
-  role(["SUPER_ADMIN"]),
-  tenant,
-  subscriptionController.reconcilePayment,
-);
-
-router.get(
-  "/payments",
-  auth,
-  role(["SUPER_ADMIN"]),
-  tenant,
-  subscriptionController.getAllPayments,
-);
-
-router.get(
-  "/packages/:id/schema",
-  role(["SUPER_ADMIN"]),
-  subscriptionController.getPackageSchema,
-);
-
-router.patch(
-  "/packages/:id/config",
-  role(["SUPER_ADMIN"]),
-  subscriptionController.updatePackageConfiguration,
 );
 
 module.exports = router;

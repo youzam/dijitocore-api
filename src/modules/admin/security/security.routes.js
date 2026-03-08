@@ -1,27 +1,28 @@
 const express = require("express");
 
-const securityController = require("./security.controller");
-const requirePermission = require("../../../middlewares/permission.middleware");
-
 const router = express.Router();
 
+const authMiddleware = require("../../../middlewares/auth.middleware");
+const requirePermission = require("../../../middlewares/permission.middleware");
+
+const securityController = require("./security.controller");
+
+router.use(authMiddleware);
+
+/*
+|--------------------------------------------------------------------------
+| ADMIN SECURITY ACTIONS
+|--------------------------------------------------------------------------
+*/
+
 router.post(
-  "/incidents",
-  requirePermission({ module: "SECURITY", action: "CREATE", scope: "SYSTEM" }),
-  securityController.createIncident,
+  "/users/:userId/force-logout",
+  requirePermission({
+    module: "SECURITY",
+    action: "EXECUTE",
+    scope: "SYSTEM",
+  }),
+  securityController.forceLogoutUser,
 );
-router.patch(
-  "/incidents/:id",
-  requirePermission({ module: "SECURITY", action: "CREATE", scope: "SYSTEM" }),
-  securityController.updateIncident,
-);
-
-router.get(
-  "/integrity",
-  requirePermission({ module: "SECURITY", action: "EXECUTE", scope: "SYSTEM" }),
-  securityController.runChecks,
-);
-
-router.get("/errors", securityController.getErrors);
 
 module.exports = router;

@@ -24,30 +24,6 @@ router.post(
 );
 
 /**
- * BUSINESS LIFECYCLE (SYSTEM)
- */
-router.post(
-  "/:businessId/activate",
-  role(["SUPER_ADMIN"]),
-  controller.activateBusiness,
-);
-router.post(
-  "/:businessId/grace",
-  role(["SUPER_ADMIN"]),
-  controller.moveToGrace,
-);
-router.post(
-  "/:businessId/suspend",
-  role(["SUPER_ADMIN"]),
-  controller.suspendBusiness,
-);
-router.post(
-  "/:businessId/terminate",
-  role(["SUPER_ADMIN"]),
-  controller.terminateBusiness,
-);
-
-/**
  * BUSINESS SETTINGS (OWNER)
  */
 router.get(
@@ -120,7 +96,7 @@ router.post(
 router.get(
   "/:businessId",
   tenant,
-  role(["BUSINESS_OWNER", "SUPER_ADMIN"]),
+  role(["BUSINESS_OWNER"]),
   controller.getBusinessDetails,
 );
 

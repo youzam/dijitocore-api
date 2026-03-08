@@ -1,14 +1,27 @@
 const express = require("express");
 
-const accessController = require("./access.controller");
-const bootstrapMiddleware = require("../../../middlewares/bootstrap.middleware");
-
 const router = express.Router();
 
+const validate = require("../../../middlewares/validate.middleware");
+const {
+  authRateLimiter,
+} = require("../../../middlewares/rateLimit.middleware");
+
+const accessController = require("./access.controller");
+
+const { adminLoginSchema } = require("./access.validation");
+
+/*
+|--------------------------------------------------------------------------
+| ADMIN LOGIN
+|--------------------------------------------------------------------------
+*/
+
 router.post(
-  "/bootstrap",
-  bootstrapMiddleware,
-  accessController.bootstrapSystem,
+  "/login",
+  authRateLimiter,
+  validate(adminLoginSchema),
+  accessController.adminLogin,
 );
 
 module.exports = router;

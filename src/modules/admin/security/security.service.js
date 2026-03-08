@@ -154,3 +154,30 @@ exports.logSystemError = async (error) => {
     },
   });
 };
+
+/**
+ * =====================================================
+ * FORCE LOGOUT
+ * =====================================================
+ */
+exports.forceLogoutUser = async (userId) => {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (!user) {
+    throw new AppError("auth.user_not_found", 404);
+  }
+
+  await prisma.refreshToken.updateMany({
+    where: {
+      userId,
+      revokedAt: null,
+    },
+    data: {
+      revokedAt: new Date(),
+    },
+  });
+
+  return true;
+};

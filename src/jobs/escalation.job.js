@@ -22,6 +22,10 @@ async function run() {
     while (loopGuard < MAX_LOOPS) {
       loopGuard++;
 
+      if (loopGuard >= MAX_LOOPS) {
+        throw new Error("Job loop guard triggered");
+      }
+
       const schedules = await prisma.installmentSchedule.findMany({
         where: {
           status: ScheduleStatus.DUE,

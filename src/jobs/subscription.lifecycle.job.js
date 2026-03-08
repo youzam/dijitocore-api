@@ -14,6 +14,10 @@ async function run() {
     while (loopGuard < MAX_LOOPS) {
       loopGuard++;
 
+      if (loopGuard >= MAX_LOOPS) {
+        throw new Error("Job loop guard triggered");
+      }
+
       const subscriptions = await prisma.subscription.findMany({
         where: {
           status: { in: ["ACTIVE", "TRIAL", "GRACE"] },

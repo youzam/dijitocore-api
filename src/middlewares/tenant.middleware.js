@@ -19,10 +19,9 @@ const tenantMiddleware = async (req, res, next) => {
    */
   if (req.auth.identityType === "system") {
     if (req.params.businessId) {
-      req.user = {
-        businessId: req.params.businessId,
-        role: "SUPER_ADMIN",
-      };
+      req.user = req.user || {};
+      req.user.businessId = req.params.businessId;
+      req.user.role = req.user.role || "SUPER_ADMIN";
     }
 
     return next();
@@ -30,7 +29,7 @@ const tenantMiddleware = async (req, res, next) => {
 
   /**
    * =====================================================
-   * OWNER before business creation
+   * OWNER BEFORE BUSINESS CREATION
    * =====================================================
    */
   if (
@@ -43,31 +42,50 @@ const tenantMiddleware = async (req, res, next) => {
 
   /**
    * =====================================================
-   * Enforce business scope
+   * ENFORCE BUSINESS SCOPE
    * =====================================================
    */
   if (!req.auth.businessId) {
     return next(new AppError("auth.unauthorized", 401));
   }
 
-  /**
-   * If route includes businessId param, enforce match
-   */
   if (req.params.businessId && req.params.businessId !== req.auth.businessId) {
     return next(new AppError("auth.unauthorized", 403));
   }
 
   /**
    * =====================================================
+   * FAST PATH (JWT CLAIM OPTIMIZATION)
+   * =====================================================
+   * If token already contains business status + subscription
+   * we skip database query completely.
+   */
+  if (
+    req.auth.businessStatus &&
+    ["ACTIVE", "GRACE"].includes(req.auth.businessStatus) &&
+    req.auth.subscriptionActive === true
+  ) {
+    req.user = req.user || {};
+    req.user.businessId = req.auth.businessId;
+    return next();
+  }
+
+  /**
+   * =====================================================
    * HARDENING PATCH: BUSINESS + SUBSCRIPTION ENFORCEMENT
+   * OPTIMIZED SINGLE QUERY
    * =====================================================
    */
-
   try {
     const business = await prisma.business.findUnique({
       where: { id: req.auth.businessId },
       select: {
         status: true,
+        subscriptions: {
+          where: { status: "ACTIVE" },
+          select: { id: true },
+          take: 1,
+        },
       },
     });
 
@@ -75,23 +93,11 @@ const tenantMiddleware = async (req, res, next) => {
       return next(new AppError("auth.unauthorized", 403));
     }
 
-    // Allow ACTIVE and GRACE businesses
     if (!["ACTIVE", "GRACE"].includes(business.status)) {
       return next(new AppError("business.inactive", 403));
     }
 
-    /**
-     * Ensure active subscription exists
-     */
-    const activeSubscription = await prisma.subscription.findFirst({
-      where: {
-        businessId: req.auth.businessId,
-        status: "ACTIVE",
-      },
-      select: { id: true },
-    });
-
-    if (!activeSubscription) {
+    if (!business.subscriptions.length) {
       return next(new AppError("subscription.required", 403));
     }
   } catch (error) {
@@ -99,7 +105,9 @@ const tenantMiddleware = async (req, res, next) => {
   }
 
   /**
-   * Attach business context for controllers
+   * =====================================================
+   * ATTACH BUSINESS CONTEXT
+   * =====================================================
    */
   req.user = req.user || {};
   req.user.businessId = req.auth.businessId;

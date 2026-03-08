@@ -32,3 +32,13 @@ exports.runChecks = catchAsync(async (req, res) => {
 
   return success(req, res, result, 200, "system.integrityChecked");
 });
+
+/**
+ * =====================================================
+  FORCE LOGOUT USER
+ * =====================================================
+ */
+exports.forceLogoutUser = catchAsync(async (req, res) => {
+  await securityService.forceLogoutUser(req.params.userId);
+  return success(req, res, {});
+});

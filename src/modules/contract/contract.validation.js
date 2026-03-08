@@ -42,8 +42,6 @@ exports.terminateContract = Joi.object({
   reason: Joi.string().required(),
 });
 
-/* ================= APPROVAL ================= */
-
 exports.approveTermination = Joi.object({
   approvalId: Joi.string().uuid().required(),
 });
