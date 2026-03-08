@@ -1,8 +1,6 @@
-const prisma = require("../../config/prisma");
-const AppError = require("../../utils/AppError");
-const auditHelper = require("../../utils/audit.helper");
-
-const ALLOWED_GATEWAYS = ["SELCOM", "MPESA", "AIRTEL"];
+const prisma = require("../../../config/prisma");
+const AppError = require("../../../utils/AppError");
+const auditHelper = require("../../../utils/audit.helper");
 
 exports.getActiveGateway = async () => {
   const settings = await prisma.systemSetting.findFirst();

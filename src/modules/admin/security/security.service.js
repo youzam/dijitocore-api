@@ -1,4 +1,32 @@
-const prisma = require("../../config/prisma");
+const crypto = require("crypto");
+const AppError = require("../../../utils/AppError");
+const prisma = require("../../../config/prisma");
+
+exports.createIncident = async (data, userId) => {
+  return prisma.supportIncident.create({
+    data: {
+      title: data.title,
+      description: data.description,
+      severity: data.severity,
+      createdBy: userId,
+    },
+  });
+};
+
+exports.updateIncident = async (id, data) => {
+  const incident = await prisma.supportIncident.findUnique({
+    where: { id },
+  });
+
+  if (!incident) {
+    throw new AppError("incident.notFound", 404);
+  }
+
+  return prisma.supportIncident.update({
+    where: { id },
+    data,
+  });
+};
 
 exports.runIntegrityChecks = async () => {
   const issues = [];
@@ -86,4 +114,43 @@ exports.runIntegrityChecks = async () => {
   });
 
   return issues;
+};
+
+const generateSignature = (message, stack) => {
+  return crypto
+    .createHash("sha256")
+    .update(message + (stack || ""))
+    .digest("hex");
+};
+
+exports.logSystemError = async (error) => {
+  const signature = generateSignature(error.message, error.stack);
+
+  let group = await prisma.systemErrorGroup.findUnique({
+    where: { signature },
+  });
+
+  if (!group) {
+    group = await prisma.systemErrorGroup.create({
+      data: {
+        signature,
+        message: error.message,
+      },
+    });
+  } else {
+    await prisma.systemErrorGroup.update({
+      where: { id: group.id },
+      data: {
+        occurrence: { increment: 1 },
+      },
+    });
+  }
+
+  return prisma.systemError.create({
+    data: {
+      groupId: group.id,
+      stack: error.stack,
+      environment: process.env.NODE_ENV || "development",
+    },
+  });
 };

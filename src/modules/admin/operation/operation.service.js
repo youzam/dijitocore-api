@@ -1,4 +1,4 @@
-const prisma = require("../../config/prisma");
+const prisma = require("../../../config/prisma");
 
 exports.getSystemHealth = async () => {
   // 1. Database connectivity test
@@ -39,4 +39,28 @@ exports.getSystemHealth = async () => {
     failedJobsCount,
     errorRate,
   };
+};
+
+exports.logJobExecution = async ({
+  jobName,
+  status,
+  startedAt,
+  finishedAt,
+  errorMessage = null,
+  retryCount = 0,
+}) => {
+  const durationMs =
+    finishedAt && startedAt ? finishedAt.getTime() - startedAt.getTime() : null;
+
+  return prisma.systemJobLog.create({
+    data: {
+      jobName,
+      status,
+      startedAt,
+      finishedAt,
+      durationMs,
+      errorMessage,
+      retryCount,
+    },
+  });
 };

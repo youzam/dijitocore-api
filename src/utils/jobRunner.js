@@ -1,5 +1,5 @@
 const prisma = require("../config/prisma");
-const systemJobService = require("../modules/system/system.job.service");
+const systemJobService = require("../modules/admin/operation/operation.service");
 
 const instanceId = process.env.INSTANCE_ID || `instance-${process.pid}`;
 

@@ -2,7 +2,6 @@ const express = require("express");
 
 const { client } = require("./utils/metrics");
 const authRoutes = require("./modules/auth/auth.routes");
-const systemRoutes = require("./modules/system/system.routes");
 const businessRoutes = require("./modules/business/business.routes");
 const customerRoutes = require("./modules/customer/customer.routes");
 const contractRoutes = require("./modules/contract/contract.routes");
@@ -11,8 +10,12 @@ const dashboardRoutes = require("./modules/dashboard/dashboard.routes");
 const notificationRoutes = require("./modules/notification/notification.routes");
 const deviceRoutes = require("./modules/device/device.routes");
 const subscriptionRoutes = require("./modules/subscription/subscription.routes");
-
 const webhookRoutes = require("./modules/webhooks/webhooks.routes");
+
+const accessRoutes = require("./modules/admin/access/access.routes");
+const operationsRoutes = require("./modules/admin/operation/operation.routes");
+const securityRoutes = require("./modules/admin/security/security.routes");
+const settingsRoutes = require("./modules/admin/setting/setting.routes");
 
 const router = express.Router();
 
@@ -31,8 +34,12 @@ router.get("/metrics", async (req, res) => {
   res.end(await client.register.metrics());
 });
 
+router.use("/admin/access", accessRoutes);
+router.use("/admin/operations", operationsRoutes);
+router.use("/admin/security", securityRoutes);
+router.use("/admin/settings", settingsRoutes);
+
 router.use("/auth", authRoutes);
-router.use("/system", systemRoutes);
 router.use("/businesses", businessRoutes);
 router.use("/customers", customerRoutes);
 router.use("/contracts", contractRoutes);
@@ -41,7 +48,6 @@ router.use("/dashboards", dashboardRoutes);
 router.use("/notifications", notificationRoutes);
 router.use("/devices", deviceRoutes);
 router.use("/subscriptions", subscriptionRoutes);
-
 router.use("/webhooks", webhookRoutes);
 
 module.exports = router;

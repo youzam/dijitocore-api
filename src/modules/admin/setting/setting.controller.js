@@ -1,6 +1,6 @@
-const catchAsync = require("../../utils/catchAsync");
-const { success } = require("../../utils/response");
-const gatewayService = require("./system.gateway.service");
+const catchAsync = require("../../../utils/catchAsync");
+const { success } = require("../../../utils/response");
+const gatewayService = require("./setting.service");
 
 exports.getActiveGateway = catchAsync(async (req, res) => {
   const gateway = await gatewayService.getActiveGateway();
