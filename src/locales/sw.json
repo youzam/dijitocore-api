@@ -228,5 +228,24 @@
     "package_updated": "Kifurushi cha usajili kimefanikiwa kusasishwa.",
     "payment_pending_exists": "Kuna malipo yanayosubiri kwa usajili huu.",
     "same_package": "Usajili tayari upo kwenye kifurushi hiki."
+  },
+  "access": {
+    "system_bootstrapped": "Mfumo umeanzishwa kikamilifu",
+    "login_success": "Umefanikiwa kuingia",
+
+    "logout_success": "Umetoka kwenye mfumo",
+
+    "admin_created": "Admin ameundwa kikamilifu",
+    "admin_updated": "Taarifa za admin zimeboreshwa",
+    "admin_suspended": "Admin amesimamishwa",
+
+    "admin_role_updated": "Role ya admin imebadilishwa",
+
+    "profile_updated": "Wasifu umeboreshwa",
+
+    "password_changed": "Nenosiri limebadilishwa",
+    "password_reset": "Nenosiri limewekwa upya",
+
+    "session_revoked": "Session imeondolewa"
   }
 }

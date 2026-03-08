@@ -226,5 +226,22 @@
     "package_updated": "Subscription package updated successfully.",
     "payment_pending_exists": "There is already a pending payment for this subscription.",
     "same_package": "Subscription is already on this package."
+  },
+  "access": {
+    "system_bootstrapped": "System bootstrapped successfully",
+    "login_success": "Login successful",
+    "logout_success": "Logout successful",
+
+    "admin_created": "Admin created successfully",
+    "admin_updated": "Admin updated successfully",
+    "admin_suspended": "Admin suspended successfully",
+    "admin_role_updated": "Admin role updated successfully",
+
+    "profile_updated": "Profile updated successfully",
+
+    "password_changed": "Password changed successfully",
+    "password_reset": "Password reset successfully",
+
+    "session_revoked": "Session revoked successfully"
   }
 }

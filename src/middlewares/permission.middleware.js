@@ -1,55 +1,156 @@
 const prisma = require("../config/prisma");
-const AppError = require("../utils/AppError");
+const response = require("../utils/response");
 
-const scopeRank = {
-  SELF: 0,
-  USER: 1,
-  BUSINESS: 2,
-  SYSTEM: 3,
-  GLOBAL: 4,
-};
+/*
+|--------------------------------------------------------------------------
+| Permission Cache (In-Memory)
+|--------------------------------------------------------------------------
+*/
 
-module.exports = function requirePermission(required) {
+const permissionCache = new Map();
+
+/*
+|--------------------------------------------------------------------------
+| Build Permission Key
+|--------------------------------------------------------------------------
+*/
+
+function buildPermissionKey(module, action, scope) {
+  return `${module}_${action}_${scope}`;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Require Permission Middleware
+|--------------------------------------------------------------------------
+*/
+
+module.exports = function requirePermission({ module, action, scope }) {
   return async (req, res, next) => {
     try {
-      const admin = req.user;
+      /*
+      |--------------------------------------------------------------------------
+      | AUTH USER CHECK
+      |--------------------------------------------------------------------------
+      */
 
-      if (!admin) {
-        return next(new AppError("auth.notAuthenticated", 401));
+      const user = req.user;
+
+      if (!user) {
+        return response.error(req, res, null, 401, "auth.unauthorized");
       }
 
-      // SUPER_ADMIN bypass
-      if (admin.role === "SUPER_ADMIN") {
+      /*
+      |--------------------------------------------------------------------------
+      | SUPER ADMIN BYPASS
+      |--------------------------------------------------------------------------
+      */
+
+      if (user.role === "SUPER_ADMIN") {
         return next();
       }
 
-      const { module, action, scope } = required;
+      /*
+      |--------------------------------------------------------------------------
+      | BUILD PERMISSION KEY
+      |--------------------------------------------------------------------------
+      */
 
-      const permissions = await prisma.rolePermission.findMany({
-        where: { role: admin.role },
-        include: {
-          permission: true,
+      const permissionKey = buildPermissionKey(module, action, scope);
+
+      /*
+      |--------------------------------------------------------------------------
+      | CHECK PERMISSIONS FROM JWT
+      |--------------------------------------------------------------------------
+      */
+
+      if (user.permissions && Array.isArray(user.permissions)) {
+        if (user.permissions.includes(permissionKey)) {
+          return next();
+        }
+      }
+
+      /*
+      |--------------------------------------------------------------------------
+      | CACHE KEY
+      |--------------------------------------------------------------------------
+      */
+
+      const cacheKey = `${user.role}_${permissionKey}`;
+
+      if (permissionCache.has(cacheKey)) {
+        const allowed = permissionCache.get(cacheKey);
+
+        if (allowed) {
+          return next();
+        }
+
+        return response.error(req, res, null, 403, "auth.forbidden");
+      }
+
+      /*
+      |--------------------------------------------------------------------------
+      | FIND PERMISSION
+      |--------------------------------------------------------------------------
+      */
+
+      const permission = await prisma.permission.findUnique({
+        where: {
+          module_action_scope: {
+            module,
+            action,
+            scope,
+          },
         },
       });
 
-      const allowed = permissions.some((rp) => {
-        const perm = rp.permission;
+      if (!permission) {
+        permissionCache.set(cacheKey, false);
 
-        if (perm.module !== module) return false;
-        if (perm.action !== action) return false;
-
-        const permScopeRank = scopeRank[perm.scope];
-        const requiredScopeRank = scopeRank[scope];
-
-        return permScopeRank >= requiredScopeRank;
-      });
-
-      if (!allowed) {
-        return next(new AppError("auth.permissionDenied", 403));
+        return response.error(req, res, null, 403, "auth.permission_not_found");
       }
 
-      next();
+      /*
+      |--------------------------------------------------------------------------
+      | CHECK ROLE PERMISSION
+      |--------------------------------------------------------------------------
+      */
+
+      const rolePermission = await prisma.rolePermission.findFirst({
+        where: {
+          role: user.role,
+          permissionId: permission.id,
+        },
+      });
+
+      const allowed = !!rolePermission;
+
+      /*
+      |--------------------------------------------------------------------------
+      | CACHE RESULT
+      |--------------------------------------------------------------------------
+      */
+
+      permissionCache.set(cacheKey, allowed);
+
+      if (!allowed) {
+        return response.error(req, res, null, 403, "auth.forbidden");
+      }
+
+      /*
+      |--------------------------------------------------------------------------
+      | PERMISSION GRANTED
+      |--------------------------------------------------------------------------
+      */
+
+      return next();
     } catch (error) {
+      /*
+      |--------------------------------------------------------------------------
+      | ERROR HANDLER
+      |--------------------------------------------------------------------------
+      */
+
       next(error);
     }
   };

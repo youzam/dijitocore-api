@@ -11,6 +11,9 @@ const localeMiddleware = require("./middlewares/locale.middleware");
 const requestIdMiddleware = require("./middlewares/requestId.middleware");
 const loggerMiddleware = require("./middlewares/logger.middleware");
 const metricsMiddleware = require("./middlewares/metrics.middleware");
+const adminAudit = require("./middlewares/adminAudit.middleware");
+const adminActionRateLimit = require("./middlewares/adminActionRateLimit.middleware");
+const suspiciousActivity = require("./middlewares/suspiciousActivity.middleware");
 const corsConfig = require("./config/cors");
 
 const app = express();
@@ -50,6 +53,9 @@ app.use(requestIdMiddleware);
 app.use(localeMiddleware);
 app.use(metricsMiddleware);
 app.use(loggerMiddleware);
+app.use(adminActionRateLimit);
+app.use(suspiciousActivity);
+app.use(adminAudit);
 
 app.use("/api/v1", routes);
 

@@ -18,13 +18,41 @@ datasource db {
 //////////////////////////////////////////////////////
 
 model SuperAdmin {
-  id        String      @id @default(uuid())
-  email     String      @unique
-  password  String
-  role      UserRole
-  status    AdminStatus
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
+  id            String   @id @default(uuid())
+  email         String   @unique
+  password      String
+  role          AdminRole
+  status        AdminStatus
+
+  loginAttempts Int      @default(0)
+  lockUntil     DateTime?
+
+  forcePasswordChange Boolean @default(false)
+
+  mfaEnabled Boolean @default(false)
+  mfaSecret  String?
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  sessions      AdminSession[]
+}
+
+model AdminSession {
+  id        String   @id @default(uuid())
+
+  adminId   String
+  admin     SuperAdmin @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  ip        String?
+  userAgent String?
+  deviceFingerprint String?
+
+  refreshToken String?
+  createdAt DateTime @default(now())
+  lastSeen  DateTime
+
+  @@index([adminId])
 }
 
 model SystemSetting {
@@ -32,13 +60,38 @@ model SystemSetting {
   currency             String
   activePaymentGateway String  @default("SELCOM")
   isBootstrapped       Boolean @default(false)
-
-  // ✅ SECURITY SETTINGS
+  
   maxLoginAttempts Int @default(5)
   lockTimeMinutes  Int @default(15)
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Permission {
+  id        String   @id @default(uuid())
+
+  module    String
+  action    String
+  scope     String
+
+  createdAt DateTime @default(now())
+
+  rolePermissions RolePermission[]
+
+  @@unique([module, action, scope])
+}
+
+model RolePermission {
+  id           String @id @default(uuid())
+
+  role         AdminRole
+  permissionId String
+
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  createdAt    DateTime @default(now())
+
+  @@unique([role, permissionId])
 }
 
 //////////////////////////////////////////////////////
@@ -713,6 +766,36 @@ model AuditLog {
   @@index([entityType])
   @@index([entityId])
   @@index([createdAt])
+  @@index([action])
+}
+model SuspiciousActivity {
+  id        String   @id @default(uuid())
+
+  adminId   String?
+  action    String
+  ip        String?
+  endpoint  String?
+  meta      Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([adminId])
+  @@index([action])
+}
+
+model AdminImpersonation {
+  id            String   @id @default(uuid())
+
+  adminId       String
+  targetUserId  String
+  startedAt     DateTime @default(now())
+  endedAt       DateTime?
+
+  ip            String?
+  userAgent     String?
+
+  @@index([adminId])
+  @@index([targetUserId])
 }
 
 model SystemJobLog {
@@ -811,13 +894,15 @@ enum GatewayStatus {
   UNKNOWN
 }
 
-enum UserRole {
+enum AdminRole {
   SUPER_ADMIN
   FINANCE_ADMIN
   SECURITY_ADMIN
   SUPPORT_ADMIN
   OPERATIONS_ADMIN
   READ_ONLY_AUDITOR
+}
+enum UserRole {
   BUSINESS_OWNER
   MANAGER
   STAFF
@@ -865,7 +950,7 @@ enum CustomerStatus {
 
 enum AdminStatus {
   ACTIVE
-  INACTIVE
+  SUSPENDED
 }
 
 enum ContractStatus {
