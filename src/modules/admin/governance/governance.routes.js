@@ -1,18 +1,21 @@
 const express = require("express");
 
-const router = express.Router();
-
-const auth = require("../../../middlewares/auth.middleware");
-const requirePermission = require("../../../middlewares/permission.middleware");
 const governanceController = require("./governance.controller");
-const contractController = require("../../contract/contract.controller");
-const businessController = require("../../business/business.controller");
+const requirePermission = require("../../../middlewares/permission.middleware");
+const auth = require("../../../middlewares/auth.middleware");
 
-router.use(auth);
+const router = express.Router();
 
 /*
 |--------------------------------------------------------------------------
-| BUSINESS GOVERNANCE
+| GLOBAL AUTH PROTECTION
+|--------------------------------------------------------------------------
+| All governance routes require authentication first
+*/
+router.use(auth);
+/*
+|--------------------------------------------------------------------------
+| EXISTING BUSINESS STATUS ROUTES (UNCHANGED)
 |--------------------------------------------------------------------------
 */
 
@@ -56,6 +59,150 @@ router.post(
   governanceController.terminateBusiness,
 );
 
+/*
+|--------------------------------------------------------------------------
+| BUSINESS GOVERNANCE
+|--------------------------------------------------------------------------
+*/
+
+router.get(
+  "/businesses",
+  requirePermission({
+    module: "GOVERNANCE",
+    action: "VIEW",
+    scope: "BUSINESS",
+  }),
+  governanceController.listBusinesses,
+);
+
+router.get(
+  "/businesses/:businessId/timeline",
+  requirePermission({
+    module: "GOVERNANCE",
+    action: "VIEW",
+    scope: "BUSINESS",
+  }),
+  governanceController.getBusinessTimeline,
+);
+
+router.get(
+  "/businesses/:businessId/revenue",
+  requirePermission({
+    module: "GOVERNANCE",
+    action: "VIEW",
+    scope: "BUSINESS",
+  }),
+  governanceController.getBusinessRevenueSummary,
+);
+
+router.patch(
+  "/businesses/:businessId/change-subscription",
+  requirePermission({
+    module: "GOVERNANCE",
+    action: "EDIT",
+    scope: "BUSINESS",
+  }),
+  governanceController.changeBusinessSubscription,
+);
+
+router.patch(
+  "/businesses/:businessId/extend-grace",
+  requirePermission({
+    module: "GOVERNANCE",
+    action: "EDIT",
+    scope: "BUSINESS",
+  }),
+  governanceController.extendBusinessGracePeriod,
+);
+
+/*
+|--------------------------------------------------------------------------
+| USER GOVERNANCE
+|--------------------------------------------------------------------------
+*/
+
+router.get(
+  "/users",
+  requirePermission({ module: "GOVERNANCE", action: "VIEW", scope: "USER" }),
+  governanceController.listUsers,
+);
+
+router.patch(
+  "/users/:userId/lock",
+  requirePermission({ module: "GOVERNANCE", action: "EDIT", scope: "USER" }),
+  governanceController.lockUser,
+);
+
+router.patch(
+  "/users/:userId/unlock",
+  requirePermission({ module: "GOVERNANCE", action: "EDIT", scope: "USER" }),
+  governanceController.unlockUser,
+);
+
+router.post(
+  "/users/:userId/reset-password",
+  requirePermission({ module: "GOVERNANCE", action: "EDIT", scope: "USER" }),
+  governanceController.resetUserPassword,
+);
+
+router.post(
+  "/users/:userId/force-logout",
+  requirePermission({ module: "GOVERNANCE", action: "EDIT", scope: "USER" }),
+  governanceController.forceLogoutUser,
+);
+
+router.post(
+  "/users/:userId/impersonate",
+  requirePermission({ module: "GOVERNANCE", action: "EDIT", scope: "USER" }),
+  governanceController.impersonateUser,
+);
+
+/*
+|--------------------------------------------------------------------------
+| CUSTOMER GOVERNANCE
+|--------------------------------------------------------------------------
+*/
+
+router.get(
+  "/customers/:customerId",
+  requirePermission({
+    module: "GOVERNANCE",
+    action: "VIEW",
+    scope: "CUSTOMER",
+  }),
+  governanceController.getCustomerSummary,
+);
+
+router.patch(
+  "/customers/:customerId/blacklist",
+  requirePermission({
+    module: "GOVERNANCE",
+    action: "EDIT",
+    scope: "CUSTOMER",
+  }),
+  governanceController.blacklistCustomer,
+);
+
+router.patch(
+  "/customers/:customerId/unblacklist",
+  requirePermission({
+    module: "GOVERNANCE",
+    action: "EDIT",
+    scope: "CUSTOMER",
+  }),
+  governanceController.unblacklistCustomer,
+);
+
+router.patch(
+  "/customers/:customerId/unblacklist",
+  requirePermission({
+    module: "GOVERNANCE",
+    action: "EDIT",
+    scope: "CUSTOMER",
+  }),
+  governanceController.unblacklistCustomer,
+);
+
 router.get(
   "/businesses/:businessId",
   requirePermission({
@@ -63,26 +210,47 @@ router.get(
     action: "VIEW",
     scope: "BUSINESS",
   }),
-  businessController.getBusinessDetails,
+  governanceController.getBusinessProfile,
 );
 
-router.patch(
-  "/contracts/:id/terminate",
-  requirePermission({
-    module: "GOVERNANCE",
-    action: "EDIT",
-    scope: "BUSINESS",
-  }),
-  contractController.terminateContract,
-);
 router.post(
-  "/business-users/:userId/activate",
+  "/users/:userId/reset-password",
   requirePermission({
     module: "GOVERNANCE",
-    action: "EDIT",
-    scope: "BUSINESS",
+    action: "RESET",
+    scope: "USER",
   }),
-  businessController.activateBusinessUser,
+  governanceController.resetUserPassword,
+);
+
+router.get(
+  "/audit-logs",
+  requirePermission({
+    module: "GOVERNANCE",
+    action: "VIEW",
+    scope: "AUDIT",
+  }),
+  governanceController.listAdminAuditLogs,
+);
+
+router.get(
+  "/risk-flags",
+  requirePermission({
+    module: "GOVERNANCE",
+    action: "VIEW",
+    scope: "RISK",
+  }),
+  governanceController.getRiskFlags,
+);
+
+router.get(
+  "/search",
+  requirePermission({
+    module: "GOVERNANCE",
+    action: "VIEW",
+    scope: "SEARCH",
+  }),
+  governanceController.globalSearch,
 );
 
 module.exports = router;
