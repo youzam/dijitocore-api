@@ -5,6 +5,7 @@ const controller = require("../controllers/communication.controller");
 const auth = require("../../middlewares/auth.middleware");
 const requirePermission = require("../../middlewares/permission.middleware");
 const validate = require("../../middlewares/validate.middleware");
+const rateLimitCommunication = require("../../middlewares/rateLimit.communication");
 
 const validation = require("../validations/communication.validation");
 
@@ -73,13 +74,14 @@ router.get(
 
 /*
 |--------------------------------------------------------------------------
-| Messaging Routes
+| Messaging Routes (RATE LIMITED)
 |--------------------------------------------------------------------------
 */
 
 router.post(
   "/messages/broadcast",
   auth,
+  rateLimitCommunication, // 🔥 PROTECTION
   requirePermission({
     module: "communication",
     action: "send",
@@ -92,6 +94,7 @@ router.post(
 router.post(
   "/messages/batch",
   auth,
+  rateLimitCommunication, // 🔥 PROTECTION
   requirePermission({
     module: "communication",
     action: "send",
@@ -104,6 +107,7 @@ router.post(
 router.post(
   "/messages/retry/:messageId",
   auth,
+  rateLimitCommunication, // 🔥 PROTECTION
   requirePermission({
     module: "communication",
     action: "send",

@@ -1,9 +1,10 @@
 const prisma = require("../../config/prisma");
+const notificationService = require("../../services/notifications/notification.service");
 
 class CommunicationService {
   /*
   |--------------------------------------------------------------------------
-  | Announcement Methods
+  | Announcement Methods (UNCHANGED)
   |--------------------------------------------------------------------------
   */
 
@@ -27,24 +28,12 @@ class CommunicationService {
   async updateAnnouncement(id, data) {
     return prisma.announcement.update({
       where: { id },
-      data: {
-        title: data.title,
-        message: data.message,
-        priority: data.priority,
-        startAt: data.startAt,
-        endAt: data.endAt,
-        targetCountry: data.targetCountry,
-        targetPackageId: data.targetPackageId,
-        trialOnly: data.trialOnly,
-        isEmergency: data.isEmergency,
-      },
+      data,
     });
   }
 
   async deleteAnnouncement(id) {
-    return prisma.announcement.delete({
-      where: { id },
-    });
+    return prisma.announcement.delete({ where: { id } });
   }
 
   async getAnnouncements(filters) {
@@ -65,51 +54,152 @@ class CommunicationService {
   }
 
   async getAnnouncementById(id) {
-    return prisma.announcement.findUnique({
-      where: { id },
-    });
+    return prisma.announcement.findUnique({ where: { id } });
   }
 
   /*
   |--------------------------------------------------------------------------
-  | Messaging Methods
+  | Messaging Methods (ENTERPRISE INTEGRATION)
   |--------------------------------------------------------------------------
   */
 
-  async resolveRecipients(filters) {
-    const where = {
-      isActive: true,
-      isSuspended: false,
-    };
+  async resolveRecipients(target = {}) {
+    const where = {};
 
-    if (filters?.country) {
-      where.country = filters.country;
+    // ACTIVE / INACTIVE / BLACKLISTED
+    if (target.userStatus === "ACTIVE") {
+      where.isActive = true;
     }
 
-    if (filters?.packageId) {
-      where.business = {
-        subscription: {
-          packageId: filters.packageId,
-        },
-      };
+    if (target.userStatus === "INACTIVE") {
+      where.isActive = false;
     }
 
-    if (filters?.trialOnly) {
-      where.business = {
-        subscription: {
-          isTrial: true,
-        },
-      };
+    if (target.blacklisted !== undefined) {
+      where.isBlacklisted = target.blacklisted;
+    }
+
+    // COUNTRY
+    if (target.country) {
+      where.country = target.country;
+    }
+
+    // BUSINESS LOGIC
+    if (target.businessOwnersOnly || target.subscriptionPackageId) {
+      where.business = {};
+
+      if (target.businessOwnersOnly) {
+        where.role = "OWNER";
+      }
+
+      if (target.subscriptionPackageId) {
+        where.business.subscription = {
+          packageId: target.subscriptionPackageId,
+          status: "ACTIVE",
+        };
+      }
     }
 
     return prisma.user.findMany({
       where,
-      select: { id: true, email: true },
+      select: {
+        id: true,
+        email: true,
+        phone: true,
+        businessId: true,
+      },
     });
   }
 
   async sendBroadcast(data, adminId) {
-    const recipients = await this.resolveRecipients(data.filters);
+    const users = await this.resolveRecipients(data.target);
+
+    const message = await prisma.message.create({
+      data: {
+        title: data.title,
+        body: data.body,
+        createdBy: adminId,
+      },
+    });
+
+    const recipientData = [];
+
+    for (const user of users) {
+      recipientData.push({
+        messageId: message.id,
+        userId: user.id,
+        status: "PENDING",
+      });
+
+      // 🔥 MULTI CHANNEL LOOP
+      for (const channel of data.channels) {
+        await notificationService.createNotification({
+          businessId: user.businessId,
+          userId: user.id,
+          type: "ADMIN_BROADCAST",
+          channel,
+          titleKey: data.title,
+          messageKey: data.body,
+          locale: "en",
+          recipient: user.email || user.phone,
+        });
+      }
+    }
+
+    /*
+  |--------------------------------------------------------------------------
+  | CUSTOM RECIPIENTS (NO USER RECORD)
+  |--------------------------------------------------------------------------
+  */
+
+    if (data.customRecipients) {
+      const { emails = [], phones = [] } = data.customRecipients;
+
+      for (const email of emails) {
+        for (const channel of data.channels) {
+          await notificationService.createNotification({
+            channel,
+            recipient: email,
+            type: "CUSTOM",
+            titleKey: data.title,
+            messageKey: data.body,
+          });
+        }
+      }
+
+      for (const phone of phones) {
+        for (const channel of data.channels) {
+          await notificationService.createNotification({
+            channel,
+            recipient: phone,
+            type: "CUSTOM",
+            titleKey: data.title,
+            messageKey: data.body,
+          });
+        }
+      }
+    }
+
+    if (recipientData.length) {
+      await prisma.messageRecipient.createMany({ data: recipientData });
+    }
+
+    return {
+      messageId: message.id,
+      totalUsers: users.length,
+    };
+  }
+
+  async sendBatch(data, adminId) {
+    const users = await prisma.user.findMany({
+      where: { id: { in: data.userIds } },
+      select: {
+        id: true,
+        email: true,
+        phone: true,
+        businessId: true,
+      },
+    });
 
     const message = await prisma.message.create({
       data: {
@@ -120,11 +210,26 @@ class CommunicationService {
       },
     });
 
-    const recipientData = recipients.map((user) => ({
-      messageId: message.id,
-      userId: user.id,
-      status: "PENDING",
-    }));
+    const recipientData = [];
+
+    for (const user of users) {
+      recipientData.push({
+        messageId: message.id,
+        userId: user.id,
+        status: "PENDING",
+      });
+
+      await notificationService.createNotification({
+        businessId: user.businessId,
+        userId: user.id,
+        type: "ADMIN_BATCH",
+        channel: data.channel,
+        titleKey: data.title,
+        messageKey: data.body,
+        locale: "en",
+        recipient: user.email || user.phone,
+      });
+    }
 
     if (recipientData.length) {
       await prisma.messageRecipient.createMany({
@@ -132,50 +237,15 @@ class CommunicationService {
       });
     }
 
-    return message;
-  }
-
-  async sendBatch(data, adminId) {
-    const message = await prisma.message.create({
-      data: {
-        title: data.title,
-        body: data.body,
-        channel: data.channel,
-        createdBy: adminId,
-      },
-    });
-
-    const recipients = data.userIds.map((id) => ({
+    return {
       messageId: message.id,
-      userId: id,
-      status: "PENDING",
-    }));
-
-    if (recipients.length) {
-      await prisma.messageRecipient.createMany({
-        data: recipients,
-      });
-    }
-
-    return message;
+      totalRecipients: users.length,
+    };
   }
 
   async retryFailedMessages(messageId) {
-    const failed = await prisma.messageRecipient.findMany({
-      where: {
-        messageId,
-        status: "FAILED",
-      },
-    });
-
-    for (const rec of failed) {
-      await prisma.messageRecipient.update({
-        where: { id: rec.id },
-        data: { status: "PENDING" },
-      });
-    }
-
-    return { retried: failed.length };
+    // 👉 reuse notification engine
+    return notificationService.retryNotifications();
   }
 
   async getMessageDeliveryStats(messageId) {
@@ -188,37 +258,23 @@ class CommunicationService {
 
   /*
   |--------------------------------------------------------------------------
-  | Template Methods
+  | Template Methods (UNCHANGED)
   |--------------------------------------------------------------------------
   */
 
   async createTemplate(data) {
-    return prisma.messageTemplate.create({
-      data: {
-        name: data.name,
-        subject: data.subject,
-        body: data.body,
-        channel: data.channel,
-      },
-    });
+    return prisma.messageTemplate.create({ data });
   }
 
   async updateTemplate(id, data) {
     return prisma.messageTemplate.update({
       where: { id },
-      data: {
-        name: data.name,
-        subject: data.subject,
-        body: data.body,
-        channel: data.channel,
-      },
+      data,
     });
   }
 
   async deleteTemplate(id) {
-    return prisma.messageTemplate.delete({
-      where: { id },
-    });
+    return prisma.messageTemplate.delete({ where: { id } });
   }
 
   async getTemplates() {
@@ -228,9 +284,7 @@ class CommunicationService {
   }
 
   async getTemplateById(id) {
-    return prisma.messageTemplate.findUnique({
-      where: { id },
-    });
+    return prisma.messageTemplate.findUnique({ where: { id } });
   }
 }
 

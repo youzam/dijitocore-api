@@ -39,11 +39,20 @@ exports.updateAnnouncement = Joi.object({
 exports.sendBroadcast = Joi.object({
   title: Joi.string().required(),
   body: Joi.string().required(),
-  channel: Joi.string().required(),
-  filters: Joi.object({
+
+  channels: Joi.array().items(Joi.string()).min(1).required(),
+
+  target: Joi.object({
+    userStatus: Joi.string(),
     country: Joi.string(),
-    packageId: Joi.string(),
-    trialOnly: Joi.boolean(),
+    subscriptionPackageId: Joi.string(),
+    businessOwnersOnly: Joi.boolean(),
+    blacklisted: Joi.boolean(),
+  }),
+
+  customRecipients: Joi.object({
+    emails: Joi.array().items(Joi.string().email()),
+    phones: Joi.array().items(Joi.string()),
   }),
 });
 

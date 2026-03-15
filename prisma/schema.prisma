@@ -35,7 +35,8 @@ model SuperAdmin {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  sessions AdminSession[]
+  sessions      AdminSession[]
+  reportExports ReportExport[]
 }
 
 model AdminSession {
@@ -974,16 +975,16 @@ model JobLock {
 }
 
 model ReportExport {
-  id          String   @id @default(uuid())
+  id          String    @id @default(uuid())
   type        String
   format      String
-  status      String   // PENDING | COMPLETED | FAILED
+  status      String // PENDING | COMPLETED | FAILED
   filePath    String?
   requestedBy String
-  createdAt   DateTime @default(now())
+  createdAt   DateTime  @default(now())
   completedAt DateTime?
 
-  admin       Admin    @relation(fields: [requestedBy], references: [id])
+  admin SuperAdmin @relation(fields: [requestedBy], references: [id])
 }
 
 ///////////////////////////////////
