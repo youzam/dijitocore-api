@@ -357,5 +357,23 @@
 
     "exportNotReady": "Ripoti bado haijawa tayari",
     "exportFailed": "Uundaji wa ripoti umeshindikana"
+  },
+  "communication": {
+    "announcement_created": "Tangazo limeundwa kwa mafanikio",
+    "announcement_updated": "Tangazo limesasishwa kwa mafanikio",
+    "announcement_deleted": "Tangazo limefutwa kwa mafanikio",
+    "announcements_fetched": "Matangazo yamepatikana kwa mafanikio",
+    "announcement_fetched": "Tangazo limepatikana kwa mafanikio",
+
+    "broadcast_sent": "Ujumbe wa matangazo umetumwa kwa mafanikio",
+    "batch_sent": "Ujumbe wa kundi umetumwa kwa mafanikio",
+    "retry_success": "Ujumbe ulioshindikana umetumwa tena kwa mafanikio",
+    "stats_fetched": "Takwimu za uwasilishaji wa ujumbe zimepatikana",
+
+    "template_created": "Template imeundwa kwa mafanikio",
+    "template_updated": "Template imesasishwa kwa mafanikio",
+    "template_deleted": "Template imefutwa kwa mafanikio",
+    "templates_fetched": "Templates zimepatikana kwa mafanikio",
+    "template_fetched": "Template imepatikana kwa mafanikio"
   }
 }

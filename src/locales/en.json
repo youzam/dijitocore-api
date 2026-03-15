@@ -355,5 +355,23 @@
 
     "exportNotReady": "Report is not ready yet",
     "exportFailed": "Report export failed"
+  },
+  "communication": {
+    "announcement_created": "Announcement created successfully",
+    "announcement_updated": "Announcement updated successfully",
+    "announcement_deleted": "Announcement deleted successfully",
+    "announcements_fetched": "Announcements fetched successfully",
+    "announcement_fetched": "Announcement fetched successfully",
+
+    "broadcast_sent": "Broadcast message sent successfully",
+    "batch_sent": "Batch message sent successfully",
+    "retry_success": "Failed messages retried successfully",
+    "stats_fetched": "Message delivery stats fetched successfully",
+
+    "template_created": "Template created successfully",
+    "template_updated": "Template updated successfully",
+    "template_deleted": "Template deleted successfully",
+    "templates_fetched": "Templates fetched successfully",
+    "template_fetched": "Template fetched successfully"
   }
 }

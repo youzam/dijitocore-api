@@ -1,25 +1,66 @@
-const AppError = require("../utils/AppError");
+const Joi = require("joi");
 
-/**
- * =====================================================
- * REQUEST VALIDATION MIDDLEWARE (JOI)
- * =====================================================
- */
 const validate = (schema) => {
   return (req, res, next) => {
-    const { error, value } = schema.validate(req.body, {
+    let validationSchema;
+
+    /*
+    |--------------------------------------------------------------------------
+    | Support BOTH Patterns (Backward Compatible)
+    |--------------------------------------------------------------------------
+    | 1. Joi.object({...})                    → body only (legacy)
+    | 2. { body, params, query }             → full validation (new)
+    */
+
+    if (schema instanceof Joi.ObjectSchema) {
+      // legacy (body only)
+      validationSchema = Joi.object({
+        body: schema,
+      });
+    } else {
+      // new enterprise pattern
+      validationSchema = Joi.object({
+        body: schema.body || Joi.object({}),
+        params: schema.params || Joi.object({}),
+        query: schema.query || Joi.object({}),
+      });
+    }
+
+    const data = {
+      body: req.body,
+      params: req.params,
+      query: req.query,
+    };
+
+    const { error, value } = validationSchema.validate(data, {
       abortEarly: false,
       stripUnknown: true,
     });
 
     if (error) {
-      const message = error.details.map((detail) => detail.message).join(", ");
+      const errors = error.details.map((err) => ({
+        field: err.path.join("."),
+        message: err.message,
+      }));
 
-      return next(new AppError(message, 400));
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        errors,
+      });
     }
 
-    req.body = value;
-    next();
+    /*
+    |--------------------------------------------------------------------------
+    | Attach sanitized values back to request
+    |--------------------------------------------------------------------------
+    */
+
+    req.body = value.body;
+    req.params = value.params;
+    req.query = value.query;
+
+    return next();
   };
 };
 
