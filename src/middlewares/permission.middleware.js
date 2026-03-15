@@ -52,11 +52,12 @@ module.exports = function requirePermission({ module, action, scope }) {
 
       /*
       |--------------------------------------------------------------------------
-      | BUILD PERMISSION KEY
+      | BUILD PERMISSION KEYS
       |--------------------------------------------------------------------------
       */
 
       const permissionKey = buildPermissionKey(module, action, scope);
+      const globalPermissionKey = buildPermissionKey(module, action, "GLOBAL");
 
       /*
       |--------------------------------------------------------------------------
@@ -66,6 +67,11 @@ module.exports = function requirePermission({ module, action, scope }) {
 
       if (user.permissions && Array.isArray(user.permissions)) {
         if (user.permissions.includes(permissionKey)) {
+          return next();
+        }
+
+        // 🔥 GLOBAL FALLBACK (JWT LEVEL)
+        if (user.permissions.includes(globalPermissionKey)) {
           return next();
         }
       }
@@ -90,11 +96,11 @@ module.exports = function requirePermission({ module, action, scope }) {
 
       /*
       |--------------------------------------------------------------------------
-      | FIND PERMISSION
+      | FIND PERMISSION (EXACT)
       |--------------------------------------------------------------------------
       */
 
-      const permission = await prisma.permission.findUnique({
+      let permission = await prisma.permission.findUnique({
         where: {
           module_action_scope: {
             module,
@@ -103,6 +109,24 @@ module.exports = function requirePermission({ module, action, scope }) {
           },
         },
       });
+
+      /*
+      |--------------------------------------------------------------------------
+      | GLOBAL FALLBACK (DB LEVEL)
+      |--------------------------------------------------------------------------
+      */
+
+      if (!permission) {
+        permission = await prisma.permission.findUnique({
+          where: {
+            module_action_scope: {
+              module,
+              action,
+              scope: "GLOBAL",
+            },
+          },
+        });
+      }
 
       if (!permission) {
         permissionCache.set(cacheKey, false);

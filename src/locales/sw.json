@@ -339,5 +339,23 @@
     "conversionSuccess": "Kiwango cha ubadilishaji kimepatikana",
     "churnSuccess": "Kiwango cha kupoteza wateja kimepatikana",
     "healthAdvancedSuccess": "Afya ya wateja ya kina imepatikana"
+  },
+  "reporting": {
+    "transactionsFetchSuccess": "Ripoti ya miamala imepatikana kwa mafanikio",
+    "monthlyRevenueSuccess": "Ripoti ya mapato ya kila mwezi imepatikana kwa mafanikio",
+    "setupFeeFetchSuccess": "Ripoti ya ada ya usajili imepatikana kwa mafanikio",
+    "subscriptionRevenueSuccess": "Ripoti ya mapato ya subscription imepatikana kwa mafanikio",
+    "refundFetchSuccess": "Ripoti ya marejesho imepatikana kwa mafanikio",
+    "couponFetchSuccess": "Ripoti ya utendaji wa coupon imepatikana kwa mafanikio",
+    "supportFetchSuccess": "Ripoti ya utendaji wa support imepatikana kwa mafanikio",
+    "auditFetchSuccess": "Ripoti ya audit imepatikana kwa mafanikio",
+    "complianceFetchSuccess": "Ripoti ya compliance imepatikana kwa mafanikio",
+
+    "exportCreated": "Uundaji wa ripoti umeanzishwa kwa mafanikio",
+    "exportHistoryFetched": "Historia ya export imepatikana kwa mafanikio",
+    "exportDownloadSuccess": "Ripoti imepakuliwa kwa mafanikio",
+
+    "exportNotReady": "Ripoti bado haijawa tayari",
+    "exportFailed": "Uundaji wa ripoti umeshindikana"
   }
 }

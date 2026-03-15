@@ -336,5 +336,24 @@
     "conversionSuccess": "Conversion rate fetched successfully",
     "churnSuccess": "Churn rate fetched successfully",
     "healthAdvancedSuccess": "Advanced tenant health fetched successfully"
+  },
+
+  "reporting": {
+    "transactionsFetchSuccess": "Transaction report fetched successfully",
+    "monthlyRevenueSuccess": "Monthly revenue report fetched successfully",
+    "setupFeeFetchSuccess": "Setup fee report fetched successfully",
+    "subscriptionRevenueSuccess": "Subscription revenue report fetched successfully",
+    "refundFetchSuccess": "Refund report fetched successfully",
+    "couponFetchSuccess": "Coupon performance report fetched successfully",
+    "supportFetchSuccess": "Support performance report fetched successfully",
+    "auditFetchSuccess": "Audit report fetched successfully",
+    "complianceFetchSuccess": "Compliance report fetched successfully",
+
+    "exportCreated": "Report export has been initiated successfully",
+    "exportHistoryFetched": "Export history fetched successfully",
+    "exportDownloadSuccess": "Report downloaded successfully",
+
+    "exportNotReady": "Report is not ready yet",
+    "exportFailed": "Report export failed"
   }
 }
