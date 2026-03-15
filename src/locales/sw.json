@@ -324,5 +324,20 @@
     "grace_extended": "Muda wa neema umeongezwa kwa mafanikio",
 
     "package_required": "Kitambulisho cha kifurushi kinahitajika"
+  },
+  "analytics": {
+    "dashboardSuccess": "Takwimu za dashibodi zimepatikana kwa mafanikio",
+    "revenueSuccess": "Takwimu za mapato zimepatikana kwa mafanikio",
+    "growthSuccess": "Takwimu za ukuaji zimepatikana kwa mafanikio",
+    "subscriptionSuccess": "Takwimu za usajili zimepatikana kwa mafanikio",
+    "cohortSuccess": "Uchanganuzi wa makundi umepatikana kwa mafanikio",
+    "healthSuccess": "Takwimu za hali ya wateja zimepatikana kwa mafanikio",
+    "cohortRetentionSuccess": "Uhifadhi wa wateja umehesabiwa",
+    "usageSuccess": "Takwimu za matumizi zimepatikana",
+    "expansionSuccess": "Mapato ya ongezeko yamepatikana",
+    "renewalSuccess": "Kiwango cha upya kimepatikana",
+    "conversionSuccess": "Kiwango cha ubadilishaji kimepatikana",
+    "churnSuccess": "Kiwango cha kupoteza wateja kimepatikana",
+    "healthAdvancedSuccess": "Afya ya wateja ya kina imepatikana"
   }
 }

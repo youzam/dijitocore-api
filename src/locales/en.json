@@ -321,5 +321,20 @@
     "grace_extended": "Grace period extended successfully",
 
     "package_required": "Package ID is required"
+  },
+  "analytics": {
+    "dashboardSuccess": "Dashboard analytics fetched successfully",
+    "revenueSuccess": "Revenue analytics fetched successfully",
+    "growthSuccess": "Growth analytics fetched successfully",
+    "subscriptionSuccess": "Subscription analytics fetched successfully",
+    "cohortSuccess": "Cohort analysis fetched successfully",
+    "healthSuccess": "Tenant health analytics fetched successfully",
+    "cohortRetentionSuccess": "Cohort retention fetched successfully",
+    "usageSuccess": "Usage analytics fetched successfully",
+    "expansionSuccess": "Expansion revenue fetched successfully",
+    "renewalSuccess": "Renewal rate fetched successfully",
+    "conversionSuccess": "Conversion rate fetched successfully",
+    "churnSuccess": "Churn rate fetched successfully",
+    "healthAdvancedSuccess": "Advanced tenant health fetched successfully"
   }
 }

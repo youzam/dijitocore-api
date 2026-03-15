@@ -203,6 +203,7 @@ model Business {
   name                        String
   email                       String?
   phone                       String?
+  country                     String                       @index
   businessCode                String                       @unique
   status                      BusinessStatus               @default(PENDING)
   setupCompleted              Boolean                      @default(false)
@@ -219,7 +220,9 @@ model Business {
   notificationTemplates       NotificationTemplate[]
   notificationEscalationRules NotificationEscalationRule[]
   bulkNotificationLimits      BulkNotificationLimit[]
-  subscriptionUsages          SubscriptionUsage[]
+  subscriptionUsages          SubscriptionUsage[],
+  lastActiveAt DateTime?
+  country   String   @index
 }
 
 model BusinessSettings {
@@ -303,6 +306,11 @@ model Subscription {
 
   subscriptionPayments SubscriptionPayment[]
 
+  isTrial         Boolean  @default(false)
+  trialStartedAt  DateTime?
+  trialEndedAt    DateTime?
+  convertedAt     DateTime?
+
   @@index([businessId])
   @@index([status])
   @@index([businessId, status])
@@ -359,6 +367,30 @@ model SubscriptionPayment {
 
   // Generic metadata (already exists in some systems, keep if exists)
   metadata        Json?
+}
+
+model SubscriptionHistory {
+  id              String   @id @default(uuid())
+
+  subscriptionId  String
+  businessId      String
+
+  oldPackageId    String?
+  newPackageId    String?
+
+  oldPrice        Int?
+  newPrice        Int?
+
+  changeType      String   // UPGRADE | DOWNGRADE | RENEWAL
+
+  createdAt       DateTime @default(now())
+
+  subscription    Subscription @relation(fields: [subscriptionId], references: [id])
+  business        Business @relation(fields: [businessId], references: [id])
+
+  @@index([subscriptionId])
+  @@index([businessId])
+  @@index([changeType])
 }
 
 model FinancialAdjustment {
