@@ -243,5 +243,83 @@
     "password_reset": "Password reset successfully",
 
     "session_revoked": "Session revoked successfully"
+  },
+  "governance": {
+    "business_activated": "Business activated successfully.",
+    "business_grace": "Business moved to grace period.",
+    "business_suspended": "Business suspended successfully.",
+    "business_terminated": "Business terminated successfully.",
+
+    "business_list": "Businesses retrieved successfully.",
+    "business_timeline": "Business timeline retrieved successfully.",
+    "business_revenue_summary": "Business revenue summary retrieved successfully.",
+    "business_profile": "Business profile retrieved successfully.",
+
+    "subscription_changed": "Business subscription changed successfully.",
+    "grace_extended": "Business grace period extended successfully.",
+
+    "user_list": "Users retrieved successfully.",
+    "user_locked": "User account locked successfully.",
+    "user_unlocked": "User account unlocked successfully.",
+    "password_reset": "User password reset successfully.",
+    "user_forced_logout": "User sessions revoked successfully.",
+    "user_impersonation": "User impersonation session created successfully.",
+
+    "customer_summary": "Customer summary retrieved successfully.",
+    "customer_blacklisted": "Customer flagged as suspicious successfully.",
+    "customer_unblacklisted": "Customer removed from suspicious list successfully.",
+
+    "audit_logs": "Admin audit logs retrieved successfully.",
+
+    "risk_flags": "Risk indicators retrieved successfully.",
+
+    "search_results": "Search results retrieved successfully."
+  },
+
+  "commerce": {
+    "transactions_fetched": "Transactions fetched successfully",
+    "transaction_fetched": "Transaction fetched successfully",
+    "transaction_drilldown_fetched": "Transaction details fetched successfully",
+    "transaction_not_found": "Transaction not found",
+
+    "refund_success": "Refund processed successfully",
+    "transaction_already_refunded": "Transaction already refunded",
+
+    "adjustment_created": "Financial adjustment created successfully",
+    "invalid_adjustment_data": "Invalid adjustment data provided",
+    "invalid_adjustment_type": "Invalid adjustment type",
+
+    "credit_allocated": "Credit allocated successfully",
+    "invalid_credit_data": "Invalid credit allocation data",
+
+    "invoice_regenerated": "Invoice regenerated successfully",
+
+    "coupon_created": "Coupon created successfully",
+    "coupon_updated": "Coupon updated successfully",
+    "coupons_fetched": "Coupons fetched successfully",
+    "coupon_applied": "Coupon applied successfully",
+
+    "coupon_exists": "Coupon code already exists",
+    "coupon_not_found": "Coupon not found",
+    "coupon_required": "Coupon code is required",
+
+    "coupon_inactive": "Coupon is inactive",
+    "coupon_not_started": "Coupon is not yet valid",
+    "coupon_expired": "Coupon has expired",
+    "coupon_usage_exceeded": "Coupon usage limit reached",
+    "coupon_abuse_detected": "Coupon usage limit exceeded for this business",
+
+    "invalid_coupon_data": "Invalid coupon data provided",
+    "invalid_coupon_type": "Invalid coupon type",
+    "invalid_coupon_value": "Invalid coupon value",
+
+    "subscription_changed": "Subscription plan changed successfully",
+    "subscription_cancelled": "Subscription cancelled successfully",
+    "subscription_extended": "Subscription extended successfully",
+
+    "grace_status_fetched": "Grace status fetched successfully",
+    "grace_extended": "Grace period extended successfully",
+
+    "package_required": "Package ID is required"
   }
 }

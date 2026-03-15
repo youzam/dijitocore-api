@@ -208,9 +208,13 @@ exports.getBusinessProfile = catchAsync(async (req, res) => {
 
   const business = await governanceService.getBusinessProfile(businessId);
 
-  return response.success(res, {
+  return response.success(
+    req,
+    res,
     business,
-  });
+    200,
+    "governance.business_profile",
+  );
 });
 
 /*

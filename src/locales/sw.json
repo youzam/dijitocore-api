@@ -247,5 +247,82 @@
     "password_reset": "Nenosiri limewekwa upya",
 
     "session_revoked": "Session imeondolewa"
+  },
+  "governance": {
+    "business_activated": "Biashara imewezeshwa kikamilifu.",
+    "business_grace": "Biashara imehamishwa kwenye kipindi cha neema.",
+    "business_suspended": "Biashara imesimamishwa kikamilifu.",
+    "business_terminated": "Biashara imefutwa kabisa.",
+
+    "business_list": "Orodha ya biashara imepatikana kwa mafanikio.",
+    "business_timeline": "Historia ya biashara imepatikana kwa mafanikio.",
+    "business_revenue_summary": "Muhtasari wa mapato ya biashara umepatikana kwa mafanikio.",
+    "business_profile": "Wasifu wa biashara umepatikana kwa mafanikio.",
+
+    "subscription_changed": "Usajili wa biashara umebadilishwa kwa mafanikio.",
+    "grace_extended": "Kipindi cha neema cha biashara kimeongezwa kwa mafanikio.",
+
+    "user_list": "Orodha ya watumiaji imepatikana kwa mafanikio.",
+    "user_locked": "Akaunti ya mtumiaji imefungwa.",
+    "user_unlocked": "Akaunti ya mtumiaji imefunguliwa.",
+    "password_reset": "Nenosiri la mtumiaji limewekwa upya kwa mafanikio.",
+    "user_forced_logout": "Vipindi vya mtumiaji vimeondolewa kwa lazima.",
+    "user_impersonation": "Kuingia kama mtumiaji kumefanikiwa.",
+
+    "customer_summary": "Muhtasari wa mteja umepatikana kwa mafanikio.",
+    "customer_blacklisted": "Mteja amewekwa kwenye orodha ya hatari.",
+    "customer_unblacklisted": "Mteja ameondolewa kwenye orodha ya hatari.",
+
+    "audit_logs": "Rekodi za ukaguzi wa msimamizi zimepatikana kwa mafanikio.",
+
+    "risk_flags": "Viashiria vya hatari vimepatikana kwa mafanikio.",
+
+    "search_results": "Matokeo ya utafutaji yamepatikana kwa mafanikio."
+  },
+  "commerce": {
+    "transactions_fetched": "Miingiliano imepatikana kwa mafanikio",
+    "transaction_fetched": "Muamala umepatikana kwa mafanikio",
+    "transaction_drilldown_fetched": "Maelezo ya muamala yamepatikana kwa mafanikio",
+    "transaction_not_found": "Muamala haujapatikana",
+
+    "refund_success": "Marejesho yamefanyika kwa mafanikio",
+    "transaction_already_refunded": "Muamala tayari umerejeshwa",
+
+    "adjustment_created": "Marekebisho ya kifedha yameundwa kwa mafanikio",
+    "invalid_adjustment_data": "Taarifa za marekebisho si sahihi",
+    "invalid_adjustment_type": "Aina ya marekebisho si sahihi",
+
+    "credit_allocated": "Mkopo umetolewa kwa mafanikio",
+    "invalid_credit_data": "Taarifa za mkopo si sahihi",
+
+    "invoice_regenerated": "Ankara imetengenezwa upya kwa mafanikio",
+
+    "coupon_created": "Kuponi imeundwa kwa mafanikio",
+    "coupon_updated": "Kuponi imesasishwa kwa mafanikio",
+    "coupons_fetched": "Kuponi zimepatikana kwa mafanikio",
+    "coupon_applied": "Kuponi imetumika kwa mafanikio",
+
+    "coupon_exists": "Nambari ya kuponi tayari ipo",
+    "coupon_not_found": "Kuponi haijapatikana",
+    "coupon_required": "Nambari ya kuponi inahitajika",
+
+    "coupon_inactive": "Kuponi haifanyi kazi",
+    "coupon_not_started": "Kuponi bado haijaanza kutumika",
+    "coupon_expired": "Kuponi imekwisha muda",
+    "coupon_usage_exceeded": "Matumizi ya kuponi yamefikia kikomo",
+    "coupon_abuse_detected": "Matumizi ya kuponi yamezidi kiwango kinachoruhusiwa",
+
+    "invalid_coupon_data": "Taarifa za kuponi si sahihi",
+    "invalid_coupon_type": "Aina ya kuponi si sahihi",
+    "invalid_coupon_value": "Thamani ya kuponi si sahihi",
+
+    "subscription_changed": "Mpango wa usajili umebadilishwa kwa mafanikio",
+    "subscription_cancelled": "Usajili umefutwa kwa mafanikio",
+    "subscription_extended": "Usajili umeongezwa muda kwa mafanikio",
+
+    "grace_status_fetched": "Hali ya muda wa neema imepatikana kwa mafanikio",
+    "grace_extended": "Muda wa neema umeongezwa kwa mafanikio",
+
+    "package_required": "Kitambulisho cha kifurushi kinahitajika"
   }
 }

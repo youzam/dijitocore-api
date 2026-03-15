@@ -1,109 +1,188 @@
 const express = require("express");
-
 const router = express.Router();
+
+const controller = require("./commerce.controller");
+const validation = require("./commerce.validation");
 
 const auth = require("../../../middlewares/auth.middleware");
 const requirePermission = require("../../../middlewares/permission.middleware");
-
-const subscriptionController = require("../../subscription/subscription.controller");
-const commerceController = require("./commerce.controller");
-const subscriptionValidation = require("../../subscription/subscription.validation");
 const validate = require("../../../middlewares/validate.middleware");
 
+// 🔐 GLOBAL AUTH
 router.use(auth);
 
-/*
-|--------------------------------------------------------------------------
-| TRANSACTIONS & PAYMENTS
-|--------------------------------------------------------------------------
-*/
+/**
+ * =========================
+ * TRANSACTIONS
+ * =========================
+ */
 
-router.post(
-  "/payments/:id/manual-confirm",
-  requirePermission({
-    module: "COMMERCE",
-    action: "EXECUTE",
-    scope: "SYSTEM",
-  }),
-  commerceController.manualConfirmPayment,
-);
-
-router.post(
-  "/payments/:id/reconcile",
-  requirePermission({
-    module: "COMMERCE",
-    action: "EXECUTE",
-    scope: "SYSTEM",
-  }),
-  commerceController.reconcilePayment,
+router.get(
+  "/transactions",
+  requirePermission({ module: "COMMERCE", action: "READ" }),
+  validate(validation.getTransactions),
+  controller.getTransactions,
 );
 
 router.get(
-  "/payments",
-  requirePermission({
-    module: "COMMERCE",
-    action: "VIEW",
-    scope: "SYSTEM",
-  }),
-  commerceController.getAllPayments,
+  "/transactions/:id",
+  requirePermission({ module: "COMMERCE", action: "READ" }),
+  controller.getTransaction,
 );
 
-/*
-|--------------------------------------------------------------------------
-| SUBSCRIPTION PACKAGES
-|--------------------------------------------------------------------------
-*/
-
 router.get(
-  "/packages",
-  requirePermission({
-    module: "COMMERCE",
-    action: "VIEW",
-    scope: "SYSTEM",
-  }),
-  subscriptionController.getPackages,
+  "/transactions/:id/drilldown",
+  requirePermission({ module: "COMMERCE", action: "READ" }),
+  controller.getTransactionDrilldown,
+);
+
+/**
+ * =========================
+ * FINANCIAL
+ * =========================
+ */
+
+router.post(
+  "/transactions/:id/refund",
+  requirePermission({ module: "COMMERCE", action: "WRITE" }),
+  controller.refundTransaction,
 );
 
 router.post(
+  "/transactions/:id/invoice",
+  requirePermission({ module: "COMMERCE", action: "WRITE" }),
+  controller.regenerateInvoice,
+);
+
+router.post(
+  "/adjustments",
+  requirePermission({ module: "COMMERCE", action: "WRITE" }),
+  validate(validation.createAdjustment),
+  controller.createAdjustment,
+);
+
+router.post(
+  "/credits",
+  requirePermission({ module: "COMMERCE", action: "WRITE" }),
+  validate(validation.allocateCredit),
+  controller.allocateCredit,
+);
+
+/**
+ * =========================
+ * COUPONS
+ * =========================
+ */
+
+router.post(
+  "/coupons",
+  requirePermission({ module: "COMMERCE", action: "WRITE" }),
+  validate(validation.createCoupon),
+  controller.createCoupon,
+);
+
+router.get(
+  "/coupons",
+  requirePermission({ module: "COMMERCE", action: "READ" }),
+  controller.getCoupons,
+);
+
+router.post(
+  "/coupons/apply",
+  requirePermission({ module: "COMMERCE", action: "WRITE" }),
+  validate(validation.applyCoupon),
+  controller.applyCoupon,
+);
+
+router.patch(
+  "/coupons/:id",
+  requirePermission({ module: "COMMERCE", action: "WRITE" }),
+  validate(validation.updateCoupon),
+  controller.updateCoupon,
+);
+
+/**
+ * =========================
+ * PACKAGES
+ * =========================
+ */
+
+router.post(
   "/packages",
-  requirePermission({
-    module: "COMMERCE",
-    action: "CREATE",
-    scope: "SYSTEM",
-  }),
-  validate(subscriptionValidation.createPackage),
-  commerceController.createPackage,
+  requirePermission({ module: "COMMERCE", action: "WRITE" }),
+  validate(validation.createPackage),
+  controller.createPackage,
+);
+
+router.get(
+  "/packages",
+  requirePermission({ module: "COMMERCE", action: "READ" }),
+  controller.getPackages,
+);
+
+router.get(
+  "/packages/:id",
+  requirePermission({ module: "COMMERCE", action: "READ" }),
+  controller.getPackage,
 );
 
 router.patch(
   "/packages/:id",
-  requirePermission({
-    module: "COMMERCE",
-    action: "EDIT",
-    scope: "SYSTEM",
-  }),
-  validate(subscriptionValidation.updatePackage),
-  commerceController.updatePackage,
-);
-
-router.get(
-  "/packages/:id/schema",
-  requirePermission({
-    module: "COMMERCE",
-    action: "VIEW",
-    scope: "SYSTEM",
-  }),
-  subscriptionController.getPackageSchema,
+  requirePermission({ module: "COMMERCE", action: "WRITE" }),
+  validate(validation.updatePackage),
+  controller.updatePackage,
 );
 
 router.patch(
   "/packages/:id/config",
-  requirePermission({
-    module: "COMMERCE",
-    action: "EDIT",
-    scope: "SYSTEM",
-  }),
-  commerceController.updatePackageConfiguration,
+  requirePermission({ module: "COMMERCE", action: "WRITE" }),
+  validate(validation.updatePackageConfiguration),
+  controller.updatePackageConfiguration,
+);
+
+router.patch(
+  "/packages/:id/deactivate",
+  requirePermission({ module: "COMMERCE", action: "WRITE" }),
+  controller.deactivatePackage,
+);
+
+/**
+ * =========================
+ * SUBSCRIPTION CONTROL
+ * =========================
+ */
+
+router.post(
+  "/subscriptions/:id/change-plan",
+  requirePermission({ module: "COMMERCE", action: "WRITE" }),
+  validate(validation.changePlan),
+  controller.changeSubscriptionPlan,
+);
+
+router.post(
+  "/subscriptions/:id/cancel",
+  requirePermission({ module: "COMMERCE", action: "WRITE" }),
+  controller.cancelSubscription,
+);
+
+router.post(
+  "/subscriptions/:id/extend",
+  requirePermission({ module: "COMMERCE", action: "WRITE" }),
+  validate(validation.extendSubscription),
+  controller.extendSubscription,
+);
+
+router.get(
+  "/subscriptions/:id/grace",
+  requirePermission({ module: "COMMERCE", action: "READ" }),
+  controller.getGraceStatus,
+);
+
+router.post(
+  "/subscriptions/:id/grace/extend",
+  requirePermission({ module: "COMMERCE", action: "WRITE" }),
+  validate(validation.extendGrace),
+  controller.extendGracePeriod,
 );
 
 module.exports = router;

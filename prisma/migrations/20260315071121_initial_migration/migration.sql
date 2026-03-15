@@ -2,7 +2,10 @@
 CREATE TYPE "GatewayStatus" AS ENUM ('HEALTHY', 'DEGRADED', 'DOWN', 'UNKNOWN');
 
 -- CreateEnum
-CREATE TYPE "UserRole" AS ENUM ('SUPER_ADMIN', 'BUSINESS_OWNER', 'MANAGER', 'STAFF', 'CUSTOMER');
+CREATE TYPE "AdminRole" AS ENUM ('SUPER_ADMIN', 'FINANCE_ADMIN', 'SECURITY_ADMIN', 'SUPPORT_ADMIN', 'OPERATIONS_ADMIN', 'READ_ONLY_AUDITOR');
+
+-- CreateEnum
+CREATE TYPE "UserRole" AS ENUM ('BUSINESS_OWNER', 'MANAGER', 'STAFF', 'CUSTOMER');
 
 -- CreateEnum
 CREATE TYPE "BusinessStatus" AS ENUM ('PENDING', 'ACTIVE', 'GRACE', 'SUSPENDED', 'TERMINATED');
@@ -23,7 +26,7 @@ CREATE TYPE "UserStatus" AS ENUM ('ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING');
 CREATE TYPE "CustomerStatus" AS ENUM ('ACTIVE', 'INACTIVE');
 
 -- CreateEnum
-CREATE TYPE "AdminStatus" AS ENUM ('ACTIVE', 'INACTIVE');
+CREATE TYPE "AdminStatus" AS ENUM ('ACTIVE', 'SUSPENDED');
 
 -- CreateEnum
 CREATE TYPE "ContractStatus" AS ENUM ('DRAFT', 'ACTIVE', 'COMPLETED', 'TERMINATED');
@@ -54,12 +57,31 @@ CREATE TABLE "SuperAdmin" (
     "id" TEXT NOT NULL,
     "email" TEXT NOT NULL,
     "password" TEXT NOT NULL,
-    "role" "UserRole" NOT NULL,
+    "role" "AdminRole" NOT NULL,
     "status" "AdminStatus" NOT NULL,
+    "loginAttempts" INTEGER NOT NULL DEFAULT 0,
+    "lockUntil" TIMESTAMP(3),
+    "forcePasswordChange" BOOLEAN NOT NULL DEFAULT false,
+    "mfaEnabled" BOOLEAN NOT NULL DEFAULT false,
+    "mfaSecret" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "SuperAdmin_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "AdminSession" (
+    "id" TEXT NOT NULL,
+    "adminId" TEXT NOT NULL,
+    "ip" TEXT,
+    "userAgent" TEXT,
+    "deviceFingerprint" TEXT,
+    "refreshToken" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "lastSeen" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "AdminSession_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -74,6 +96,27 @@ CREATE TABLE "SystemSetting" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "SystemSetting_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Permission" (
+    "id" TEXT NOT NULL,
+    "module" TEXT NOT NULL,
+    "action" TEXT NOT NULL,
+    "scope" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Permission_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "RolePermission" (
+    "id" TEXT NOT NULL,
+    "role" "AdminRole" NOT NULL,
+    "permissionId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "RolePermission_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -218,6 +261,7 @@ CREATE TABLE "SubscriptionPackage" (
     "setupFee" INTEGER NOT NULL DEFAULT 0,
     "trialDays" INTEGER NOT NULL DEFAULT 0,
     "features" JSONB NOT NULL,
+    "limits" JSONB,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -234,6 +278,8 @@ CREATE TABLE "Subscription" (
     "setupFeeSnapshot" INTEGER NOT NULL,
     "priceMonthlySnapshot" INTEGER NOT NULL,
     "priceYearlySnapshot" INTEGER NOT NULL,
+    "featuresSnapshot" JSONB,
+    "limitsSnapshot" JSONB,
     "status" "SubscriptionStatus" NOT NULL,
     "startDate" TIMESTAMP(3) NOT NULL,
     "endDate" TIMESTAMP(3),
@@ -245,6 +291,19 @@ CREATE TABLE "Subscription" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "Subscription_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SubscriptionUsage" (
+    "id" TEXT NOT NULL,
+    "businessId" TEXT NOT NULL,
+    "metric" TEXT NOT NULL,
+    "period" TEXT NOT NULL,
+    "value" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "SubscriptionUsage_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -569,6 +628,32 @@ CREATE TABLE "AuditLog" (
 );
 
 -- CreateTable
+CREATE TABLE "SuspiciousActivity" (
+    "id" TEXT NOT NULL,
+    "adminId" TEXT,
+    "action" TEXT NOT NULL,
+    "ip" TEXT,
+    "endpoint" TEXT,
+    "meta" JSONB,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "SuspiciousActivity_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "AdminImpersonation" (
+    "id" TEXT NOT NULL,
+    "adminId" TEXT NOT NULL,
+    "targetUserId" TEXT NOT NULL,
+    "startedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "endedAt" TIMESTAMP(3),
+    "ip" TEXT,
+    "userAgent" TEXT,
+
+    CONSTRAINT "AdminImpersonation_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "SystemJobLog" (
     "id" TEXT NOT NULL,
     "jobName" TEXT NOT NULL,
@@ -645,8 +730,28 @@ CREATE TABLE "GatewayHealth" (
     CONSTRAINT "GatewayHealth_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "JobLock" (
+    "id" TEXT NOT NULL,
+    "jobName" TEXT NOT NULL,
+    "lockedAt" TIMESTAMP(3) NOT NULL,
+    "lockedUntil" TIMESTAMP(3) NOT NULL,
+    "instanceId" TEXT NOT NULL,
+
+    CONSTRAINT "JobLock_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "SuperAdmin_email_key" ON "SuperAdmin"("email");
+
+-- CreateIndex
+CREATE INDEX "AdminSession_adminId_idx" ON "AdminSession"("adminId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Permission_module_action_scope_key" ON "Permission"("module", "action", "scope");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "RolePermission_role_permissionId_key" ON "RolePermission"("role", "permissionId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "User_email_businessId_key" ON "User"("email", "businessId");
@@ -683,6 +788,15 @@ CREATE INDEX "Subscription_businessId_status_idx" ON "Subscription"("businessId"
 
 -- CreateIndex
 CREATE INDEX "Subscription_businessId_createdAt_idx" ON "Subscription"("businessId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "SubscriptionUsage_businessId_idx" ON "SubscriptionUsage"("businessId");
+
+-- CreateIndex
+CREATE INDEX "SubscriptionUsage_metric_idx" ON "SubscriptionUsage"("metric");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "SubscriptionUsage_businessId_metric_period_key" ON "SubscriptionUsage"("businessId", "metric", "period");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "SubscriptionPayment_externalTransactionId_key" ON "SubscriptionPayment"("externalTransactionId");
@@ -805,6 +919,21 @@ CREATE INDEX "AuditLog_entityId_idx" ON "AuditLog"("entityId");
 CREATE INDEX "AuditLog_createdAt_idx" ON "AuditLog"("createdAt");
 
 -- CreateIndex
+CREATE INDEX "AuditLog_action_idx" ON "AuditLog"("action");
+
+-- CreateIndex
+CREATE INDEX "SuspiciousActivity_adminId_idx" ON "SuspiciousActivity"("adminId");
+
+-- CreateIndex
+CREATE INDEX "SuspiciousActivity_action_idx" ON "SuspiciousActivity"("action");
+
+-- CreateIndex
+CREATE INDEX "AdminImpersonation_adminId_idx" ON "AdminImpersonation"("adminId");
+
+-- CreateIndex
+CREATE INDEX "AdminImpersonation_targetUserId_idx" ON "AdminImpersonation"("targetUserId");
+
+-- CreateIndex
 CREATE INDEX "SystemJobLog_jobName_idx" ON "SystemJobLog"("jobName");
 
 -- CreateIndex
@@ -838,9 +967,16 @@ CREATE INDEX "SupportIncident_createdAt_idx" ON "SupportIncident"("createdAt");
 CREATE UNIQUE INDEX "GatewayHealth_code_key" ON "GatewayHealth"("code");
 
 -- CreateIndex
-CREATE UNIQUE INDEX unique_active_subscription_per_business
-ON "Subscription" ("businessId")
-WHERE status IN ('ACTIVE', 'TRIAL', 'GRACE');
+CREATE UNIQUE INDEX "JobLock_jobName_key" ON "JobLock"("jobName");
+
+-- CreateIndex
+CREATE INDEX "JobLock_lockedUntil_idx" ON "JobLock"("lockedUntil");
+
+-- AddForeignKey
+ALTER TABLE "AdminSession" ADD CONSTRAINT "AdminSession_adminId_fkey" FOREIGN KEY ("adminId") REFERENCES "SuperAdmin"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "RolePermission" ADD CONSTRAINT "RolePermission_permissionId_fkey" FOREIGN KEY ("permissionId") REFERENCES "Permission"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "User" ADD CONSTRAINT "User_businessId_fkey" FOREIGN KEY ("businessId") REFERENCES "Business"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -862,6 +998,9 @@ ALTER TABLE "Subscription" ADD CONSTRAINT "Subscription_businessId_fkey" FOREIGN
 
 -- AddForeignKey
 ALTER TABLE "Subscription" ADD CONSTRAINT "Subscription_packageId_fkey" FOREIGN KEY ("packageId") REFERENCES "SubscriptionPackage"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SubscriptionUsage" ADD CONSTRAINT "SubscriptionUsage_businessId_fkey" FOREIGN KEY ("businessId") REFERENCES "Business"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "SubscriptionPayment" ADD CONSTRAINT "SubscriptionPayment_subscriptionId_fkey" FOREIGN KEY ("subscriptionId") REFERENCES "Subscription"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

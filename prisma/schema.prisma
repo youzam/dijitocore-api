@@ -18,39 +18,39 @@ datasource db {
 //////////////////////////////////////////////////////
 
 model SuperAdmin {
-  id            String   @id @default(uuid())
-  email         String   @unique
-  password      String
-  role          AdminRole
-  status        AdminStatus
+  id       String      @id @default(uuid())
+  email    String      @unique
+  password String
+  role     AdminRole
+  status   AdminStatus
 
-  loginAttempts Int      @default(0)
+  loginAttempts Int       @default(0)
   lockUntil     DateTime?
 
   forcePasswordChange Boolean @default(false)
 
   mfaEnabled Boolean @default(false)
   mfaSecret  String?
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
 
-  sessions      AdminSession[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sessions AdminSession[]
 }
 
 model AdminSession {
-  id        String   @id @default(uuid())
+  id String @id @default(uuid())
 
-  adminId   String
-  admin     SuperAdmin @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  adminId String
+  admin   SuperAdmin @relation(fields: [adminId], references: [id], onDelete: Cascade)
 
-  ip        String?
-  userAgent String?
+  ip                String?
+  userAgent         String?
   deviceFingerprint String?
 
   refreshToken String?
-  createdAt DateTime @default(now())
-  lastSeen  DateTime
+  createdAt    DateTime @default(now())
+  lastSeen     DateTime
 
   @@index([adminId])
 }
@@ -60,19 +60,19 @@ model SystemSetting {
   currency             String
   activePaymentGateway String  @default("SELCOM")
   isBootstrapped       Boolean @default(false)
-  
-  maxLoginAttempts Int @default(5)
-  lockTimeMinutes  Int @default(15)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+
+  maxLoginAttempts Int      @default(5)
+  lockTimeMinutes  Int      @default(15)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }
 
 model Permission {
-  id        String   @id @default(uuid())
+  id String @id @default(uuid())
 
-  module    String
-  action    String
-  scope     String
+  module String
+  action String
+  scope  String
 
   createdAt DateTime @default(now())
 
@@ -82,14 +82,14 @@ model Permission {
 }
 
 model RolePermission {
-  id           String @id @default(uuid())
+  id String @id @default(uuid())
 
   role         AdminRole
   permissionId String
 
-  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
 
-  createdAt    DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@unique([role, permissionId])
 }
@@ -328,31 +328,82 @@ model SubscriptionUsage {
 }
 
 model SubscriptionPayment {
-  id String @id @default(uuid())
+  id              String   @id @default(uuid())
 
-  subscriptionId String
-  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
+  subscriptionId  String
+  subscription    Subscription @relation(fields: [subscriptionId], references: [id])
 
-  businessId String
-  business   Business @relation(fields: [businessId], references: [id])
+  amount          Decimal
+  currency        String
 
-  amount    Int
-  method    SubscriptionPaymentMethod
-  reference String?
-  status    SubscriptionPaymentStatus
+  status          String   // SUCCESS | FAILED | PENDING | REFUNDED
 
-  externalTransactionId String? @unique
-  gatewayPayloadHash    String?
+  type            String   // SUBSCRIPTION | SETUP_FEE | RENEWAL | REFUND | MANUAL_ADJUSTMENT
 
-  paidAt    DateTime?
-  createdAt DateTime  @default(now())
+  gateway         String?  // stripe | flutterwave | etc
 
-  @@index([businessId])
-  @@index([subscriptionId])
-  // 🔒 Enterprise performance indexes
-  @@index([status])
-  @@index([createdAt])
-  @@index([subscriptionId, status])
+  paidAt          DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  invoiceUrl      String?     // invoice link
+  webhookStatus   String?     // RECEIVED | FAILED | PROCESSED
+
+  adminOverride   Boolean     @default(false)
+
+  // Raw gateway payload (for drilldown)
+  gatewayPayload  Json?
+
+  // Retry attempts tracking
+  retryCount      Int         @default(0)
+
+  // Generic metadata (already exists in some systems, keep if exists)
+  metadata        Json?
+}
+
+model FinancialAdjustment {
+  id          String   @id @default(uuid())
+
+  businessId  String
+  amount      Decimal
+
+  type        String   // CREDIT | DEBIT
+  reason      String?
+
+  createdBy   String
+
+  createdAt   DateTime @default(now())
+}
+
+model Coupon {
+  id           String   @id @default(uuid())
+
+  code         String   @unique
+
+  type         String   // PERCENTAGE | FIXED
+  value        Decimal
+
+  maxUsage     Int?
+  usageCount   Int      @default(0)
+
+  validFrom    DateTime?
+  validTo      DateTime?
+
+  isActive     Boolean  @default(true)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model CouponUsage {
+  id          String   @id @default(uuid())
+
+  couponId    String
+  coupon      Coupon   @relation(fields: [couponId], references: [id])
+
+  businessId  String
+
+  usedAt      DateTime @default(now())
 }
 
 ////////////////////////////////////////
@@ -768,14 +819,15 @@ model AuditLog {
   @@index([createdAt])
   @@index([action])
 }
-model SuspiciousActivity {
-  id        String   @id @default(uuid())
 
-  adminId   String?
-  action    String
-  ip        String?
-  endpoint  String?
-  meta      Json?
+model SuspiciousActivity {
+  id String @id @default(uuid())
+
+  adminId  String?
+  action   String
+  ip       String?
+  endpoint String?
+  meta     Json?
 
   createdAt DateTime @default(now())
 
@@ -784,15 +836,15 @@ model SuspiciousActivity {
 }
 
 model AdminImpersonation {
-  id            String   @id @default(uuid())
+  id String @id @default(uuid())
 
-  adminId       String
-  targetUserId  String
-  startedAt     DateTime @default(now())
-  endedAt       DateTime?
+  adminId      String
+  targetUserId String
+  startedAt    DateTime  @default(now())
+  endedAt      DateTime?
 
-  ip            String?
-  userAgent     String?
+  ip        String?
+  userAgent String?
 
   @@index([adminId])
   @@index([targetUserId])
@@ -902,6 +954,7 @@ enum AdminRole {
   OPERATIONS_ADMIN
   READ_ONLY_AUDITOR
 }
+
 enum UserRole {
   BUSINESS_OWNER
   MANAGER

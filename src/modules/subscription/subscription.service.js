@@ -248,3 +248,130 @@ exports.upgradeSubscription = async ({
 
   return updated;
 };
+
+exports.cancelSubscription = async (subscriptionId, req) => {
+  const subscription = await prisma.subscription.findUnique({
+    where: { id: subscriptionId },
+  });
+
+  if (!subscription) {
+    throw new AppError("subscription.not_found", 404);
+  }
+
+  if (subscription.status === "CANCELLED") {
+    throw new AppError("subscription.already_cancelled", 400);
+  }
+
+  const updated = await prisma.subscription.update({
+    where: { id: subscriptionId },
+    data: {
+      status: "CANCELLED",
+      cancelledAt: new Date(),
+      metadata: {
+        ...(subscription.metadata || {}),
+        cancelledBy: req.user.id,
+        cancelledAt: new Date(),
+      },
+    },
+  });
+
+  return updated;
+};
+
+exports.extendSubscription = async (subscriptionId, data, req) => {
+  const { days } = data;
+
+  if (!days || Number(days) <= 0) {
+    throw new AppError("subscription.invalid_extension_days", 400);
+  }
+
+  const subscription = await prisma.subscription.findUnique({
+    where: { id: subscriptionId },
+  });
+
+  if (!subscription) {
+    throw new AppError("subscription.not_found", 404);
+  }
+
+  const currentExpiry = subscription.expiresAt || new Date();
+
+  const newExpiry = new Date(currentExpiry);
+  newExpiry.setDate(newExpiry.getDate() + Number(days));
+
+  const updated = await prisma.subscription.update({
+    where: { id: subscriptionId },
+    data: {
+      expiresAt: newExpiry,
+      status: "ACTIVE",
+      metadata: {
+        ...(subscription.metadata || {}),
+        extendedBy: req.user.id,
+        extendedAt: new Date(),
+        extensionDays: days,
+      },
+    },
+  });
+
+  return updated;
+};
+
+exports.getGraceStatus = async (subscriptionId) => {
+  const subscription = await prisma.subscription.findUnique({
+    where: { id: subscriptionId },
+  });
+
+  if (!subscription) {
+    throw new AppError("subscription.not_found", 404);
+  }
+
+  const now = new Date();
+
+  const inGrace =
+    subscription.status === "GRACE" &&
+    subscription.graceUntil &&
+    now <= subscription.graceUntil;
+
+  return {
+    subscriptionId,
+    status: subscription.status,
+    graceUntil: subscription.graceUntil,
+    inGrace,
+  };
+};
+
+exports.extendGracePeriod = async (subscriptionId, data, req) => {
+  const { days } = data;
+
+  if (!days || Number(days) <= 0) {
+    throw new AppError("subscription.invalid_grace_days", 400);
+  }
+
+  const subscription = await prisma.subscription.findUnique({
+    where: { id: subscriptionId },
+  });
+
+  if (!subscription) {
+    throw new AppError("subscription.not_found", 404);
+  }
+
+  const currentGrace = subscription.graceUntil || new Date();
+
+  const newGrace = new Date(currentGrace);
+  newGrace.setDate(newGrace.getDate() + Number(days));
+
+  const updated = await prisma.subscription.update({
+    where: { id: subscriptionId },
+    data: {
+      status: "GRACE",
+      graceUntil: newGrace,
+      metadata: {
+        ...(subscription.metadata || {}),
+        graceExtendedBy: req.user.id,
+        graceExtendedAt: new Date(),
+        graceDays: days,
+      },
+    },
+  });
+
+  return updated;
+};

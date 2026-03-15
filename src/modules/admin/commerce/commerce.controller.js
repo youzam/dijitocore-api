@@ -1,38 +1,220 @@
 const catchAsync = require("../../../utils/catchAsync");
 const response = require("../../../utils/response");
 
-const commerceService = require("./commerce.service");
+// Services
+const ledgerService = require("./ledger.service");
+const financialService = require("./financial.service");
+const couponService = require("./coupon.service");
+const packageService = require("./package.service");
+const subscriptionControlService = require("./subscription-control.service");
 
-exports.manualConfirmPayment = catchAsync(async (req, res) => {
-  const data = await commerceService.manualConfirmPayment(req.params.id);
-  return response.success(req, res, data);
+/**
+ * =========================
+ * TRANSACTIONS
+ * =========================
+ */
+
+exports.getTransactions = catchAsync(async (req, res) => {
+  const data = await ledgerService.getTransactions(req.query);
+
+  return response.success(req, res, data, 200, "commerce.transactions_fetched");
 });
 
-exports.reconcilePayment = catchAsync(async (req, res) => {
-  const data = await commerceService.reconcilePayment(req.params.id);
-  return response.success(req, res, data);
+exports.getTransaction = catchAsync(async (req, res) => {
+  const data = await ledgerService.getTransactionById(req.params.id);
+
+  return response.success(req, res, data, 200, "commerce.transaction_fetched");
 });
 
-exports.getAllPayments = catchAsync(async (req, res) => {
-  const data = await commerceService.getAllPayments(req.query);
-  return response.success(req, res, data);
+exports.getTransactionDrilldown = catchAsync(async (req, res) => {
+  const data = await ledgerService.getTransactionDrilldown(req.params.id);
+
+  return response.success(
+    req,
+    res,
+    data,
+    200,
+    "commerce.transaction_drilldown_fetched",
+  );
 });
+
+/**
+ * =========================
+ * FINANCIAL
+ * =========================
+ */
+
+exports.refundTransaction = catchAsync(async (req, res) => {
+  const data = await financialService.refundTransaction(req.params.id, req);
+
+  return response.success(req, res, data, 200, "commerce.refund_success");
+});
+
+exports.createAdjustment = catchAsync(async (req, res) => {
+  const data = await financialService.createAdjustment(req.body, req);
+
+  return response.success(req, res, data, 201, "commerce.adjustment_created");
+});
+
+exports.allocateCredit = catchAsync(async (req, res) => {
+  const data = await financialService.allocateCredit(req.body, req);
+
+  return response.success(req, res, data, 201, "commerce.credit_allocated");
+});
+
+exports.regenerateInvoice = catchAsync(async (req, res) => {
+  const data = await financialService.regenerateInvoice(req.params.id);
+
+  return response.success(req, res, data, 200, "commerce.invoice_regenerated");
+});
+
+/**
+ * =========================
+ * COUPONS
+ * =========================
+ */
+
+exports.createCoupon = catchAsync(async (req, res) => {
+  const data = await couponService.createCoupon(req.body);
+
+  return response.success(req, res, data, 201, "commerce.coupon_created");
+});
+
+exports.getCoupons = catchAsync(async (req, res) => {
+  const data = await couponService.getCoupons(req.query);
+
+  return response.success(req, res, data, 200, "commerce.coupons_fetched");
+});
+
+exports.updateCoupon = catchAsync(async (req, res) => {
+  const data = await couponService.updateCoupon(req.params.id, req.body);
+
+  return response.success(req, res, data, 200, "commerce.coupon_updated");
+});
+
+exports.applyCoupon = catchAsync(async (req, res) => {
+  const data = await couponService.applyCoupon(req.body);
+
+  return response.success(req, res, data, 200, "commerce.coupon_applied");
+});
+
+/**
+ * =========================
+ * PACKAGES
+ * =========================
+ */
 
 exports.createPackage = catchAsync(async (req, res) => {
-  const data = await commerceService.createPackage(req.body);
-  return response.success(req, res, data);
+  const data = await packageService.createPackage(req.body, req);
+
+  return response.success(req, res, data, 201, "subscription.package_created");
 });
 
 exports.updatePackage = catchAsync(async (req, res) => {
-  const data = await commerceService.updatePackage(req.params.id, req.body);
-  return response.success(req, res, data);
+  const data = await packageService.updatePackage(req.params.id, req.body, req);
+
+  return response.success(req, res, data, 200, "subscription.package_updated");
 });
 
 exports.updatePackageConfiguration = catchAsync(async (req, res) => {
-  const data = await commerceService.updatePackageConfiguration(
+  const data = await packageService.updatePackageConfiguration(
     req.params.id,
     req.body,
+    req,
   );
 
-  return response.success(req, res, data);
+  return response.success(
+    req,
+    res,
+    data,
+    200,
+    "subscription.package_configuration_updated",
+  );
+});
+
+exports.deactivatePackage = catchAsync(async (req, res) => {
+  const data = await packageService.deactivatePackage(req.params.id, req);
+
+  return response.success(
+    req,
+    res,
+    data,
+    200,
+    "subscription.package_deactivated",
+  );
+});
+
+exports.getPackages = catchAsync(async (req, res) => {
+  const data = await packageService.getPackages();
+
+  return response.success(req, res, data, 200, "subscription.packages_fetched");
+});
+
+exports.getPackage = catchAsync(async (req, res) => {
+  const data = await packageService.getPackageById(req.params.id);
+
+  return response.success(req, res, data, 200, "subscription.package_fetched");
+});
+
+/**
+ * =========================
+ * SUBSCRIPTION CONTROL (NEW)
+ * =========================
+ */
+
+exports.changeSubscriptionPlan = catchAsync(async (req, res) => {
+  const data = await subscriptionControlService.changeSubscriptionPlan(
+    req.params.id,
+    req.body,
+    req,
+  );
+
+  return response.success(req, res, data, 200, "commerce.subscription_changed");
+});
+
+exports.cancelSubscription = catchAsync(async (req, res) => {
+  const data = await subscriptionControlService.cancelSubscription(
+    req.params.id,
+    req,
+  );
+
+  return response.success(
+    req,
+    res,
+    data,
+    200,
+    "commerce.subscription_cancelled",
+  );
+});
+
+exports.extendSubscription = catchAsync(async (req, res) => {
+  const data = await subscriptionControlService.extendSubscription(
+    req.params.id,
+    req.body,
+    req,
+  );
+
+  return response.success(
+    req,
+    res,
+    data,
+    200,
+    "commerce.subscription_extended",
+  );
+});
+
+exports.getGraceStatus = catchAsync(async (req, res) => {
+  const data = await subscriptionControlService.getGraceStatus(req.params.id);
+
+  return response.success(req, res, data, 200, "commerce.grace_status_fetched");
+});
+
+exports.extendGracePeriod = catchAsync(async (req, res) => {
+  const data = await subscriptionControlService.extendGracePeriod(
+    req.params.id,
+    req.body,
+    req,
+  );
+
+  return response.success(req, res, data, 200, "commerce.grace_extended");
 });
