@@ -56,6 +56,7 @@ exports.loginWithPin = catchAsync(async (req, res) => {
     phone,
     businessCode,
     pin,
+    req,
   );
 
   return response.success(req, res, result);

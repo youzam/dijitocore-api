@@ -28,7 +28,7 @@ const verifyEmail = catchAsync(async (req, res) => {
  * =====================================================
  */
 const login = catchAsync(async (req, res) => {
-  const result = await authService.login(req.body);
+  const result = await authService.login(req.body, req);
   return response.success(req, res, result);
 });
 

@@ -202,11 +202,7 @@
     "gateway_switch_blocked": "Cannot switch gateway while there are pending payments.",
     "settings_missing": "System settings are not configured."
   },
-  "incident": {
-    "created": "Support incident created successfully",
-    "updated": "Support incident updated successfully",
-    "notFound": "Support incident not found"
-  },
+
   "subscription": {
     "created": "Subscription created successfully.",
     "fetched": "Subscription fetched successfully.",
@@ -406,5 +402,46 @@
     "invalid_status": "Invalid status value",
     "admin_not_found": "Admin not found",
     "invalid_file": "Invalid file upload"
+  },
+  "security": {
+    "get_login_activities": "Login activities retrieved successfully",
+
+    "get_audit_logs": "Audit logs retrieved successfully",
+    "get_audit_log": "Audit log details retrieved successfully",
+    "audit_not_found": "Audit log not found",
+
+    "get_user_sessions": "User sessions retrieved successfully",
+    "revoke_user_session": "User session revoked successfully",
+    "revoke_all_user_sessions": "All user sessions revoked successfully",
+
+    "get_admin_sessions": "Admin sessions retrieved successfully",
+    "revoke_admin_session": "Admin session revoked successfully",
+    "revoke_all_admin_sessions": "All admin sessions revoked successfully",
+
+    "revoke_token": "Token revoked successfully",
+
+    "flag_user": "User flagged successfully",
+    "flag_transaction": "Transaction flagged successfully",
+    "resolve_flag": "Fraud flag resolved successfully",
+    "get_flags": "Fraud flags retrieved successfully",
+    "fraud_already_flagged": "User is already flagged",
+    "transaction_already_flagged": "Transaction is already flagged",
+
+    "get_suspicious_transactions": "Suspicious transactions retrieved successfully",
+    "mark_transaction_safe": "Transaction marked as safe successfully",
+
+    "run_integrity_checks": "Integrity checks completed successfully",
+
+    "log_system_error": "System error logged successfully",
+
+    "force_logout_user": "User logged out from all sessions successfully",
+
+    "get_overview": "Security overview retrieved successfully",
+    "get_incidents": "Security incidents retrieved successfully",
+    "get_incident": "Security incident retrieved successfully",
+    "update_incident_status": "Security incident status updated successfully",
+
+    "incident_not_found": "Security incident not found",
+    "invalid_status_transition": "Invalid incident status transition"
   }
 }

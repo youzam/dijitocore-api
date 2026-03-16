@@ -96,7 +96,7 @@ const verifyEmail = async (code) => {
  * LOGIN (BUSINESS USERS)
  * =====================================================
  */
-const login = async ({ email, password }) => {
+const login = async ({ email, password }, req) => {
   const user = await prisma.user.findFirst({
     where: { email },
   });
@@ -124,8 +124,25 @@ const login = async ({ email, password }) => {
 
   const valid = await bcrypt.compare(password, user.passwordHash);
 
+  /**
+   * =====================================================
+   * FAILED LOGIN
+   * =====================================================
+   */
   if (!valid) {
     const attempts = user.failedLoginAttempts + 1;
+
+    // 🔥 LOGIN ACTIVITY
+    await prisma.loginActivity.create({
+      data: {
+        userId: user.id,
+        status: "FAILED",
+        ipAddress: req.ip,
+      },
+    });
+
+    // 🔥 DETECT ANOMALY
+    await securityService.detectLoginAnomaly(user.id);
 
     const updateData = {
       failedLoginAttempts: attempts,
@@ -156,6 +173,24 @@ const login = async ({ email, password }) => {
       lastLoginAt: new Date(),
     },
   });
+
+  /**
+   * =====================================================
+   * SUCCESS LOGIN
+   * =====================================================
+   */
+
+  // 🔥 LOGIN ACTIVITY
+  await prisma.loginActivity.create({
+    data: {
+      userId: user.id,
+      status: "SUCCESS",
+      ipAddress: req.ip,
+    },
+  });
+
+  // 🔥 DETECT ANOMALY
+  await securityService.detectLoginAnomaly(user.id);
 
   const tokens = signToken({
     sub: user.id,

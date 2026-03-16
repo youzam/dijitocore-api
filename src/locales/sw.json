@@ -200,11 +200,7 @@
     "gateway_switch_blocked": "Haiwezekani kubadilisha gateway wakati kuna malipo yanayosubiri.",
     "settings_missing": "Mipangilio ya mfumo haijawekwa."
   },
-  "incident": {
-    "created": "Tukio la msaada limeundwa kikamilifu",
-    "updated": "Tukio la msaada limesasishwa kikamilifu",
-    "notFound": "Tukio la msaada halijapatikana"
-  },
+
   "subscription": {
     "created": "Usajili umefanikiwa kuundwa.",
     "fetched": "Usajili umefanikiwa kupatikana.",
@@ -408,5 +404,46 @@
     "invalid_status": "Hali si sahihi",
     "admin_not_found": "Admin hajapatikana",
     "invalid_file": "Faili si sahihi"
+  },
+  "security": {
+    "get_login_activities": "Historia ya login imepatikana kikamilifu",
+
+    "get_audit_logs": "Kumbukumbu za audit zimepatikana kikamilifu",
+    "get_audit_log": "Maelezo ya audit yamepatikana kikamilifu",
+    "audit_not_found": "Kumbukumbu ya audit haikupatikana",
+
+    "get_user_sessions": "Session za mtumiaji zimepatikana",
+    "revoke_user_session": "Session ya mtumiaji imefutwa",
+    "revoke_all_user_sessions": "Session zote za mtumiaji zimefutwa",
+
+    "get_admin_sessions": "Session za admin zimepatikana",
+    "revoke_admin_session": "Session ya admin imefutwa",
+    "revoke_all_admin_sessions": "Session zote za admin zimefutwa",
+
+    "revoke_token": "Token imefutwa kikamilifu",
+
+    "flag_user": "Mtumiaji amewekewa alama ya hatari",
+    "flag_transaction": "Muamala umewekewa alama ya hatari",
+    "resolve_flag": "Alama ya hatari imetatuliwa",
+    "get_flags": "Alama za hatari zimepatikana",
+    "fraud_already_flagged": "Mtumiaji tayari amewekewa alama ya hatari",
+    "transaction_already_flagged": "Muamala tayari umewekewa alama ya hatari",
+
+    "get_suspicious_transactions": "Miamala yenye mashaka imepatikana",
+    "mark_transaction_safe": "Muamala umewekwa kuwa salama",
+
+    "run_integrity_checks": "Ukaguzi wa mfumo umekamilika",
+
+    "log_system_error": "Hitilafu ya mfumo imerekodiwa",
+
+    "force_logout_user": "Mtumiaji ametolewa kwenye session zote",
+
+    "get_overview": "Muhtasari wa usalama umepatikana kikamilifu",
+    "get_incidents": "Matukio ya usalama yamepatikana kikamilifu",
+    "get_incident": "Tukio la usalama limepatikana kikamilifu",
+    "update_incident_status": "Hali ya tukio la usalama imeboreshwa kikamilifu",
+
+    "incident_not_found": "Tukio la usalama halikupatikana",
+    "invalid_status_transition": "Mabadiliko ya hali ya tukio si sahihi"
   }
 }

@@ -110,7 +110,7 @@ exports.setPin = async (customerId, pin) => {
 /**
  * Login with PIN
  */
-exports.loginWithPin = async (phone, businessCode, pin) => {
+exports.loginWithPin = async (phone, businessCode, pin, req) => {
   const business = await prisma.business.findUnique({
     where: { businessCode },
   });
@@ -131,7 +131,26 @@ exports.loginWithPin = async (phone, businessCode, pin) => {
 
   const isValid = await bcrypt.compare(pin, customer.pinHash);
 
-  if (!isValid) throw new AppError("auth.invalid_pin", 401);
+  /**
+   * =====================================================
+   * FAILED LOGIN
+   * =====================================================
+   */
+  if (!isValid) {
+    // 🔥 LOGIN ACTIVITY
+    await prisma.loginActivity.create({
+      data: {
+        userId: customer.id, // treat customer as user
+        status: "FAILED",
+        ipAddress: req.ip,
+      },
+    });
+
+    // 🔥 DETECT ANOMALY
+    await securityService.detectLoginAnomaly(customer.id);
+
+    throw new AppError("auth.invalid_pin", 401);
+  }
 
   if (customer.isBlacklisted) {
     throw new AppError("customer.blacklisted", 403);
@@ -145,6 +164,24 @@ exports.loginWithPin = async (phone, businessCode, pin) => {
     where: { id: customer.id },
     data: { lastLoginAt: new Date() },
   });
+
+  /**
+   * =====================================================
+   * SUCCESS LOGIN
+   * =====================================================
+   */
+
+  // 🔥 LOGIN ACTIVITY
+  await prisma.loginActivity.create({
+    data: {
+      userId: customer.id,
+      status: "SUCCESS",
+      ipAddress: req.ip,
+    },
+  });
+
+  // 🔥 DETECT ANOMALY
+  await securityService.detectLoginAnomaly(customer.id);
 
   /**
    * JWT TOKENS (aligned with auth.middleware)

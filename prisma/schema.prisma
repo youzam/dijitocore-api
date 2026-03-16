@@ -939,21 +939,37 @@ model SystemHealthSnapshot {
   @@index([createdAt])
 }
 
-model SupportIncident {
-  id          String    @id @default(uuid())
+model SecurityIncident {
+  id String @id @default(uuid())
+
+  type        String // FRAUD, SUSPICIOUS_TRANSACTION, LOGIN_ANOMALY, SYSTEM_INTEGRITY
   title       String
   description String
-  severity    String // low | medium | high | critical
-  status      String    @default("open") // open | investigating | resolved | closed
-  assignedTo  String?
-  resolvedAt  DateTime?
-  createdBy   String
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
 
+  severity String // LOW, MEDIUM, HIGH, CRITICAL
+  status   String // OPEN, IN_PROGRESS, RESOLVED
+
+  source      String // FRAUD_FLAG, PAYMENT, AUTH, SYSTEM
+  referenceId String? // userId, transactionId, etc
+
+  metadata Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([type])
   @@index([status])
   @@index([severity])
-  @@index([createdAt])
+  @@index([referenceId])
+}
+
+model LoginActivity {
+  id        String   @id @default(uuid())
+  userId    String?
+  adminId   String?
+  status    String // SUCCESS | FAILED
+  ipAddress String?
+  createdAt DateTime @default(now())
 }
 
 model GatewayHealth {
@@ -1005,8 +1021,8 @@ model Ticket {
   slaDeadline DateTime?
   escalated   Boolean   @default(false)
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
   @@index([businessId])

@@ -106,8 +106,25 @@ exports.adminLogin = async ({ email, password, mfaToken }, req) => {
 
   const passwordMatch = await bcrypt.compare(password, admin.password);
 
+  /**
+   * =====================================================
+   * FAILED LOGIN
+   * =====================================================
+   */
   if (!passwordMatch) {
     const attempts = admin.loginAttempts + 1;
+
+    // 🔥 LOGIN ACTIVITY
+    await prisma.loginActivity.create({
+      data: {
+        adminId: admin.id,
+        status: "FAILED",
+        ipAddress: req.ip,
+      },
+    });
+
+    // 🔥 DETECT ANOMALY
+    await securityService.detectLoginAnomaly(admin.id);
 
     if (attempts >= settings.maxLoginAttempts) {
       const lockUntil = new Date(
@@ -161,6 +178,24 @@ exports.adminLogin = async ({ email, password, mfaToken }, req) => {
       lockUntil: null,
     },
   });
+
+  /**
+   * =====================================================
+   * SUCCESS LOGIN
+   * =====================================================
+   */
+
+  // 🔥 LOGIN ACTIVITY
+  await prisma.loginActivity.create({
+    data: {
+      adminId: admin.id,
+      status: "SUCCESS",
+      ipAddress: req.ip,
+    },
+  });
+
+  // 🔥 DETECT ANOMALY
+  await securityService.detectLoginAnomaly(admin.id);
 
   const rolePermissions = await prisma.rolePermission.findMany({
     where: { role: admin.role },

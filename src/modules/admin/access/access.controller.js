@@ -42,7 +42,7 @@ exports.disableAdminMFA = catchAsync(async (req, res) => {
 });
 
 exports.adminLogin = catchAsync(async (req, res) => {
-  const data = await accessService.adminLogin(req.body);
+  const data = await accessService.adminLogin(req.body, req);
 
   return response.success(req, res, data, 200, "access.login_success");
 });
