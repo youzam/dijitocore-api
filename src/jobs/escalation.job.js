@@ -4,6 +4,9 @@ const {
   createNotification,
 } = require("../services/notifications/notification.service");
 
+// ✅ ADD: Support Service
+const supportService = require("../modules/admin/support/support.service");
+
 const BATCH_SIZE = 500;
 const MAX_LOOPS = 1000;
 
@@ -11,6 +14,24 @@ const startOfDay = (d) => {
   const x = new Date(d);
   x.setHours(0, 0, 0, 0);
   return x;
+};
+
+/*
+|--------------------------------------------------------------------------
+| SUPPORT ESCALATION HANDLER
+|--------------------------------------------------------------------------
+*/
+
+const handleSupportEscalation = async () => {
+  try {
+    const breachedTickets = await supportService.getSLABreachedTickets();
+
+    for (const ticket of breachedTickets) {
+      await supportService.escalateTicket(ticket.id);
+    }
+  } catch (err) {
+    console.error("Support escalation failed:", err);
+  }
 };
 
 async function run() {
@@ -50,7 +71,6 @@ async function run() {
 
       if (!schedules.length) break;
 
-      // ✅ Remove N+1 business queries
       const businessIds = [
         ...new Set(
           schedules.map((s) => s.contract?.businessId).filter(Boolean),
@@ -80,7 +100,6 @@ async function run() {
           const business = businessMap.get(s.contract.businessId);
           if (!business) continue;
 
-          // ✅ Duplicate protection (same-day escalation)
           const existingToday = await prisma.notification.findFirst({
             where: {
               contractId: s.contract.id,
@@ -163,6 +182,9 @@ async function run() {
         }
       }
     }
+
+    // ✅ ADD: Run support escalation AFTER financial escalation loop
+    await handleSupportEscalation();
   } catch (error) {
     console.error("Escalation cron failed:", error);
     throw error;

@@ -356,7 +356,10 @@
     "exportDownloadSuccess": "Ripoti imepakuliwa kwa mafanikio",
 
     "exportNotReady": "Ripoti bado haijawa tayari",
-    "exportFailed": "Uundaji wa ripoti umeshindikana"
+    "exportFailed": "Uundaji wa ripoti umeshindikana",
+    "support_summary": "Ripoti ya muhtasari wa support imepatikana",
+    "support_sla": "Ripoti ya SLA ya support imepatikana",
+    "support_business": "Ripoti ya biashara za support imepatikana"
   },
   "communication": {
     "announcement_created": "Tangazo limeundwa kwa mafanikio",
@@ -375,5 +378,35 @@
     "template_deleted": "Template imefutwa kwa mafanikio",
     "templates_fetched": "Templates zimepatikana kwa mafanikio",
     "template_fetched": "Template imepatikana kwa mafanikio"
+  },
+  "support": {
+    "ticket_created": "Tiketi imeundwa kikamilifu",
+    "tickets_fetched": "Tiketi zimepatikana kikamilifu",
+    "ticket_fetched": "Tiketi imepatikana kikamilifu",
+    "ticket_updated": "Tiketi imeboreshwa kikamilifu",
+    "ticket_deleted": "Tiketi imefutwa kikamilifu",
+
+    "ticket_assigned": "Tiketi imepangiwa kikamilifu",
+    "priority_updated": "Kipaumbele cha tiketi kimebadilishwa",
+    "status_updated": "Hali ya tiketi imebadilishwa",
+
+    "note_added": "Ujumbe wa ndani umeongezwa",
+    "notes_fetched": "Ujumbe wa ndani umepatikana",
+
+    "message_sent": "Ujumbe umetumwa kikamilifu",
+    "messages_fetched": "Ujumbe umepatikana",
+
+    "attachment_added": "Kiambatanisho kimeongezwa",
+    "attachments_fetched": "Viambatanisho vimepatikana",
+
+    "analytics_fetched": "Takwimu za support zimepatikana",
+    "business_tickets_fetched": "Tiketi za biashara zimepatikana",
+
+    "ticket_not_found": "Tiketi haijapatikana",
+    "invalid_ticket_data": "Taarifa za tiketi si sahihi",
+    "invalid_priority": "Kipaumbele si sahihi",
+    "invalid_status": "Hali si sahihi",
+    "admin_not_found": "Admin hajapatikana",
+    "invalid_file": "Faili si sahihi"
   }
 }

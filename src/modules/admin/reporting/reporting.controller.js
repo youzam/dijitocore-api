@@ -223,3 +223,21 @@ exports.downloadExport = catchAsync(async (req, res) => {
 
   return res.download(record.filePath);
 });
+
+exports.getSupportSummary = catchAsync(async (req, res) => {
+  const data = await reportingService.getSupportSummaryReport(req.query);
+
+  return response.success(res, data, "reporting.support_summary");
+});
+
+exports.getSupportSLA = catchAsync(async (req, res) => {
+  const data = await reportingService.getSupportSLAReport();
+
+  return response.success(res, data, "reporting.support_sla");
+});
+
+exports.getTicketsPerBusiness = catchAsync(async (req, res) => {
+  const data = await reportingService.getTicketsPerBusinessReport();
+
+  return response.success(res, data, "reporting.support_business");
+});

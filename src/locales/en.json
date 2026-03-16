@@ -354,7 +354,10 @@
     "exportDownloadSuccess": "Report downloaded successfully",
 
     "exportNotReady": "Report is not ready yet",
-    "exportFailed": "Report export failed"
+    "exportFailed": "Report export failed",
+    "support_summary": "Support summary report fetched successfully",
+    "support_sla": "Support SLA report fetched successfully",
+    "support_business": "Support business report fetched successfully"
   },
   "communication": {
     "announcement_created": "Announcement created successfully",
@@ -373,5 +376,35 @@
     "template_deleted": "Template deleted successfully",
     "templates_fetched": "Templates fetched successfully",
     "template_fetched": "Template fetched successfully"
+  },
+  "support": {
+    "ticket_created": "Ticket created successfully",
+    "tickets_fetched": "Tickets fetched successfully",
+    "ticket_fetched": "Ticket fetched successfully",
+    "ticket_updated": "Ticket updated successfully",
+    "ticket_deleted": "Ticket deleted successfully",
+
+    "ticket_assigned": "Ticket assigned successfully",
+    "priority_updated": "Ticket priority updated successfully",
+    "status_updated": "Ticket status updated successfully",
+
+    "note_added": "Internal note added successfully",
+    "notes_fetched": "Internal notes fetched successfully",
+
+    "message_sent": "Message sent successfully",
+    "messages_fetched": "Messages fetched successfully",
+
+    "attachment_added": "Attachment added successfully",
+    "attachments_fetched": "Attachments fetched successfully",
+
+    "analytics_fetched": "Support analytics fetched successfully",
+    "business_tickets_fetched": "Business tickets fetched successfully",
+
+    "ticket_not_found": "Ticket not found",
+    "invalid_ticket_data": "Invalid ticket data",
+    "invalid_priority": "Invalid priority value",
+    "invalid_status": "Invalid status value",
+    "admin_not_found": "Admin not found",
+    "invalid_file": "Invalid file upload"
   }
 }

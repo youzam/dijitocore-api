@@ -160,5 +160,22 @@ router.get(
   }),
   reportingController.downloadExport,
 );
+router.get(
+  "/support/summary",
+  requirePermission({ module: "REPORTING", action: "READ" }),
+  controller.getSupportSummary,
+);
+
+router.get(
+  "/support/sla",
+  requirePermission({ module: "REPORTING", action: "READ" }),
+  controller.getSupportSLA,
+);
+
+router.get(
+  "/support/business",
+  requirePermission({ module: "REPORTING", action: "READ" }),
+  controller.getTicketsPerBusiness,
+);
 
 module.exports = router;

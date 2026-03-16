@@ -988,6 +988,65 @@ model ReportExport {
 }
 
 ///////////////////////////////////
+//          SUPORT
+//////////////////////////////////////
+model Ticket {
+  id              String  @id @default(uuid())
+  businessId      String
+  userId          String?
+  assignedAdminId String?
+
+  subject     String
+  description String
+
+  status   String
+  priority String
+
+  slaDeadline DateTime?
+  escalated   Boolean   @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  @@index([businessId])
+  @@index([status])
+}
+
+model TicketMessage {
+  id         String @id @default(uuid())
+  ticketId   String
+  senderId   String
+  senderType String
+  message    String
+
+  createdAt DateTime @default(now())
+
+  @@index([ticketId])
+}
+
+model TicketNote {
+  id       String @id @default(uuid())
+  ticketId String
+  adminId  String
+  note     String
+
+  createdAt DateTime @default(now())
+
+  @@index([ticketId])
+}
+
+model TicketAttachment {
+  id       String @id @default(uuid())
+  ticketId String
+  fileUrl  String
+
+  createdAt DateTime @default(now())
+
+  @@index([ticketId])
+}
+
+///////////////////////////////////
 // ENUMS
 ///////////////////////////////////
 enum GatewayStatus {

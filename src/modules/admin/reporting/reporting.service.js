@@ -476,3 +476,68 @@ exports.downloadExportFile = async (id) => {
 
   return record;
 };
+
+exports.getSupportSummaryReport = async (query) => {
+  const where = {};
+
+  if (query.businessId) {
+    where.businessId = query.businessId;
+  }
+
+  const [total, open, inProgress, resolved, escalated] = await Promise.all([
+    prisma.ticket.count({ where }),
+    prisma.ticket.count({ where: { ...where, status: "OPEN" } }),
+    prisma.ticket.count({ where: { ...where, status: "IN_PROGRESS" } }),
+    prisma.ticket.count({ where: { ...where, status: "RESOLVED" } }),
+    prisma.ticket.count({ where: { ...where, escalated: true } }),
+  ]);
+
+  return {
+    total,
+    open,
+    inProgress,
+    resolved,
+    escalated,
+  };
+};
+
+exports.getSupportSLAReport = async () => {
+  const now = new Date();
+
+  const [totalActive, breached] = await Promise.all([
+    prisma.ticket.count({
+      where: {
+        status: { notIn: ["RESOLVED", "CLOSED"] },
+      },
+    }),
+    prisma.ticket.count({
+      where: {
+        slaDeadline: { lt: now },
+        status: { notIn: ["RESOLVED", "CLOSED"] },
+      },
+    }),
+  ]);
+
+  const complianceRate =
+    totalActive === 0 ? 100 : ((totalActive - breached) / totalActive) * 100;
+
+  return {
+    totalActive,
+    breached,
+    complianceRate,
+  };
+};
+
+exports.getTicketsPerBusinessReport = async () => {
+  const data = await prisma.ticket.groupBy({
+    by: ["businessId"],
+    _count: true,
+    orderBy: {
+      _count: {
+        businessId: "desc",
+      },
+    },
+  });
+
+  return data;
+};
