@@ -302,6 +302,33 @@ exports.unlockUser = async (userId) => {
 
 /*
 |--------------------------------------------------------------------------
+| Update User Status
+|--------------------------------------------------------------------------
+*/
+
+exports.updateUserStatus = async (userId, status) => {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (!user) {
+    throw new AppError("governance.user_not_found", 404);
+  }
+
+  const allowedStatuses = ["ACTIVE", "INACTIVE", "SUSPENDED"];
+
+  if (!allowedStatuses.includes(status)) {
+    throw new AppError("governance.invalid_user_status", 400);
+  }
+
+  return prisma.user.update({
+    where: { id: userId },
+    data: { status },
+  });
+};
+
+/*
+|--------------------------------------------------------------------------
 | Force Logout User
 |--------------------------------------------------------------------------
 */

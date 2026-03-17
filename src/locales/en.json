@@ -269,7 +269,9 @@
 
     "risk_flags": "Risk indicators retrieved successfully.",
 
-    "search_success": "Search results retrieved successfully"
+    "search_success": "Search results retrieved successfully",
+    "user_status_updated": "User status updated successfully.",
+    "invalid_user_status": "Invalid user status provided."
   },
 
   "commerce": {

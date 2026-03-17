@@ -273,7 +273,9 @@
 
     "risk_flags": "Viashiria vya hatari vimepatikana kwa mafanikio.",
 
-    "search_success": "Matokeo ya utafutaji yamepatikana kikamilifu"
+    "search_success": "Matokeo ya utafutaji yamepatikana kikamilifu",
+    "user_status_updated": "Hali ya mtumiaji imesasishwa kwa mafanikio.",
+    "invalid_user_status": "Hali ya mtumiaji si sahihi."
   },
   "commerce": {
     "transactions_fetched": "Miingiliano imepatikana kwa mafanikio",

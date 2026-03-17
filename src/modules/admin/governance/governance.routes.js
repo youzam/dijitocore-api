@@ -139,6 +139,16 @@ router.patch(
   governanceController.unlockUser,
 );
 
+router.patch(
+  "/users/:userId/status",
+  requirePermission({
+    module: "GOVERNANCE",
+    action: "UPDATE",
+    scope: "USER",
+  }),
+  governanceController.updateUserStatus,
+);
+
 router.post(
   "/users/:userId/reset-password",
   requirePermission({ module: "GOVERNANCE", action: "EDIT", scope: "USER" }),

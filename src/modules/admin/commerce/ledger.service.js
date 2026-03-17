@@ -2,7 +2,7 @@ const prisma = require("../../../config/prisma");
 const AppError = require("../../../utils/AppError");
 
 /**
- * Normalize transaction type (strict control from blueprint)
+ * Normalize transaction type
  */
 const normalizeTransactionType = (type) => {
   const allowed = [
@@ -13,21 +13,29 @@ const normalizeTransactionType = (type) => {
     "MANUAL_ADJUSTMENT",
   ];
 
-  if (!type) return "SUBSCRIPTION";
-
   return allowed.includes(type) ? type : "SUBSCRIPTION";
 };
 
 /**
- * Build Prisma filters safely
+ * Build filters (UPDATED — FULL)
  */
 const buildWhereClause = (filters) => {
-  const { businessId, status, type, gateway, startDate, endDate } = filters;
+  const {
+    businessId,
+    status,
+    type,
+    gateway,
+    startDate,
+    endDate,
+    packageId,
+    country,
+  } = filters;
 
   return {
     ...(status && { status }),
     ...(type && { type }),
     ...(gateway && { gateway }),
+
     ...(startDate || endDate
       ? {
           createdAt: {
@@ -36,16 +44,31 @@ const buildWhereClause = (filters) => {
           },
         }
       : {}),
+
     ...(businessId && {
       subscription: {
         businessId,
+      },
+    }),
+
+    ...(packageId && {
+      subscription: {
+        packageId,
+      },
+    }),
+
+    ...(country && {
+      subscription: {
+        business: {
+          country,
+        },
       },
     }),
   };
 };
 
 /**
- * Get Transactions (ENTERPRISE LEVEL)
+ * GET TRANSACTIONS (UPDATED — FULL ENTERPRISE)
  */
 exports.getTransactions = async (query) => {
   const { page = 1, limit = 20, sortBy = "createdAt", order = "desc" } = query;
@@ -54,7 +77,8 @@ exports.getTransactions = async (query) => {
 
   const where = buildWhereClause(query);
 
-  const [total, payments] = await Promise.all([
+  // 🔥 FETCH PAYMENTS
+  const [paymentCount, payments, adjustments] = await Promise.all([
     prisma.subscriptionPayment.count({ where }),
 
     prisma.subscriptionPayment.findMany({
@@ -73,100 +97,107 @@ exports.getTransactions = async (query) => {
         },
       },
     }),
+
+    // 🔥 INCLUDE ADJUSTMENTS (NEW)
+    prisma.financialAdjustment.findMany({
+      orderBy: { createdAt: "desc" },
+    }),
   ]);
 
-  const transactions = payments.map((payment) => ({
+  /**
+   * 🔥 MAP PAYMENTS
+   */
+  const paymentTransactions = payments.map((payment) => ({
     id: payment.id,
 
-    // Business
     businessId: payment.subscription.businessId,
     businessName: payment.subscription.business?.name || null,
+    country: payment.subscription.business?.country || null,
 
-    // Package
     packageId: payment.subscription.packageId,
     packageName: payment.subscription.package?.name || null,
 
-    // Financial
+    // 🔥 AMOUNT BREAKDOWN
+    subscriptionAmount: payment.type === "SUBSCRIPTION" ? payment.amount : null,
+
+    setupFeeAmount: payment.type === "SETUP_FEE" ? payment.amount : null,
+
     amount: payment.amount,
     currency: payment.currency,
 
-    // Classification
     type: normalizeTransactionType(payment.type),
     status: payment.status,
 
-    // Gateway
     gateway: payment.gateway || null,
 
-    // Blueprint fields
     invoiceUrl: payment.invoiceUrl || null,
     webhookStatus: payment.webhookStatus || null,
     adminOverride: payment.adminOverride,
 
-    // Time
     paidAt: payment.paidAt,
     createdAt: payment.createdAt,
+
+    // 🔥 ADD ATTEMPT COUNT
+    retryCount: payment.retryCount || 0,
+
+    // 🔥 AUDIT LINK FLAG
+    hasAuditLog: !!payment.metadata,
   }));
 
+  /**
+   * 🔥 MAP ADJUSTMENTS (NEW)
+   */
+  const adjustmentTransactions = adjustments.map((adj) => ({
+    id: adj.id,
+
+    businessId: adj.businessId,
+    businessName: null,
+    country: null,
+
+    packageId: null,
+    packageName: null,
+
+    subscriptionAmount: null,
+    setupFeeAmount: null,
+
+    amount: adj.amount,
+    currency: null,
+
+    type: "MANUAL_ADJUSTMENT",
+    status: "SUCCESS",
+
+    gateway: null,
+
+    invoiceUrl: null,
+    webhookStatus: null,
+    adminOverride: true,
+
+    paidAt: adj.createdAt,
+    createdAt: adj.createdAt,
+
+    retryCount: 0,
+    hasAuditLog: false,
+  }));
+
+  /**
+   * 🔥 MERGE + SORT
+   */
+  const allTransactions = [...paymentTransactions, ...adjustmentTransactions]
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    .slice(skip, skip + Number(limit));
+
   return {
-    data: transactions,
+    data: allTransactions,
     meta: {
-      total,
+      total: paymentCount + adjustments.length,
       page: Number(page),
       limit: Number(limit),
-      pages: Math.ceil(total / limit),
     },
   };
 };
 
 /**
- * Get Single Transaction (FULL DETAILS)
- */
-exports.getTransactionById = async (id) => {
-  const payment = await prisma.subscriptionPayment.findUnique({
-    where: { id },
-    include: {
-      subscription: {
-        include: {
-          business: true,
-          package: true,
-        },
-      },
-    },
-  });
-
-  if (!payment) {
-    throw new AppError("commerce.transaction_not_found", 404);
-  }
-
-  return {
-    id: payment.id,
-
-    businessId: payment.subscription.businessId,
-    businessName: payment.subscription.business?.name || null,
-
-    packageId: payment.subscription.packageId,
-    packageName: payment.subscription.package?.name || null,
-
-    amount: payment.amount,
-    currency: payment.currency,
-
-    type: normalizeTransactionType(payment.type),
-    status: payment.status,
-
-    gateway: payment.gateway,
-
-    invoiceUrl: payment.invoiceUrl,
-    webhookStatus: payment.webhookStatus,
-    adminOverride: payment.adminOverride,
-
-    paidAt: payment.paidAt,
-    createdAt: payment.createdAt,
-    updatedAt: payment.updatedAt,
-  };
-};
-
-/**
- * Transaction Drilldown (BLUEPRINT REQUIREMENT)
+ * 🔥 DRILLDOWN (UPDATED)
  */
 exports.getTransactionDrilldown = async (id) => {
   const payment = await prisma.subscriptionPayment.findUnique({
@@ -180,16 +211,14 @@ exports.getTransactionDrilldown = async (id) => {
   return {
     id: payment.id,
 
-    // Raw gateway payload
     gatewayPayload: payment.gatewayPayload || null,
+    retryCount: payment.retryCount || 0,
 
-    // Retry tracking
-    retryCount: payment.retryCount,
-
-    // Webhook
     webhookStatus: payment.webhookStatus,
 
-    // Metadata (extra debug info)
     metadata: payment.metadata || null,
+
+    // 🔥 FUTURE AUDIT HOOK
+    auditLogs: [], // placeholder until audit module linked
   };
 };

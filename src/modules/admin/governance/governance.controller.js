@@ -138,6 +138,23 @@ exports.unlockUser = catchAsync(async (req, res) => {
   return response.success(req, res, data, 200, "governance.user_unlocked");
 });
 
+exports.updateUserStatus = catchAsync(async (req, res) => {
+  const { status } = req.body;
+
+  const data = await governanceService.updateUserStatus(
+    req.params.userId,
+    status,
+  );
+
+  return response.success(
+    req,
+    res,
+    data,
+    200,
+    "governance.user_status_updated",
+  );
+});
+
 exports.resetUserPassword = catchAsync(async (req, res) => {
   const { password } = req.body;
 
