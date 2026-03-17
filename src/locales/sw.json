@@ -495,5 +495,11 @@
     "job_performance": "Utendaji wa jobs umepatikana",
     "recent_jobs": "Jobs za hivi karibuni zimepatikana",
     "dead_jobs": "Dead jobs zimepatikana"
+  },
+  "settings": {
+    "fetched": "Mipangilio imepatikana kwa mafanikio",
+    "updated": "Mipangilio imeboreshwa kwa mafanikio",
+    "history_fetched": "Historia ya mipangilio imepatikana kwa mafanikio",
+    "not_found": "Rekodi ya mipangilio haijapatikana"
   }
 }

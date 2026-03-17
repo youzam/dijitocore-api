@@ -493,5 +493,11 @@
     "job_performance": "Job performance fetched successfully",
     "recent_jobs": "Recent jobs fetched successfully",
     "dead_jobs": "Dead jobs fetched successfully"
+  },
+  "settings": {
+    "fetched": "Settings retrieved successfully",
+    "updated": "Settings updated successfully",
+    "history_fetched": "Settings history retrieved successfully",
+    "not_found": "Settings record not found"
   }
 }
