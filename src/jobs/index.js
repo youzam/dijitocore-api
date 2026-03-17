@@ -6,6 +6,8 @@ const escalationJob = require("./escalation.job");
 const reminderJob = require("./reminder.job");
 const notificationRetryJob = require("./notification.job");
 const subscriptionLifecycleJob = require("./subscription.lifecycle.job");
+const complianceJob = require("./compliance.job");
+const apiMetricsJob = require("./api.metrics.job");
 
 /**
  * Central Job Registry
@@ -20,6 +22,8 @@ const jobRegistry = {
   reminder: reminderJob,
   retry: notificationRetryJob,
   subscription_lifecycle: subscriptionLifecycleJob,
+  compliance: complianceJob,
+  api_metrics: apiMetricsJob,
 };
 
 function scheduleJob(jobName, jobFn, intervalMs, ttlSeconds, intervals) {
@@ -73,6 +77,22 @@ function startJobs() {
     notificationRetryJob.run,
     10 * 60 * 1000,
     600,
+    intervals,
+  );
+
+  scheduleJob(
+    "compliance",
+    complianceJob.run,
+    10 * 60 * 1000, // every 10 minutes
+    600,
+    intervals,
+  );
+
+  scheduleJob(
+    "api_metrics",
+    apiMetricsJob.run,
+    5 * 60 * 1000, // every 5 minutes
+    300, // TTL (5 min)
     intervals,
   );
 

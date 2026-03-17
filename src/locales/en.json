@@ -443,5 +443,51 @@
 
     "incident_not_found": "Security incident not found",
     "invalid_status_transition": "Invalid incident status transition"
+  },
+  "compliance": {
+    "retention_policy_created": "Retention policy created successfully",
+    "retention_policy_updated": "Retention policy updated successfully",
+    "retention_policy_fetched": "Retention policy fetched successfully",
+    "retention_policies_listed": "Retention policies retrieved successfully",
+    "retention_policy_toggled": "Retention policy status updated successfully",
+
+    "policy_versions_listed": "Policy versions retrieved successfully",
+    "policy_version_fetched": "Policy version fetched successfully",
+
+    "data_request_created": "Data request created successfully",
+    "data_requests_listed": "Data requests retrieved successfully",
+    "data_request_fetched": "Data request fetched successfully",
+    "data_request_approved": "Data request approved successfully",
+    "data_request_rejected": "Data request rejected successfully",
+
+    "purge_queue_listed": "Purge queue retrieved successfully",
+    "purge_queue_item_fetched": "Purge queue item fetched successfully",
+    "purge_job_retried": "Purge job retried successfully",
+
+    "consent_logs_listed": "Consent logs retrieved successfully",
+    "consent_log_fetched": "Consent log fetched successfully"
+  },
+  "operations": {
+    "health_fetched": "System health fetched successfully",
+    "db_usage_fetched": "Database usage fetched successfully",
+    "storage_usage_fetched": "Storage usage fetched successfully",
+    "api_metrics_fetched": "API metrics fetched successfully",
+
+    "job_logs_fetched": "Job logs fetched successfully",
+    "job_retried": "Job retried successfully",
+
+    "webhook_stats_fetched": "Webhook statistics fetched successfully",
+    "gateway_stats_fetched": "Gateway statistics fetched successfully",
+
+    "maintenance_enabled": "Maintenance mode enabled",
+    "maintenance_disabled": "Maintenance mode disabled",
+
+    "feature_flag_toggled": "Feature flag updated successfully",
+
+    "system_shutdown": "System emergency shutdown executed",
+
+    "job_not_found": "Job not found",
+    "job_not_retryable": "Job cannot be retried",
+    "job_handler_missing": "Job handler not found"
   }
 }

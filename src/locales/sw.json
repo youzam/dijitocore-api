@@ -445,5 +445,51 @@
 
     "incident_not_found": "Tukio la usalama halikupatikana",
     "invalid_status_transition": "Mabadiliko ya hali ya tukio si sahihi"
+  },
+  "compliance": {
+    "retention_policy_created": "Sera ya uhifadhi wa data imeundwa kikamilifu",
+    "retention_policy_updated": "Sera ya uhifadhi wa data imesasishwa kikamilifu",
+    "retention_policy_fetched": "Sera ya uhifadhi wa data imepatikana kikamilifu",
+    "retention_policies_listed": "Sera za uhifadhi wa data zimepatikana kikamilifu",
+    "retention_policy_toggled": "Hali ya sera ya uhifadhi wa data imebadilishwa kikamilifu",
+
+    "policy_versions_listed": "Toleo za sera zimepatikana kikamilifu",
+    "policy_version_fetched": "Toleo la sera limepatikana kikamilifu",
+
+    "data_request_created": "Ombi la data limeundwa kikamilifu",
+    "data_requests_listed": "Maombi ya data yamepatikana kikamilifu",
+    "data_request_fetched": "Ombi la data limepatikana kikamilifu",
+    "data_request_approved": "Ombi la data limeidhinishwa kikamilifu",
+    "data_request_rejected": "Ombi la data limekataliwa kikamilifu",
+
+    "purge_queue_listed": "Foleni ya uondoaji data imepatikana kikamilifu",
+    "purge_queue_item_fetched": "Kipengele cha foleni ya uondoaji data kimepatikana kikamilifu",
+    "purge_job_retried": "Jaribio la uondoaji data limeanzishwa tena kikamilifu",
+
+    "consent_logs_listed": "Kumbukumbu za ridhaa zimepatikana kikamilifu",
+    "consent_log_fetched": "Kumbukumbu ya ridhaa imepatikana kikamilifu"
+  },
+  "operations": {
+    "health_fetched": "Afya ya mfumo imepatikana kikamilifu",
+    "db_usage_fetched": "Matumizi ya database yamepatikana kikamilifu",
+    "storage_usage_fetched": "Matumizi ya storage yamepatikana kikamilifu",
+    "api_metrics_fetched": "Takwimu za API zimepatikana kikamilifu",
+
+    "job_logs_fetched": "Orodha ya jobs imepatikana kikamilifu",
+    "job_retried": "Job imejaribiwa tena kikamilifu",
+
+    "webhook_stats_fetched": "Takwimu za webhook zimepatikana kikamilifu",
+    "gateway_stats_fetched": "Takwimu za gateway zimepatikana kikamilifu",
+
+    "maintenance_enabled": "Hali ya matengenezo imewashwa",
+    "maintenance_disabled": "Hali ya matengenezo imezimwa",
+
+    "feature_flag_toggled": "Feature flag imebadilishwa kikamilifu",
+
+    "system_shutdown": "Mfumo umezimwa kwa dharura",
+
+    "job_not_found": "Job haijapatikana",
+    "job_not_retryable": "Job haiwezi kujaribiwa tena",
+    "job_handler_missing": "Handler ya job haijapatikana"
   }
 }

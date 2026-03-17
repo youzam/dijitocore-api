@@ -1,48 +1,178 @@
 const catchAsync = require("../../../utils/catchAsync");
-const prisma = require("../../../config/prisma");
-const { success } = require("../../../utils/response");
+const response = require("../../../utils/response");
+
 const operationService = require("./operation.service");
-const jobs = require("../../../jobs");
-const { runSafeJob } = require("../../../utils/jobRunner");
 
-exports.getHealth = catchAsync(async (req, res) => {
-  const health = await operationService.getSystemHealth();
+/*
+|--------------------------------------------------------------------------
+| SYSTEM HEALTH
+|--------------------------------------------------------------------------
+*/
 
-  return success(req, res, health, 200, "system.healthFetched");
+exports.getSystemHealth = catchAsync(async (req, res) => {
+  const data = await operationService.getSystemHealth();
+
+  return response.success(req, res, data, 200, "operations.health_fetched");
 });
 
-exports.triggerJob = async (req, res) => {
-  const { jobName } = req.params;
+/*
+|--------------------------------------------------------------------------
+| DB USAGE
+|--------------------------------------------------------------------------
+*/
 
-  const job = jobs[jobName];
+exports.getDbUsage = catchAsync(async (req, res) => {
+  const data = await operationService.getDbUsage();
 
-  if (!job || typeof job.run !== "function") {
-    return res.status(404).json({
-      success: false,
-      message: "Job not found",
-    });
-  }
+  return response.success(req, res, data, 200, "operations.db_usage_fetched");
+});
 
-  try {
-    await runSafeJob(jobName, job.run, 1800);
+/*
+|--------------------------------------------------------------------------
+| STORAGE USAGE
+|--------------------------------------------------------------------------
+*/
 
-    return res.json({
-      success: true,
-      message: `Job '${jobName}' triggered`,
-    });
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: "Job execution failed",
-      error: error.message,
-    });
-  }
-};
+exports.getStorageUsage = catchAsync(async (req, res) => {
+  const data = await operationService.getStorageUsage();
 
-exports.getJobs = catchAsync(async (req, res) => {
-  const jobs = await prisma.systemJobLog.findMany({
-    orderBy: { createdAt: "desc" },
-  });
+  return response.success(
+    req,
+    res,
+    data,
+    200,
+    "operations.storage_usage_fetched",
+  );
+});
 
-  return success(req, res, jobs, 200, "system.jobLogged");
+/*
+|--------------------------------------------------------------------------
+| API METRICS
+|--------------------------------------------------------------------------
+*/
+
+exports.getApiMetrics = catchAsync(async (req, res) => {
+  const data = await operationService.getApiMetrics();
+
+  return response.success(
+    req,
+    res,
+    data,
+    200,
+    "operations.api_metrics_fetched",
+  );
+});
+
+/*
+|--------------------------------------------------------------------------
+| JOB MONITORING
+|--------------------------------------------------------------------------
+*/
+
+exports.getJobLogs = catchAsync(async (req, res) => {
+  const data = await operationService.getJobLogs(req.query);
+
+  return response.success(req, res, data, 200, "operations.job_logs_fetched");
+});
+
+exports.retryFailedJob = catchAsync(async (req, res) => {
+  const data = await operationService.retryFailedJob(Number(req.params.jobId));
+
+  return response.success(req, res, data, 200, "operations.job_retried");
+});
+
+/*
+|--------------------------------------------------------------------------
+| WEBHOOK MONITOR
+|--------------------------------------------------------------------------
+*/
+
+exports.getWebhookStats = catchAsync(async (req, res) => {
+  const data = await operationService.getWebhookStats();
+
+  return response.success(
+    req,
+    res,
+    data,
+    200,
+    "operations.webhook_stats_fetched",
+  );
+});
+
+/*
+|--------------------------------------------------------------------------
+| GATEWAY MONITOR
+|--------------------------------------------------------------------------
+*/
+
+exports.getGatewayStats = catchAsync(async (req, res) => {
+  const data = await operationService.getGatewayStats();
+
+  return response.success(
+    req,
+    res,
+    data,
+    200,
+    "operations.gateway_stats_fetched",
+  );
+});
+
+/*
+|--------------------------------------------------------------------------
+| MAINTENANCE MODE
+|--------------------------------------------------------------------------
+*/
+
+exports.enableMaintenance = catchAsync(async (req, res) => {
+  const data = await operationService.enableMaintenance();
+
+  return response.success(
+    req,
+    res,
+    data,
+    200,
+    "operations.maintenance_enabled",
+  );
+});
+
+exports.disableMaintenance = catchAsync(async (req, res) => {
+  const data = await operationService.disableMaintenance();
+
+  return response.success(
+    req,
+    res,
+    data,
+    200,
+    "operations.maintenance_disabled",
+  );
+});
+
+/*
+|--------------------------------------------------------------------------
+| FEATURE FLAGS
+|--------------------------------------------------------------------------
+*/
+
+exports.toggleFeatureFlag = catchAsync(async (req, res) => {
+  const data = await operationService.toggleFeatureFlag(req.params.flag);
+
+  return response.success(
+    req,
+    res,
+    data,
+    200,
+    "operations.feature_flag_toggled",
+  );
+});
+
+/*
+|--------------------------------------------------------------------------
+| EMERGENCY SHUTDOWN
+|--------------------------------------------------------------------------
+*/
+
+exports.emergencyShutdown = catchAsync(async (req, res) => {
+  const data = await operationService.emergencyShutdown();
+
+  return response.success(req, res, data, 200, "operations.system_shutdown");
 });
