@@ -330,3 +330,79 @@ exports.logJobExecution = async (data) => {
     data,
   });
 };
+
+/*
+|--------------------------------------------------------------------------
+| DASHBOARD OVERVIEW
+|--------------------------------------------------------------------------
+*/
+
+exports.getOperationsOverview = async () => {
+  const total = await prisma.systemJobLog.count();
+
+  const success = await prisma.systemJobLog.count({
+    where: { status: "SUCCESS" },
+  });
+
+  const failed = await prisma.systemJobLog.count({
+    where: { status: "FAILED" },
+  });
+
+  const running = await prisma.systemJobLog.count({
+    where: { status: "RUNNING" },
+  });
+
+  const deadJobs = await prisma.deadJob.count();
+
+  return {
+    total,
+    success,
+    failed,
+    running,
+    deadJobs,
+  };
+};
+
+/*
+|--------------------------------------------------------------------------
+| JOB PERFORMANCE
+|--------------------------------------------------------------------------
+*/
+
+exports.getJobPerformance = async () => {
+  const jobs = await prisma.systemJobLog.groupBy({
+    by: ["jobName"],
+    _count: true,
+    _avg: {
+      retryCount: true,
+    },
+  });
+
+  return jobs;
+};
+
+/*
+|--------------------------------------------------------------------------
+| RECENT JOB LOGS
+|--------------------------------------------------------------------------
+*/
+
+exports.getRecentJobs = async () => {
+  return prisma.systemJobLog.findMany({
+    orderBy: { createdAt: "desc" },
+    take: 20,
+  });
+};
+
+/*
+|--------------------------------------------------------------------------
+| DEAD JOBS
+|--------------------------------------------------------------------------
+*/
+
+exports.getDeadJobs = async () => {
+  return prisma.deadJob.findMany({
+    orderBy: { createdAt: "desc" },
+    take: 20,
+  });
+};

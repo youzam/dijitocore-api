@@ -488,6 +488,10 @@
 
     "job_not_found": "Job not found",
     "job_not_retryable": "Job cannot be retried",
-    "job_handler_missing": "Job handler not found"
+    "job_handler_missing": "Job handler not found",
+    "dashboard_overview": "Operations overview fetched successfully",
+    "job_performance": "Job performance fetched successfully",
+    "recent_jobs": "Recent jobs fetched successfully",
+    "dead_jobs": "Dead jobs fetched successfully"
   }
 }

@@ -175,4 +175,50 @@ router.post(
   controller.emergencyShutdown,
 );
 
+/*
+|--------------------------------------------------------------------------
+| OPERATIONS DASHBOARD
+|--------------------------------------------------------------------------
+*/
+
+router.get(
+  "/dashboard/overview",
+  requirePermission({
+    module: "operations",
+    action: "read",
+    scope: "global",
+  }),
+  controller.getOperationsOverview,
+);
+
+router.get(
+  "/dashboard/performance",
+  requirePermission({
+    module: "operations",
+    action: "read",
+    scope: "global",
+  }),
+  controller.getJobPerformance,
+);
+
+router.get(
+  "/dashboard/recent",
+  requirePermission({
+    module: "operations",
+    action: "read",
+    scope: "global",
+  }),
+  controller.getRecentJobs,
+);
+
+router.get(
+  "/dashboard/dead-jobs",
+  requirePermission({
+    module: "operations",
+    action: "read",
+    scope: "global",
+  }),
+  controller.getDeadJobs,
+);
+
 module.exports = router;

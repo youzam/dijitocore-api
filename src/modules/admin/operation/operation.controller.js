@@ -176,3 +176,33 @@ exports.emergencyShutdown = catchAsync(async (req, res) => {
 
   return response.success(req, res, data, 200, "operations.system_shutdown");
 });
+
+/*
+|--------------------------------------------------------------------------
+| OPERATIONS DASHBOARD
+|--------------------------------------------------------------------------
+*/
+
+exports.getOperationsOverview = catchAsync(async (req, res) => {
+  const data = await operationService.getOperationsOverview();
+
+  return response.success(req, res, data, 200, "operations.dashboard_overview");
+});
+
+exports.getJobPerformance = catchAsync(async (req, res) => {
+  const data = await operationService.getJobPerformance();
+
+  return response.success(req, res, data, 200, "operations.job_performance");
+});
+
+exports.getRecentJobs = catchAsync(async (req, res) => {
+  const data = await operationService.getRecentJobs();
+
+  return response.success(req, res, data, 200, "operations.recent_jobs");
+});
+
+exports.getDeadJobs = catchAsync(async (req, res) => {
+  const data = await operationService.getDeadJobs();
+
+  return response.success(req, res, data, 200, "operations.dead_jobs");
+});

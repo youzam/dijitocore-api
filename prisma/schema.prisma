@@ -901,13 +901,23 @@ model SystemJobLog {
   finishedAt    DateTime?
   durationMs    Int?
   errorMessage  String?
+
   retryCount    Int       @default(0)
-  createdAt     DateTime  @default(now())
   lastRetriedAt DateTime?
+
+  createdAt     DateTime  @default(now())
 
   @@index([jobName])
   @@index([status])
   @@index([createdAt])
+}
+
+model DeadJob {
+  id          Int      @id @default(autoincrement())
+  jobName     String
+  instanceId  String
+  reason      String
+  createdAt   DateTime @default(now())
 }
 
 model ApiMetric {

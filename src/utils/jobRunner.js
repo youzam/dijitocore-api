@@ -5,6 +5,43 @@ const instanceId = process.env.INSTANCE_ID || `instance-${process.pid}`;
 
 const activeJobs = new Map();
 
+/*
+|--------------------------------------------------------------------------
+| HARDENING CONFIG (ADDED)
+|--------------------------------------------------------------------------
+*/
+
+const MAX_RETRIES = 3;
+const DEFAULT_JOB_TIMEOUT_MS = 5 * 60 * 1000;
+
+const jobRetries = new Map();
+
+/*
+|--------------------------------------------------------------------------
+| PER-JOB CONFIG (ADDED)
+|--------------------------------------------------------------------------
+*/
+
+const JOB_CONFIG = {
+  dashboard_snapshot: { timeout: 10 * 60 * 1000 },
+  subscription_lifecycle: { timeout: 10 * 60 * 1000 },
+
+  device_cleanup: { timeout: 5 * 60 * 1000 },
+  reminder: { timeout: 5 * 60 * 1000 },
+
+  escalation: { timeout: 2 * 60 * 1000 },
+  retry: { timeout: 2 * 60 * 1000 },
+  compliance: { timeout: 2 * 60 * 1000 },
+
+  api_metrics: { timeout: 60 * 1000 },
+};
+
+/*
+|--------------------------------------------------------------------------
+| LOCK MANAGEMENT (UNCHANGED CORE)
+|--------------------------------------------------------------------------
+*/
+
 async function acquireLock(jobName, ttlSeconds) {
   const now = new Date();
   const lockUntil = new Date(now.getTime() + ttlSeconds * 1000);
@@ -23,7 +60,6 @@ async function acquireLock(jobName, ttlSeconds) {
     });
 
     if (result.count === 0) {
-      // Try create if doesn't exist
       try {
         await prisma.jobLock.create({
           data: {
@@ -61,6 +97,12 @@ async function releaseLock(jobName) {
   }
 }
 
+/*
+|--------------------------------------------------------------------------
+| SAFE JOB RUNNER (FULL HARDENED)
+|--------------------------------------------------------------------------
+*/
+
 async function runSafeJob(jobName, jobFn, ttlSeconds = 900) {
   if (activeJobs.get(jobName)) return;
 
@@ -73,13 +115,15 @@ async function runSafeJob(jobName, jobFn, ttlSeconds = 900) {
   let heartbeat;
 
   try {
+    /*
+    |--------------------------------------------------------------------------
+    | HEARTBEAT (EXTEND LOCK)
+    |--------------------------------------------------------------------------
+    */
     heartbeat = setInterval(async () => {
       try {
         await prisma.jobLock.updateMany({
-          where: {
-            jobName,
-            instanceId,
-          },
+          where: { jobName, instanceId },
           data: {
             lockedUntil: new Date(Date.now() + ttlSeconds * 1000),
           },
@@ -89,29 +133,123 @@ async function runSafeJob(jobName, jobFn, ttlSeconds = 900) {
       }
     }, 30000);
 
+    /*
+    |--------------------------------------------------------------------------
+    | LOG START
+    |--------------------------------------------------------------------------
+    */
     await systemJobService.logJobExecution({
       jobName,
-      status: "running",
+      status: "RUNNING",
       startedAt,
     });
 
-    await jobFn();
+    /*
+    |--------------------------------------------------------------------------
+    | TIMEOUT (PER-JOB)
+    |--------------------------------------------------------------------------
+    */
+    const timeout = JOB_CONFIG[jobName]?.timeout || DEFAULT_JOB_TIMEOUT_MS;
 
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => {
+        reject(new Error("Job timeout exceeded"));
+      }, timeout);
+    });
+
+    await Promise.race([jobFn(), timeoutPromise]);
+
+    /*
+    |--------------------------------------------------------------------------
+    | RESET RETRIES
+    |--------------------------------------------------------------------------
+    */
+    jobRetries.delete(jobName);
+
+    /*
+    |--------------------------------------------------------------------------
+    | LOG SUCCESS
+    |--------------------------------------------------------------------------
+    */
     await systemJobService.logJobExecution({
       jobName,
-      status: "success",
+      status: "SUCCESS",
       startedAt,
       finishedAt: new Date(),
     });
   } catch (err) {
+    /*
+    |--------------------------------------------------------------------------
+    | RETRY TRACKING (MEMORY)
+    |--------------------------------------------------------------------------
+    */
+    const retries = (jobRetries.get(jobName) || 0) + 1;
+    jobRetries.set(jobName, retries);
+
+    /*
+    |--------------------------------------------------------------------------
+    | PERSIST RETRIES (DB)
+    |--------------------------------------------------------------------------
+    */
+    await prisma.systemJobLog.updateMany({
+      where: { jobName },
+      data: {
+        retryCount: { increment: 1 },
+        lastRetryAt: new Date(),
+      },
+    });
+
+    /*
+    |--------------------------------------------------------------------------
+    | LOG FAILURE
+    |--------------------------------------------------------------------------
+    */
     await systemJobService.logJobExecution({
       jobName,
-      status: "failed",
+      status: "FAILED",
       startedAt,
       finishedAt: new Date(),
       errorMessage: err.message,
     });
 
+    /*
+    |--------------------------------------------------------------------------
+    | RETRY + BACKOFF
+    |--------------------------------------------------------------------------
+    */
+    if (retries <= MAX_RETRIES) {
+      const backoff = retries * 10000;
+
+      console.warn(
+        `Retrying job ${jobName} (${retries}/${MAX_RETRIES}) in ${backoff}ms`,
+      );
+
+      setTimeout(() => {
+        runSafeJob(jobName, jobFn, ttlSeconds);
+      }, backoff);
+    } else {
+      console.error(`Job ${jobName} exceeded max retries`);
+      jobRetries.delete(jobName);
+
+      /*
+      |--------------------------------------------------------------------------
+      | DEAD JOB TRACKING
+      |--------------------------------------------------------------------------
+      */
+      await prisma.deadJob.create({
+        data: {
+          jobName,
+          instanceId,
+          reason: "Max retries exceeded",
+        },
+      });
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | ALERT WEBHOOK
+    |--------------------------------------------------------------------------
+    */
     if (process.env.JOB_ALERT_WEBHOOK) {
       try {
         await fetch(process.env.JOB_ALERT_WEBHOOK, {
@@ -120,6 +258,7 @@ async function runSafeJob(jobName, jobFn, ttlSeconds = 900) {
           body: JSON.stringify({
             job: jobName,
             error: err.message,
+            retries,
             instance: instanceId,
           }),
         });
@@ -128,6 +267,11 @@ async function runSafeJob(jobName, jobFn, ttlSeconds = 900) {
 
     throw err;
   } finally {
+    /*
+    |--------------------------------------------------------------------------
+    | CLEANUP
+    |--------------------------------------------------------------------------
+    */
     if (heartbeat) clearInterval(heartbeat);
 
     activeJobs.delete(jobName);
@@ -135,20 +279,31 @@ async function runSafeJob(jobName, jobFn, ttlSeconds = 900) {
   }
 }
 
+/*
+|--------------------------------------------------------------------------
+| GRACEFUL SHUTDOWN (CRON SAFE)
+|--------------------------------------------------------------------------
+*/
+
 let shutdownHookRegistered = false;
 
-function gracefulShutdown(intervals) {
+function gracefulShutdown(tasks) {
   if (shutdownHookRegistered) return;
   shutdownHookRegistered = true;
 
   const shutdown = async () => {
     console.log("🛑 Shutting down jobs...");
 
-    for (const interval of intervals) {
-      clearInterval(interval);
+    for (const task of tasks) {
+      try {
+        if (task && typeof task.stop === "function") {
+          task.stop();
+        }
+      } catch (err) {
+        console.error("Failed to stop task:", err);
+      }
     }
 
-    // Wait for active jobs
     while (activeJobs.size > 0) {
       await new Promise((r) => setTimeout(r, 500));
     }

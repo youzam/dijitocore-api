@@ -1,3 +1,5 @@
+const cron = require("node-cron");
+
 const { runSafeJob, gracefulShutdown } = require("../utils/jobRunner");
 
 const dashboardSnapshotJob = require("./dashboard.snapshot.job");
@@ -8,13 +10,14 @@ const notificationRetryJob = require("./notification.job");
 const subscriptionLifecycleJob = require("./subscription.lifecycle.job");
 const complianceJob = require("./compliance.job");
 const apiMetricsJob = require("./api.metrics.job");
+const deadJobMonitor = require("./dead.job.monitor");
 
-/**
- * Central Job Registry
- * Used by:
- * - Scheduler
- * - Admin manual trigger
- */
+/*
+|--------------------------------------------------------------------------
+| Job Registry (UNCHANGED)
+|--------------------------------------------------------------------------
+*/
+
 const jobRegistry = {
   dashboard_snapshot: dashboardSnapshotJob,
   device_cleanup: deviceCleanupJob,
@@ -24,79 +27,90 @@ const jobRegistry = {
   subscription_lifecycle: subscriptionLifecycleJob,
   compliance: complianceJob,
   api_metrics: apiMetricsJob,
+  dead_job_monitor: deadJobMonitor,
 };
 
-function scheduleJob(jobName, jobFn, intervalMs, ttlSeconds, intervals) {
-  // Run immediately on boot
+/*
+|--------------------------------------------------------------------------
+| Cron Scheduler Wrapper
+|--------------------------------------------------------------------------
+*/
+
+function scheduleCronJob(jobName, jobFn, cronExpression, ttlSeconds) {
+  // Run immediately on boot (preserved behavior)
   runSafeJob(jobName, jobFn, ttlSeconds);
 
-  // Schedule recurring
-  intervals.push(
-    setInterval(async () => {
-      await runSafeJob(jobName, jobFn, ttlSeconds);
-    }, intervalMs),
-  );
+  const task = cron.schedule(cronExpression, async () => {
+    await runSafeJob(jobName, jobFn, ttlSeconds);
+  });
+
+  return task;
 }
 
+/*
+|--------------------------------------------------------------------------
+| Start Jobs
+|--------------------------------------------------------------------------
+*/
+
 function startJobs() {
-  const intervals = [];
+  const tasks = [];
 
-  // Heavy jobs → 30 min TTL
-  scheduleJob(
-    "dashboard_snapshot",
-    dashboardSnapshotJob.run,
-    60 * 60 * 1000,
-    1800,
-    intervals,
+  // 🔴 HEAVY JOBS (1 hour)
+  tasks.push(
+    scheduleCronJob(
+      "dashboard_snapshot",
+      dashboardSnapshotJob.run,
+      "0 * * * *",
+      1800,
+    ),
   );
 
-  scheduleJob(
-    "subscription_lifecycle",
-    subscriptionLifecycleJob.run,
-    60 * 60 * 1000,
-    1800,
-    intervals,
+  tasks.push(
+    scheduleCronJob(
+      "subscription_lifecycle",
+      subscriptionLifecycleJob.run,
+      "0 * * * *",
+      1800,
+    ),
   );
 
-  // Medium jobs → 15 min TTL
-  scheduleJob(
-    "device_cleanup",
-    deviceCleanupJob.run,
-    60 * 60 * 1000,
-    900,
-    intervals,
+  // 🟡 MEDIUM JOBS (1 hour)
+  tasks.push(
+    scheduleCronJob("device_cleanup", deviceCleanupJob.run, "0 * * * *", 900),
   );
 
-  scheduleJob("reminder", reminderJob.run, 60 * 60 * 1000, 900, intervals);
+  tasks.push(scheduleCronJob("reminder", reminderJob.run, "0 * * * *", 900));
 
-  // Fast jobs → 10 min TTL
-  scheduleJob("escalation", escalationJob.run, 10 * 60 * 1000, 600, intervals);
-
-  scheduleJob(
-    "retry",
-    notificationRetryJob.run,
-    10 * 60 * 1000,
-    600,
-    intervals,
+  // 🔵 FAST JOBS (10 min)
+  tasks.push(
+    scheduleCronJob("escalation", escalationJob.run, "*/10 * * * *", 600),
   );
 
-  scheduleJob(
-    "compliance",
-    complianceJob.run,
-    10 * 60 * 1000, // every 10 minutes
-    600,
-    intervals,
+  tasks.push(
+    scheduleCronJob("retry", notificationRetryJob.run, "*/10 * * * *", 600),
   );
 
-  scheduleJob(
-    "api_metrics",
-    apiMetricsJob.run,
-    5 * 60 * 1000, // every 5 minutes
-    300, // TTL (5 min)
-    intervals,
+  tasks.push(
+    scheduleCronJob("compliance", complianceJob.run, "*/10 * * * *", 600),
   );
 
-  gracefulShutdown(intervals);
+  // 🟢 VERY FREQUENT (5 min)
+  tasks.push(
+    scheduleCronJob("api_metrics", apiMetricsJob.run, "*/5 * * * *", 300),
+  );
+
+  tasks.push(
+    scheduleCronJob("dead_job_monitor", deadJobMonitor.run, "*/5 * * * *", 300),
+  );
+
+  /*
+  |--------------------------------------------------------------------------
+  | Graceful Shutdown (UNCHANGED)
+  |--------------------------------------------------------------------------
+  */
+
+  gracefulShutdown(tasks);
 }
 
 module.exports = {

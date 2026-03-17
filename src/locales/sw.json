@@ -490,6 +490,10 @@
 
     "job_not_found": "Job haijapatikana",
     "job_not_retryable": "Job haiwezi kujaribiwa tena",
-    "job_handler_missing": "Handler ya job haijapatikana"
+    "job_handler_missing": "Handler ya job haijapatikana",
+    "dashboard_overview": "Muhtasari wa operations umepatikana",
+    "job_performance": "Utendaji wa jobs umepatikana",
+    "recent_jobs": "Jobs za hivi karibuni zimepatikana",
+    "dead_jobs": "Dead jobs zimepatikana"
   }
 }
