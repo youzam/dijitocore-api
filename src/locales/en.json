@@ -269,7 +269,7 @@
 
     "risk_flags": "Risk indicators retrieved successfully.",
 
-    "search_results": "Search results retrieved successfully."
+    "search_success": "Search results retrieved successfully"
   },
 
   "commerce": {

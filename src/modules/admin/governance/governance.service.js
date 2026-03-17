@@ -575,52 +575,293 @@ exports.getRiskFlags = async () => {
 | Global Search (Cross Tenant)
 |--------------------------------------------------------------------------
 */
+/*
+|--------------------------------------------------------------------------
+| CONFIG
+|--------------------------------------------------------------------------
+*/
+const DEFAULT_LIMIT = 10;
+const DEFAULT_PAGE = 1;
+const MAX_LIMIT = 100;
+const MIN_QUERY_LENGTH = 2;
 
-exports.globalSearch = async (query) => {
+/*
+|--------------------------------------------------------------------------
+| MODULE → RESOURCES MAP
+|--------------------------------------------------------------------------
+*/
+const MODULE_RESOURCES = {
+  governance: ["businesses", "users", "customers"],
+
+  commerce: [
+    "subscriptions",
+    "subscriptionPackages",
+    "payments",
+    "coupons",
+    "financialAdjustments",
+  ],
+
+  support: ["tickets"],
+
+  communication: ["notifications"],
+
+  reporting: ["reportExports"],
+
+  security: ["auditLogs", "loginActivities"],
+
+  compliance: ["dataRequests", "consents"],
+
+  settings: ["systemSettings"],
+};
+
+/*
+|--------------------------------------------------------------------------
+| GLOBAL FALLBACK
+|--------------------------------------------------------------------------
+*/
+const GLOBAL_RESOURCES = [
+  "businesses",
+  "users",
+  "customers",
+  "subscriptions",
+  "payments",
+  "tickets",
+];
+
+/*
+|--------------------------------------------------------------------------
+| PAGINATION
+|--------------------------------------------------------------------------
+*/
+const getPagination = (query) => {
+  let limit = parseInt(query.limit) || DEFAULT_LIMIT;
+  let page = parseInt(query.page) || DEFAULT_PAGE;
+
+  if (limit > MAX_LIMIT) limit = MAX_LIMIT;
+  if (limit < 1) limit = DEFAULT_LIMIT;
+  if (page < 1) page = DEFAULT_PAGE;
+
+  return {
+    limit,
+    page,
+    skip: (page - 1) * limit,
+  };
+};
+
+/*
+|--------------------------------------------------------------------------
+| SEARCH HELPER (BETTER MATCHING)
+|--------------------------------------------------------------------------
+*/
+const buildSearch = (field, value) => ({
+  OR: [
+    { [field]: { startsWith: value, mode: "insensitive" } },
+    { [field]: { contains: value, mode: "insensitive" } },
+  ],
+});
+
+/*
+|--------------------------------------------------------------------------
+| RESOURCE HANDLERS
+|--------------------------------------------------------------------------
+*/
+const RESOURCE_HANDLERS = {
+  businesses: (search, p) =>
+    prisma.business.findMany({
+      where: {
+        OR: [buildSearch("name", search), buildSearch("businessCode", search)],
+      },
+      take: p.limit,
+      skip: p.skip,
+      select: { id: true, name: true, businessCode: true },
+    }),
+
+  users: (search, p) =>
+    prisma.user.findMany({
+      where: {
+        OR: [
+          buildSearch("email", search),
+          buildSearch("firstName", search),
+          buildSearch("lastName", search),
+          { phone: { contains: search } },
+        ],
+      },
+      take: p.limit,
+      skip: p.skip,
+      select: { id: true, email: true, phone: true },
+    }),
+
+  customers: (search, p) =>
+    prisma.customer.findMany({
+      where: {
+        OR: [buildSearch("name", search), { phone: { contains: search } }],
+      },
+      take: p.limit,
+      skip: p.skip,
+      select: { id: true, name: true, phone: true },
+    }),
+
+  subscriptions: (search, p) =>
+    prisma.subscription.findMany({
+      where: buildSearch("subscriptionCode", search),
+      take: p.limit,
+      skip: p.skip,
+      select: { id: true, subscriptionCode: true },
+    }),
+
+  payments: (search, p) =>
+    prisma.payment.findMany({
+      where: buildSearch("reference", search),
+      take: p.limit,
+      skip: p.skip,
+      select: { id: true, reference: true, amount: true },
+    }),
+
+  coupons: (search, p) =>
+    prisma.coupon.findMany({
+      where: buildSearch("code", search),
+      take: p.limit,
+      skip: p.skip,
+      select: { id: true, code: true },
+    }),
+
+  tickets: (search, p) =>
+    prisma.ticket.findMany({
+      where: buildSearch("subject", search),
+      take: p.limit,
+      skip: p.skip,
+      select: { id: true, subject: true, status: true },
+    }),
+
+  subscriptionPackages: (search, p) =>
+    prisma.subscriptionPackage.findMany({
+      where: buildSearch("name", search),
+      take: p.limit,
+      skip: p.skip,
+      select: { id: true, name: true },
+    }),
+
+  notifications: (search, p) =>
+    prisma.notification.findMany({
+      where: buildSearch("title", search),
+      take: p.limit,
+      skip: p.skip,
+      select: { id: true, title: true },
+    }),
+
+  reportExports: (search, p) =>
+    prisma.reportExport.findMany({
+      where: buildSearch("fileName", search),
+      take: p.limit,
+      skip: p.skip,
+      select: { id: true, fileName: true },
+    }),
+};
+
+/*
+|--------------------------------------------------------------------------
+| SAFE ROUTE DETECTION
+|--------------------------------------------------------------------------
+*/
+const detectRouteContext = (req) => {
+  if (!req) return {};
+
+  const source = req.originalUrl || req.baseUrl || req.headers?.referer || "";
+
+  const segments = source.toLowerCase().split("/");
+
+  // RESOURCE DETECTION
+  for (const resource of Object.keys(RESOURCE_HANDLERS)) {
+    const singular = resource.endsWith("s") ? resource.slice(0, -1) : resource;
+
+    if (segments.includes(resource) || segments.includes(singular)) {
+      return { resource };
+    }
+  }
+
+  // MODULE DETECTION
+  for (const module of Object.keys(MODULE_RESOURCES)) {
+    if (segments.includes(module)) {
+      return { module };
+    }
+  }
+
+  return {};
+};
+
+/*
+|--------------------------------------------------------------------------
+| GLOBAL SEARCH (FINAL)
+|--------------------------------------------------------------------------
+*/
+exports.globalSearch = async (query, options = {}) => {
   const { q } = query;
+  const { req, resource } = options;
 
-  if (!q) {
+  if (!q || q.trim().length < MIN_QUERY_LENGTH) {
+    return {};
+  }
+
+  const search = q.trim();
+  const pagination = getPagination(query);
+
+  const detected = detectRouteContext(req);
+
+  const targetResource = resource || detected.resource;
+  const module = detected.module;
+
+  /*
+  |--------------------------------------------------------------------------
+  | RESOURCE MODE
+  |--------------------------------------------------------------------------
+  */
+  if (targetResource && RESOURCE_HANDLERS[targetResource]) {
     return {
-      businesses: [],
-      users: [],
-      customers: [],
+      [targetResource]: await RESOURCE_HANDLERS[targetResource](
+        search,
+        pagination,
+      ),
+      pagination,
     };
   }
 
-  const search = q.toLowerCase();
+  /*
+  |--------------------------------------------------------------------------
+  | MODULE MODE (PARALLEL 🚀)
+  |--------------------------------------------------------------------------
+  */
+  if (module && MODULE_RESOURCES[module]) {
+    const resources = MODULE_RESOURCES[module];
 
-  const [businesses, users, customers] = await Promise.all([
-    prisma.business.findMany({
-      where: {
-        OR: [
-          { name: { contains: search, mode: "insensitive" } },
-          { businessCode: { contains: search, mode: "insensitive" } },
-        ],
-      },
-      take: 10,
-    }),
+    const entries = await Promise.all(
+      resources.map(async (r) => {
+        if (!RESOURCE_HANDLERS[r]) return [r, []];
+        const data = await RESOURCE_HANDLERS[r](search, pagination);
+        return [r, data];
+      }),
+    );
 
-    prisma.user.findMany({
-      where: {
-        OR: [{ email: { contains: search, mode: "insensitive" } }],
-      },
-      take: 10,
-    }),
+    return {
+      ...Object.fromEntries(entries),
+      pagination,
+    };
+  }
 
-    prisma.customer.findMany({
-      where: {
-        OR: [
-          { phone: { contains: search } },
-          { name: { contains: search, mode: "insensitive" } },
-        ],
-      },
-      take: 10,
+  /*
+  |--------------------------------------------------------------------------
+  | GLOBAL FALLBACK (PARALLEL 🚀)
+  |--------------------------------------------------------------------------
+  */
+  const entries = await Promise.all(
+    GLOBAL_RESOURCES.map(async (r) => {
+      if (!RESOURCE_HANDLERS[r]) return [r, []];
+      const data = await RESOURCE_HANDLERS[r](search, pagination);
+      return [r, data];
     }),
-  ]);
+  );
 
   return {
-    businesses,
-    users,
-    customers,
+    ...Object.fromEntries(entries),
+    pagination,
   };
 };

@@ -257,7 +257,10 @@ exports.getRiskFlags = catchAsync(async (req, res) => {
 });
 
 exports.globalSearch = catchAsync(async (req, res) => {
-  const results = await governanceService.globalSearch(req.query);
+  const data = await governanceService.globalSearch(req.query, {
+    req,
+    resource: req.query.resource, // optional override
+  });
 
-  return response.success(res, results);
+  return response.success(req, res, data, 200, "governance.search_success");
 });
