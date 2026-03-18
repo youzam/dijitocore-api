@@ -60,7 +60,7 @@ exports.logoutAdmin = catchAsync(async (req, res) => {
 */
 
 exports.createAdmin = catchAsync(async (req, res) => {
-  const data = await accessService.createAdmin(req.body);
+  const data = await accessService.createAdmin(req.body, req.user);
 
   return response.success(req, res, data, 201, "access.admin_created");
 });
@@ -78,13 +78,17 @@ exports.getAdmin = catchAsync(async (req, res) => {
 });
 
 exports.updateAdmin = catchAsync(async (req, res) => {
-  const data = await accessService.updateAdmin(req.params.id, req.body);
+  const data = await accessService.updateAdmin(
+    req.params.id,
+    req.body,
+    req.user,
+  );
 
   return response.success(req, res, data, 200, "access.admin_updated");
 });
 
 exports.suspendAdmin = catchAsync(async (req, res) => {
-  const data = await accessService.suspendAdmin(req.params.id);
+  const data = await accessService.suspendAdmin(req.params.id, req.user);
 
   return response.success(req, res, data, 200, "access.admin_suspended");
 });
@@ -105,6 +109,7 @@ exports.changeAdminRole = catchAsync(async (req, res) => {
   const data = await accessService.changeAdminRole(
     req.params.id,
     req.body.role,
+    req.user,
   );
 
   return response.success(req, res, data, 200, "access.admin_role_updated");
@@ -169,4 +174,56 @@ exports.revokeSession = catchAsync(async (req, res) => {
   const data = await accessService.revokeSession(req.params.id);
 
   return response.success(req, res, data, 200, "access.session_revoked");
+});
+
+/*
+|--------------------------------------------------------------------------
+| ROLE MANAGEMENT
+|--------------------------------------------------------------------------
+*/
+
+exports.getRole = catchAsync(async (req, res) => {
+  const data = await accessService.getRole(req.params.id);
+
+  return response.success(req, res, data, 200, "access.role_fetched");
+});
+
+exports.createRole = catchAsync(async (req, res) => {
+  const data = await accessService.createRoleFromEnum(req.body.name, req.user);
+
+  return response.success(req, res, data, 201, "access.role_created");
+});
+
+exports.updateRole = catchAsync(async (req, res) => {
+  const data = await accessService.updateRole(
+    req.params.id,
+    req.body,
+    req.user,
+  );
+
+  return response.success(req, res, data, 200, "access.role_updated");
+});
+
+exports.activateRole = catchAsync(async (req, res) => {
+  const data = await accessService.activateRole(req.params.id, req.user);
+
+  return response.success(req, res, data, 200, "access.role_activated");
+});
+
+exports.deactivateRole = catchAsync(async (req, res) => {
+  const data = await accessService.deactivateRole(req.params.id, req.user);
+
+  return response.success(req, res, data, 200, "access.role_deactivated");
+});
+
+/*
+|--------------------------------------------------------------------------
+| AUTH EXTENSIONS
+|--------------------------------------------------------------------------
+*/
+
+exports.refreshToken = catchAsync(async (req, res) => {
+  const data = await accessService.refreshToken(req.body);
+
+  return response.success(req, res, data, 200, "access.token_refreshed");
 });

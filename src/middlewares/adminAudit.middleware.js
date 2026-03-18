@@ -30,27 +30,27 @@ function detectAction(req) {
   const url = originalUrl.toLowerCase();
 
   if (method === "POST" && url.includes("/login")) {
-    return { action: "ADMIN_LOGIN", entityType: "SuperAdmin" };
+    return { action: "ADMIN_LOGIN", entityType: "SystemAdmin" };
   }
 
   if (method === "POST" && url.includes("/logout")) {
-    return { action: "ADMIN_LOGOUT", entityType: "SuperAdmin" };
+    return { action: "ADMIN_LOGOUT", entityType: "SystemAdmin" };
   }
 
   if (method === "POST" && url.includes("/admins")) {
-    return { action: "ADMIN_CREATED", entityType: "SuperAdmin" };
+    return { action: "ADMIN_CREATED", entityType: "SystemAdmin" };
   }
 
   if (method === "PATCH" && url.includes("/suspend")) {
-    return { action: "ADMIN_SUSPENDED", entityType: "SuperAdmin" };
+    return { action: "ADMIN_SUSPENDED", entityType: "SystemAdmin" };
   }
 
   if (method === "PATCH" && url.includes("reset-password")) {
-    return { action: "ADMIN_PASSWORD_RESET", entityType: "SuperAdmin" };
+    return { action: "ADMIN_PASSWORD_RESET", entityType: "SystemAdmin" };
   }
 
   if (method === "PATCH" && url.includes("/admins/")) {
-    return { action: "ADMIN_UPDATED", entityType: "SuperAdmin" };
+    return { action: "ADMIN_UPDATED", entityType: "SystemAdmin" };
   }
 
   return null;

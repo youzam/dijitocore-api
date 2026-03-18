@@ -134,12 +134,10 @@ const authMiddleware = async (req, res, next) => {
    * =====================================================
    */
   if (payload.identity_type === "system") {
-    const admin = await prisma.user.findUnique({
+    const admin = await prisma.systemAdmin.findUnique({
       where: { id: payload.sub },
-      select: {
-        id: true,
+      include: {
         role: true,
-        status: true,
       },
     });
 
@@ -147,11 +145,18 @@ const authMiddleware = async (req, res, next) => {
       return next(new AppError("auth.unauthorized", 401));
     }
 
+    /**
+     * 🔥 TOKEN VERSION CHECK
+     */
+    if (admin.tokenVersion !== payload.tokenVersion) {
+      return next(new AppError("auth.session_expired", 401));
+    }
+
     req.auth.system = true;
 
     req.user = {
       id: admin.id,
-      role: admin.role || "SUPER_ADMIN",
+      role: admin.role.name,
       identityType: "system",
     };
 

@@ -17,12 +17,15 @@ datasource db {
 // MODULE 0 — SYSTEM LEVEL
 //////////////////////////////////////////////////////
 
-model SuperAdmin {
-  id       String      @id @default(uuid())
-  email    String      @unique
+model SystemAdmin {
+  id       String @id @default(uuid())
+  email    String @unique
   password String
-  role     AdminRole
-  status   AdminStatus
+
+  roleId String
+  role   SystemAdminRole @relation(fields: [roleId], references: [id])
+
+  status AdminStatus
 
   loginAttempts Int       @default(0)
   lockUntil     DateTime?
@@ -38,17 +41,32 @@ model SuperAdmin {
   requestedDataRequests DataRequest[] @relation("RequestedBy")
   approvedDataRequests  DataRequest[] @relation("ApprovedBy")
 
+  tokenVersion Int @default(0)
+
   sessions              AdminSession[]
   reportExports         ReportExport[]
   dataRetentionPolicies DataRetentionPolicy[]
   policyVersions        PolicyVersion[]
 }
 
+model SystemAdminRole {
+  id       String    @id @default(uuid())
+  name     AdminRole @unique // controlled by ENUM
+  isActive Boolean   @default(true)
+
+  permissions RolePermission[]
+
+  admins SystemAdmin[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model AdminSession {
   id String @id @default(uuid())
 
   adminId String
-  admin   SuperAdmin @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  admin   SystemAdmin @relation(fields: [adminId], references: [id], onDelete: Cascade)
 
   ip                String?
   userAgent         String?
@@ -62,14 +80,14 @@ model AdminSession {
 }
 
 model SystemSetting {
-  id                   String  @id @default("SYSTEM")
+  id                   String   @id @default("SYSTEM")
   currency             String
-  activePaymentGateway String  @default("SELCOM")
-  isBootstrapped       Boolean @default(false)
-  maxLoginAttempts Int      @default(5)
-  lockTimeMinutes  Int      @default(15)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  activePaymentGateway String   @default("SELCOM")
+  isBootstrapped       Boolean  @default(false)
+  maxLoginAttempts     Int      @default(5)
+  lockTimeMinutes      Int      @default(15)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
 }
 
 model Permission {
@@ -94,7 +112,9 @@ model RolePermission {
 
   permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
 
-  createdAt DateTime @default(now())
+  createdAt         DateTime         @default(now())
+  systemAdminRole   SystemAdminRole? @relation(fields: [systemAdminRoleId], references: [id])
+  systemAdminRoleId String?
 
   @@unique([role, permissionId])
 }
@@ -893,18 +913,18 @@ model AdminImpersonation {
 }
 
 model SystemJobLog {
-  id            String    @id @default(uuid())
-  jobName       String
-  status        String // success | failed
-  startedAt     DateTime
-  finishedAt    DateTime?
-  durationMs    Int?
-  errorMessage  String?
+  id           String    @id @default(uuid())
+  jobName      String
+  status       String // success | failed
+  startedAt    DateTime
+  finishedAt   DateTime?
+  durationMs   Int?
+  errorMessage String?
 
   retryCount    Int       @default(0)
   lastRetriedAt DateTime?
 
-  createdAt     DateTime  @default(now())
+  createdAt DateTime @default(now())
 
   @@index([jobName])
   @@index([status])
@@ -912,11 +932,11 @@ model SystemJobLog {
 }
 
 model DeadJob {
-  id          Int      @id @default(autoincrement())
-  jobName     String
-  instanceId  String
-  reason      String
-  createdAt   DateTime @default(now())
+  id         Int      @id @default(autoincrement())
+  jobName    String
+  instanceId String
+  reason     String
+  createdAt  DateTime @default(now())
 }
 
 model ApiMetric {
@@ -1024,7 +1044,7 @@ model ReportExport {
   createdAt   DateTime  @default(now())
   completedAt DateTime?
 
-  admin SuperAdmin @relation(fields: [requestedBy], references: [id])
+  admin SystemAdmin @relation(fields: [requestedBy], references: [id])
 }
 
 ///////////////////////////////////
@@ -1097,7 +1117,7 @@ model DataRetentionPolicy {
   version       Int     @default(1)
 
   createdById String
-  createdBy   SuperAdmin @relation(fields: [createdById], references: [id])
+  createdBy   SystemAdmin @relation(fields: [createdById], references: [id])
 
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
@@ -1117,7 +1137,7 @@ model PolicyVersion {
   version       Int
 
   createdById String
-  createdBy   SuperAdmin @relation(fields: [createdById], references: [id])
+  createdBy   SystemAdmin @relation(fields: [createdById], references: [id])
 
   createdAt DateTime @default(now())
 
@@ -1131,7 +1151,7 @@ model DataRequest {
   status DataRequestStatus @default(PENDING)
 
   requestedById String
-  requestedBy   SuperAdmin @relation("RequestedBy", fields: [requestedById], references: [id])
+  requestedBy   SystemAdmin @relation("RequestedBy", fields: [requestedById], references: [id])
 
   targetType String
   targetId   String
@@ -1141,7 +1161,7 @@ model DataRequest {
   reason String?
 
   approvedById String?
-  approvedBy   SuperAdmin? @relation("ApprovedBy", fields: [approvedById], references: [id])
+  approvedBy   SystemAdmin? @relation("ApprovedBy", fields: [approvedById], references: [id])
 
   approvedAt  DateTime?
   processedAt DateTime?

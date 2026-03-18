@@ -47,6 +47,8 @@ router.post(
   accessController.adminLogin,
 );
 
+router.post("/refresh-token", accessController.refreshToken);
+
 /*
 |--------------------------------------------------------------------------
 | AUTHENTICATED ROUTES
@@ -192,5 +194,61 @@ router.patch(
 router.get("/sessions", accessController.getMySessions);
 
 router.delete("/sessions/:id", accessController.revokeSession);
+
+/*
+|--------------------------------------------------------------------------
+| ROLE MANAGEMENT EXTENSIONS
+|--------------------------------------------------------------------------
+*/
+
+router.get(
+  "/roles/:id",
+  requirePermission({
+    module: "ACCESS",
+    action: "READ",
+    scope: "SYSTEM",
+  }),
+  accessController.getRole,
+);
+
+router.post(
+  "/roles",
+  requirePermission({
+    module: "ACCESS",
+    action: "CREATE",
+    scope: "SYSTEM",
+  }),
+  accessController.createRole,
+);
+
+router.patch(
+  "/roles/:id",
+  requirePermission({
+    module: "ACCESS",
+    action: "UPDATE",
+    scope: "SYSTEM",
+  }),
+  accessController.updateRole,
+);
+
+router.patch(
+  "/roles/:id/activate",
+  requirePermission({
+    module: "ACCESS",
+    action: "EXECUTE",
+    scope: "SYSTEM",
+  }),
+  accessController.activateRole,
+);
+
+router.patch(
+  "/roles/:id/deactivate",
+  requirePermission({
+    module: "ACCESS",
+    action: "EXECUTE",
+    scope: "SYSTEM",
+  }),
+  accessController.deactivateRole,
+);
 
 module.exports = router;

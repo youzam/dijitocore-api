@@ -181,7 +181,7 @@ exports.assignTicket = async (ticketId, adminId) => {
     throw new AppError("support.ticket_not_found", 404);
   }
 
-  const admin = await prisma.superAdmin.findUnique({
+  const admin = await prisma.systemAdmin.findUnique({
     where: { id: adminId },
   });
 
