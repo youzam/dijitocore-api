@@ -287,9 +287,6 @@
     "invalid_adjustment_data": "Invalid adjustment data provided",
     "invalid_adjustment_type": "Invalid adjustment type",
 
-    "credit_allocated": "Credit allocated successfully",
-    "invalid_credit_data": "Invalid credit allocation data",
-
     "invoice_regenerated": "Invoice regenerated successfully",
 
     "coupon_created": "Coupon created successfully",

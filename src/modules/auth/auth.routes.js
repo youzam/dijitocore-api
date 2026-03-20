@@ -63,6 +63,7 @@ router.post(
   "/accept-invite",
   authRateLimiter,
   validate(acceptInviteSchema),
+
   authController.acceptInvite,
 );
 

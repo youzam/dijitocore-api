@@ -86,6 +86,45 @@ async function run() {
           }
 
           /**
+           * REFUND GRACE → SUSPENDED
+           */
+          if (
+            sub.status === "ACTIVE" &&
+            sub.graceUntil &&
+            sub.graceUntil <= now
+          ) {
+            await prisma.$transaction(async (tx) => {
+              const current = await tx.subscription.findUnique({
+                where: { id: sub.id },
+              });
+
+              if (
+                !current ||
+                current.status !== "ACTIVE" ||
+                !current.graceUntil ||
+                current.graceUntil > now
+              ) {
+                return;
+              }
+
+              await tx.subscription.update({
+                where: { id: sub.id },
+                data: { status: "SUSPENDED" },
+              });
+
+              await auditHelper.logAudit({
+                tx,
+                businessId: sub.businessId,
+                entityType: "SUBSCRIPTION",
+                entityId: sub.id,
+                action: "REFUND_GRACE_SUSPENDED",
+              });
+            });
+
+            continue;
+          }
+
+          /**
            * GRACE → SUSPENDED
            */
           if (

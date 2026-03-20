@@ -1,16 +1,10 @@
 const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
 
 const prisma = require("../../../config/prisma");
 const { signToken } = require("../../../utils/auth.helper");
-
-const {
-  seedPermissions,
-} = require("../../../database/seeders/permissionSeeder");
-const {
-  assignPermissionsToRoles,
-} = require("../../../database/seeders/rolePermissionSeeder");
+const { runSeeders } = require("../../../database/seeders/seedManager");
+const { seedRegistry } = require("../../../database/seeders/seedRegistry");
 
 const speakeasy = require("speakeasy");
 const QRCode = require("qrcode");
@@ -73,12 +67,6 @@ exports.bootstrapSystemService = async ({ email, password, currency }) => {
     }
 
     /**
-     * 🔹 STEP 2: PERMISSIONS
-     */
-    await seedPermissions(tx);
-    await assignPermissionsToRoles(tx);
-
-    /**
      * 🔹 STEP 3: GET SUPER ADMIN ROLE
      */
     const superAdminRole = await tx.systemAdminRole.findUnique({
@@ -101,6 +89,21 @@ exports.bootstrapSystemService = async ({ email, password, currency }) => {
 
     return settings;
   });
+};
+
+/*
+|--------------------------------------------------------------------------
+| SYSTEM SEED
+|--------------------------------------------------------------------------
+*/
+
+exports.runSystemSeed = async () => {
+  const results = await runSeeders(seedRegistry);
+
+  return {
+    success: true,
+    results,
+  };
 };
 
 /*

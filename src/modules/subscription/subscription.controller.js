@@ -8,6 +8,24 @@ const registry = require("../../utils/subscriptionFeatureRegistry");
 /* ===========================
    BUSINESS OPERATIONS
 =========================== */
+exports.calculatePrice = catchAsync(async (req, res) => {
+  const result = await subscriptionService.calculatePrice({
+    businessId: req.user.businessId,
+    subscriptionId: req.params.id,
+  });
+
+  return success(req, res, result, 200, "subscription.price_calculated");
+});
+
+exports.applyCoupon = catchAsync(async (req, res) => {
+  const result = await subscriptionService.applyCouponToSubscription({
+    businessId: req.user.businessId,
+    subscriptionId: req.params.id,
+    couponCode: req.body.couponCode,
+  });
+
+  return success(req, res, result, 200, "subscription.coupon_applied");
+});
 
 exports.createSubscription = catchAsync(async (req, res) => {
   const subscription = await subscriptionService.createSubscription({
@@ -44,23 +62,6 @@ exports.upgradeSubscription = catchAsync(async (req, res) => {
   });
 
   return success(req, res, updated, 200, "subscription.upgraded");
-});
-
-/* ===========================
-   PACKAGE (SYSTEM LEVEL)
-=========================== */
-
-exports.getPackages = catchAsync(async (req, res) => {
-  const packages = await prisma.subscriptionPackage.findMany({
-    where: {
-      isActive: req.query.isActive ? req.query.isActive === "true" : undefined,
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
-
-  return success(req, res, packages, 200, "subscription.fetched");
 });
 
 /* ===========================
@@ -105,4 +106,10 @@ exports.getPackageSchema = catchAsync(async (req, res) => {
     200,
     "subscription.package_schema_fetched",
   );
+});
+
+exports.getActivePackages = catchAsync(async (req, res) => {
+  const data = await subscriptionService.getActivePackages();
+
+  return response.success(req, res, data, 200, "subscription.packages_fetched");
 });

@@ -36,6 +36,22 @@ exports.changeSubscriptionPlan = async (subscriptionId, data, req) => {
  * =========================
  */
 exports.cancelSubscription = async (subscriptionId, req) => {
+  if (!subscriptionId) {
+    throw new AppError("commerce.subscription_required", 400);
+  }
+
+  const subscription = await prisma.subscription.findUnique({
+    where: { id: subscriptionId },
+  });
+
+  if (!subscription) {
+    throw new AppError("subscription.not_found", 404);
+  }
+
+  if (subscription.status === "CANCELLED") {
+    throw new AppError("subscription.already_cancelled", 400);
+  }
+
   const updated = await subscriptionService.cancelSubscription(
     subscriptionId,
     req,
@@ -54,6 +70,22 @@ exports.cancelSubscription = async (subscriptionId, req) => {
  * =========================
  */
 exports.extendSubscription = async (subscriptionId, data, req) => {
+  if (!subscriptionId) {
+    throw new AppError("commerce.subscription_required", 400);
+  }
+
+  const subscription = await prisma.subscription.findUnique({
+    where: { id: subscriptionId },
+  });
+
+  if (!subscription) {
+    throw new AppError("subscription.not_found", 404);
+  }
+
+  if (subscription.status === "CANCELLED") {
+    throw new AppError("subscription.cannot_extend_cancelled", 400);
+  }
+
   const updated = await subscriptionService.extendSubscription(
     subscriptionId,
     data,
@@ -82,6 +114,22 @@ exports.getGraceStatus = async (subscriptionId) => {
  * =========================
  */
 exports.extendGracePeriod = async (subscriptionId, data, req) => {
+  if (!subscriptionId) {
+    throw new AppError("commerce.subscription_required", 400);
+  }
+
+  const subscription = await prisma.subscription.findUnique({
+    where: { id: subscriptionId },
+  });
+
+  if (!subscription) {
+    throw new AppError("subscription.not_found", 404);
+  }
+
+  if (subscription.status === "CANCELLED") {
+    throw new AppError("subscription.invalid_grace_state", 400);
+  }
+
   const updated = await subscriptionService.extendGracePeriod(
     subscriptionId,
     data,

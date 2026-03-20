@@ -1,38 +1,35 @@
+const prisma = require("../config/prisma");
 const AppError = require("../utils/AppError");
-const subscriptionAuthority = require("../modules/subscription/subscription.authority.service");
 
-/**
- * Usage:
- * subscriptionFeature("allowImport")
- */
 module.exports = (featureKey) => {
-  if (!featureKey || typeof featureKey !== "string") {
-    throw new Error(
-      "subscriptionFeature middleware requires a valid featureKey string",
-    );
-  }
-
   return async (req, res, next) => {
-    try {
-      if (!req.user) {
-        return next(new AppError("auth.unauthorized", 401));
-      }
+    const businessId = req.user.businessId;
 
-      if (!req.user.businessId) {
-        return next(new AppError("tenant.missing_business_context", 400));
-      }
-
-      const businessId = req.user.businessId;
-
-      // 🔒 Enforce ACTIVE / TRIAL / GRACE
-      await subscriptionAuthority.assertActiveSubscription(businessId);
-
-      // 🔒 Enforce feature access
-      await subscriptionAuthority.assertFeature(businessId, featureKey);
-
-      next();
-    } catch (error) {
-      next(error);
+    if (!businessId) {
+      return next(new AppError("auth.business_required", 400));
     }
+
+    // 🔥 get active subscription
+    const subscription = await prisma.subscription.findFirst({
+      where: {
+        businessId,
+        status: "ACTIVE",
+      },
+      select: {
+        featuresSnapshot: true,
+      },
+    });
+
+    if (!subscription) {
+      return next(new AppError("subscription.not_found", 404));
+    }
+
+    const features = subscription.featuresSnapshot || {};
+
+    if (!features[featureKey]) {
+      return next(new AppError("subscription.feature_not_available", 403));
+    }
+
+    next();
   };
 };

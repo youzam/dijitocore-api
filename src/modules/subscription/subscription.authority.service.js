@@ -2,6 +2,7 @@ const prisma = require("../../config/prisma");
 const AppError = require("../../utils/AppError");
 const { SubscriptionStatus } = require("@prisma/client");
 const registry = require("../../utils/subscriptionFeatureRegistry");
+const limitResolver = require("../../utils/subscriptionLimitResolver");
 
 /* ===========================
    INTERNAL
@@ -158,4 +159,41 @@ exports.trackUsage = async (businessId, metric, amount = 1) => {
       value: amount,
     },
   });
+};
+
+// 🔥 ASSERT LIMIT
+exports.assertLimit = async (businessId, limitKey) => {
+  const subscription = await prisma.subscription.findFirst({
+    where: {
+      businessId,
+      status: { in: ["ACTIVE", "TRIAL", "GRACE"] },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (!subscription) {
+    throw new AppError("subscription.not_found", 404);
+  }
+
+  const limits = subscription.limitsSnapshot || {};
+  const limitValue = limits[limitKey];
+
+  // unlimited
+  if (limitValue === null || limitValue === undefined) {
+    return true;
+  }
+
+  const resolver = limitResolver.getResolver(limitKey);
+
+  if (!resolver) {
+    throw new AppError("subscription.limit_not_configured", 500);
+  }
+
+  const currentCount = await resolver(businessId);
+
+  if (Number(currentCount) >= Number(limitValue)) {
+    throw new AppError("subscription.limit_exceeded", 403);
+  }
+
+  return true;
 };

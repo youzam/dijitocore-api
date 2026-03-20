@@ -61,13 +61,6 @@ router.post(
   controller.createAdjustment,
 );
 
-router.post(
-  "/credits",
-  requirePermission({ module: "COMMERCE", action: "WRITE" }),
-  validate(validation.allocateCredit),
-  controller.allocateCredit,
-);
-
 /**
  * =========================
  * COUPONS
@@ -85,13 +78,6 @@ router.get(
   "/coupons",
   requirePermission({ module: "COMMERCE", action: "READ" }),
   controller.getCoupons,
-);
-
-router.post(
-  "/coupons/apply",
-  requirePermission({ module: "COMMERCE", action: "WRITE" }),
-  validate(validation.applyCoupon),
-  controller.applyCoupon,
 );
 
 router.patch(

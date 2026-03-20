@@ -79,6 +79,16 @@ model AdminSession {
   @@index([adminId])
 }
 
+model SystemSeedLog {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  status    String   // PENDING | SUCCESS | FAILED
+  lastRunAt DateTime?
+  error     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model SystemSetting {
   id                   String   @id @default("SYSTEM")
   currency             String
@@ -325,11 +335,17 @@ model Subscription {
   setupFeePaid Boolean @default(false)
 
   version       Int @default(1)
-  creditBalance Int @default(0)
+  creditBalance   Int @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  couponId        String?   @db.Uuid
+  couponCode      String?
+  couponDiscount  Int?      // store applied discount snapshot
+  finalAmount     Int?      // optional (snapshot for audit)
+
+  coupon Coupon? @relation(fields: [couponId], references: [id])
   subscriptionPayments SubscriptionPayment[]
 
   isTrial               Boolean               @default(false)
@@ -366,12 +382,15 @@ model SubscriptionPayment {
   id String @id @default(uuid())
 
   subscriptionId String
+
+  couponId String?
+
   subscription   Subscription @relation(fields: [subscriptionId], references: [id])
 
   amount   Decimal
   currency String
 
-  status String // SUCCESS | FAILED | PENDING | REFUNDED
+  status SubscriptionPaymentStatus 
 
   type String // SUBSCRIPTION | SETUP_FEE | RENEWAL | REFUND | MANUAL_ADJUSTMENT
 
@@ -433,6 +452,11 @@ model FinancialAdjustment {
 
   createdBy String
 
+  // 🔥 USAGE TRACKING (NEW)
+  isApplied Boolean @default(false)
+  appliedPaymentId String?
+  appliedAt DateTime?
+
   createdAt DateTime @default(now())
 }
 
@@ -446,6 +470,8 @@ model Coupon {
 
   maxUsage   Int?
   usageCount Int  @default(0)
+
+  maxUsagePerBusiness Int? // 🔥 ADD THIS ONLY
 
   validFrom DateTime?
   validTo   DateTime?
@@ -1257,6 +1283,7 @@ enum SubscriptionPaymentStatus {
   PENDING
   CONFIRMED
   FAILED
+  REFUNDED
 }
 
 enum SubscriptionStatus {

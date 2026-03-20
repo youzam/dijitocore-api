@@ -1,6 +1,6 @@
 const prisma = require("../../../config/prisma");
 const AppError = require("../../../utils/AppError");
-
+const registry = require("../../../utils/subscriptionFeatureRegistry");
 /**
  * ===== INTERNAL HELPERS =====
  */
@@ -21,11 +21,49 @@ const validatePricing = (price) => {
  * NOTE: Replace with real registry if exists in your system
  */
 const validateConfigJSON = (data, type) => {
-  if (!data) return;
+  if (!data) return {};
 
   if (typeof data !== "object") {
     throw new AppError(`subscription.invalid_${type}_format`, 400);
   }
+
+  const validated = {};
+
+  if (type === "features") {
+    for (const key of Object.keys(data)) {
+      if (!registry.isValidFeatureKey(key)) {
+        throw new AppError(`Invalid feature key: ${key}`, 400);
+      }
+
+      if (typeof data[key] !== "boolean") {
+        throw new AppError(`Feature must be boolean: ${key}`, 400);
+      }
+    }
+
+    for (const key of registry.getFeatureKeys()) {
+      validated[key] = data[key] ?? false;
+    }
+  }
+
+  if (type === "limits") {
+    for (const key of Object.keys(data)) {
+      if (!registry.isValidLimitKey(key)) {
+        throw new AppError(`Invalid limit key: ${key}`, 400);
+      }
+
+      const value = data[key];
+
+      if (value !== null && (typeof value !== "number" || value < 0)) {
+        throw new AppError(`Invalid limit value: ${key}`, 400);
+      }
+    }
+
+    for (const key of registry.getLimitKeys()) {
+      validated[key] = data[key] ?? null;
+    }
+  }
+
+  return validated;
 };
 
 /**
@@ -55,8 +93,8 @@ exports.createPackage = async (data, req) => {
   }
 
   validatePricing(price);
-  validateConfigJSON(features, "features");
-  validateConfigJSON(limits, "limits");
+  const validatedFeatures = validateConfigJSON(features, "features");
+  const validatedLimits = validateConfigJSON(limits, "limits");
 
   const existing = await prisma.subscriptionPackage.findUnique({
     where: { code },
@@ -72,8 +110,8 @@ exports.createPackage = async (data, req) => {
       code,
       price,
       currency: currency || "USD",
-      features: features || {},
-      limits: limits || {},
+      features: validatedFeatures,
+      limits: validatedLimits,
       isActive: typeof isActive === "boolean" ? isActive : true,
       metadata: {
         createdBy: req.user.id,
@@ -147,23 +185,24 @@ exports.updatePackageConfiguration = async (id, data, req) => {
     throw new AppError("subscription.package_not_found", 404);
   }
 
-  validateConfigJSON(data.features, "features");
-  validateConfigJSON(data.limits, "limits");
+  const validatedFeatures = data.features
+    ? validateConfigJSON(data.features, "features")
+    : null;
+
+  const validatedLimits = data.limits
+    ? validateConfigJSON(data.limits, "limits")
+    : null;
 
   const updated = await prisma.subscriptionPackage.update({
     where: { id },
     data: {
-      ...(data.features && {
-        features: {
-          ...(existing.features || {}),
-          ...data.features,
-        },
+      // 🔥 DO NOT MERGE — ALWAYS OVERWRITE CLEAN CONFIG
+      ...(validatedFeatures && {
+        features: validatedFeatures,
       }),
-      ...(data.limits && {
-        limits: {
-          ...(existing.limits || {}),
-          ...data.limits,
-        },
+
+      ...(validatedLimits && {
+        limits: validatedLimits,
       }),
       metadata: buildAuditMetadata(
         existing.metadata,

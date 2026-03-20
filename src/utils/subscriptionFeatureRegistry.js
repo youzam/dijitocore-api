@@ -142,4 +142,23 @@ subscriptionFeatureRegistry.getLimitKeys = () => {
   return Object.keys(subscriptionFeatureRegistry.limits);
 };
 
+// 🔥 FEATURE LABELS
+const featureLabels = {
+  allowContracts: "Contracts management",
+  allowDashboard: "Dashboard access",
+  allowPayments: "Payments enabled",
+  allowSMS: "SMS notifications",
+};
+
+// 🔥 LIMIT LABELS (USE TEMPLATE)
+const limitLabels = {
+  maxUsers: "Up to {value} users",
+  maxActiveContracts: "Up to {value} active contracts",
+  maxMonthlySms: "{value} SMS per month",
+};
+
+// EXPORTS (ADD ONLY THESE)
+exports.getFeatureLabels = () => featureLabels;
+exports.getLimitLabels = () => limitLabels;
+
 module.exports = subscriptionFeatureRegistry;

@@ -56,12 +56,6 @@ exports.createAdjustment = catchAsync(async (req, res) => {
   return response.success(req, res, data, 201, "commerce.adjustment_created");
 });
 
-exports.allocateCredit = catchAsync(async (req, res) => {
-  const data = await financialService.allocateCredit(req.body, req);
-
-  return response.success(req, res, data, 201, "commerce.credit_allocated");
-});
-
 exports.regenerateInvoice = catchAsync(async (req, res) => {
   const data = await financialService.regenerateInvoice(req.params.id);
 
@@ -90,12 +84,6 @@ exports.updateCoupon = catchAsync(async (req, res) => {
   const data = await couponService.updateCoupon(req.params.id, req.body);
 
   return response.success(req, res, data, 200, "commerce.coupon_updated");
-});
-
-exports.applyCoupon = catchAsync(async (req, res) => {
-  const data = await couponService.applyCoupon(req.body);
-
-  return response.success(req, res, data, 200, "commerce.coupon_applied");
 });
 
 /**

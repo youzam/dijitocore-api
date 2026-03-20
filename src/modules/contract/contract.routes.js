@@ -9,6 +9,7 @@ const auth = require("../../middlewares/auth.middleware");
 const tenant = require("../../middlewares/tenant.middleware");
 const role = require("../../middlewares/role.middleware");
 const subscriptionFeature = require("../../middlewares/subscriptionFeature.middleware");
+const subscriptionLimit = require("../../middlewares/subscriptionLimit.middleware");
 
 router.use(auth);
 router.use(tenant);
@@ -18,6 +19,7 @@ router.post(
   "/",
   role(["BUSINESS_OWNER", "MANAGER"]),
   subscriptionFeature("allowContracts"),
+  subscriptionLimit("maxActiveContracts"),
   validate(contractValidation.createContract),
   contractController.createContract,
 );
@@ -43,6 +45,7 @@ router.patch(
   "/:id",
   role(["BUSINESS_OWNER", "MANAGER"]),
   subscriptionFeature("allowContracts"),
+  subscriptionLimit("maxActiveContracts"),
   validate(contractValidation.updateContract),
   contractController.updateContract,
 );

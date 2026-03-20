@@ -51,11 +51,29 @@ router.get(
   subscriptionController.getCurrentSubscription,
 );
 
-router.get(
-  "/packages",
+/*
+|--------------------------------------------------------------------------
+| PUBLIC PACKAGES
+|--------------------------------------------------------------------------
+*/
+router.get("/packages", subscriptionController.getActivePackages);
+
+/* CALCULATE PRICE */
+router.post(
+  "/:id/calculate-price",
   auth,
   role(["BUSINESS_OWNER"]),
-  subscriptionController.getPackages,
+  tenant,
+  subscriptionController.calculatePrice,
+);
+
+/* APPLY COUPON */
+router.post(
+  "/:id/apply-coupon",
+  auth,
+  role(["BUSINESS_OWNER"]),
+  tenant,
+  subscriptionController.applyCoupon,
 );
 
 module.exports = router;

@@ -35,12 +35,6 @@ exports.createAdjustment = Joi.object({
   reason: Joi.string().allow("", null),
 });
 
-exports.allocateCredit = Joi.object({
-  businessId: uuidSchema,
-  amount: Joi.number().required(),
-  reason: Joi.string().allow("", null),
-});
-
 /* ===========================
    COUPONS
 =========================== */

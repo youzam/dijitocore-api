@@ -4,6 +4,7 @@ const auditHelper = require("../../utils/audit.helper");
 const { SubscriptionStatus } = require("@prisma/client");
 const { validateDowngradeLimits } = require("../../utils/featureFlags");
 const registry = require("../../utils/subscriptionFeatureRegistry");
+const couponService = require("./subscription.coupon.service");
 
 /* ===========================
    INTERNAL
@@ -28,6 +29,163 @@ async function findActiveSubscription(businessId) {
 /* ===========================
    BUSINESS OPERATIONS
 =========================== */
+exports.calculatePrice = async ({ businessId, subscriptionId }) => {
+  const subscription = await prisma.subscription.findFirst({
+    where: { id: subscriptionId, businessId },
+  });
+
+  if (!subscription) {
+    throw new AppError("subscription.not_found", 404);
+  }
+
+  const isInitial = !subscription.setupFeePaid;
+
+  // 🔹 BASE AMOUNT
+  let baseAmount;
+
+  if (isInitial) {
+    baseAmount =
+      subscription.setupFeeSnapshot +
+      (subscription.billingCycle === "YEARLY"
+        ? subscription.priceYearlySnapshot
+        : subscription.priceMonthlySnapshot);
+  } else {
+    baseAmount =
+      subscription.billingCycle === "YEARLY"
+        ? subscription.priceYearlySnapshot
+        : subscription.priceMonthlySnapshot;
+  }
+
+  if (!Number.isInteger(baseAmount) || baseAmount < 0) {
+    throw new AppError("payment.invalid_amount", 500);
+  }
+
+  // 🔹 ADJUSTMENTS
+  let adjustmentTotal = 0;
+
+  const adjustments = await prisma.financialAdjustment.findMany({
+    where: {
+      businessId: subscription.businessId,
+      isApplied: false,
+    },
+  });
+
+  for (const adj of adjustments) {
+    if (adj.type === "CREDIT") {
+      adjustmentTotal -= Number(adj.amount);
+    } else if (adj.type === "DEBIT") {
+      adjustmentTotal += Number(adj.amount);
+    }
+  }
+
+  let calculatedAmount = baseAmount + adjustmentTotal;
+
+  // 🔹 CREDIT BALANCE
+  let creditApplied = 0;
+
+  if (subscription.creditBalance > 0) {
+    creditApplied = Math.min(subscription.creditBalance, calculatedAmount);
+
+    calculatedAmount = Math.max(
+      0,
+      calculatedAmount - subscription.creditBalance,
+    );
+  }
+
+  return {
+    baseAmount,
+    adjustments: adjustmentTotal,
+    creditApplied,
+    finalAmount: calculatedAmount,
+  };
+};
+
+exports.applyCouponToSubscription = async ({
+  businessId,
+  subscriptionId,
+  couponCode,
+}) => {
+  const subscription = await prisma.subscription.findFirst({
+    where: { id: subscriptionId, businessId },
+  });
+
+  if (!subscription) {
+    throw new AppError("subscription.not_found", 404);
+  }
+
+  const isInitial = !subscription.setupFeePaid;
+
+  // 🔹 BASE AMOUNT
+  let baseAmount;
+
+  if (isInitial) {
+    baseAmount =
+      subscription.setupFeeSnapshot +
+      (subscription.billingCycle === "YEARLY"
+        ? subscription.priceYearlySnapshot
+        : subscription.priceMonthlySnapshot);
+  } else {
+    baseAmount =
+      subscription.billingCycle === "YEARLY"
+        ? subscription.priceYearlySnapshot
+        : subscription.priceMonthlySnapshot;
+  }
+
+  if (!Number.isInteger(baseAmount) || baseAmount < 0) {
+    throw new AppError("payment.invalid_amount", 500);
+  }
+
+  // 🔹 ADJUSTMENTS
+  let adjustmentTotal = 0;
+
+  const adjustments = await prisma.financialAdjustment.findMany({
+    where: {
+      businessId: subscription.businessId,
+      isApplied: false,
+    },
+  });
+
+  for (const adj of adjustments) {
+    if (adj.type === "CREDIT") {
+      adjustmentTotal -= Number(adj.amount);
+    } else if (adj.type === "DEBIT") {
+      adjustmentTotal += Number(adj.amount);
+    }
+  }
+
+  let calculatedAmount = baseAmount + adjustmentTotal;
+
+  // 🔹 CREDIT BALANCE
+  let creditApplied = 0;
+
+  if (subscription.creditBalance > 0) {
+    creditApplied = Math.min(subscription.creditBalance, calculatedAmount);
+
+    calculatedAmount = Math.max(
+      0,
+      calculatedAmount - subscription.creditBalance,
+    );
+  }
+
+  // 🔹 APPLY COUPON (PURE SERVICE)
+  const { coupon, discount } = await couponService.applyCouponForCheckout({
+    code: couponCode,
+    businessId,
+    amount: calculatedAmount,
+  });
+
+  const finalAmount = Math.max(0, calculatedAmount - discount);
+
+  return {
+    baseAmount,
+    adjustments: adjustmentTotal,
+    creditApplied,
+    couponDiscount: discount,
+    finalAmount,
+    couponId: coupon.id,
+    couponCode: coupon.code,
+  };
+};
 
 exports.createSubscription = async ({
   businessId,
@@ -374,4 +532,58 @@ exports.extendGracePeriod = async (subscriptionId, data, req) => {
   });
 
   return updated;
+};
+
+/*
+|--------------------------------------------------------------------------
+| GET ACTIVE PACKAGES (UI READY)
+|--------------------------------------------------------------------------
+*/
+exports.getActivePackages = async () => {
+  const packages = await prisma.subscriptionPackage.findMany({
+    where: { isActive: true },
+    orderBy: { priceMonthly: "asc" },
+  });
+
+  const featureLabels = registry.getFeatureLabels();
+  const limitLabels = registry.getLimitLabels();
+
+  return packages.map((pkg) => {
+    const features = [];
+    const limits = [];
+
+    // 🔥 FEATURES
+    for (const key in pkg.features || {}) {
+      if (pkg.features[key]) {
+        features.push(featureLabels[key] || key);
+      }
+    }
+
+    // 🔥 LIMITS
+    for (const key in pkg.limits || {}) {
+      const value = pkg.limits[key];
+
+      if (value !== null && value !== undefined) {
+        const labelTemplate = limitLabels[key] || key;
+
+        limits.push(labelTemplate.replace("{value}", value));
+      }
+    }
+
+    return {
+      name: pkg.name,
+      code: pkg.code,
+      description: pkg.description,
+
+      price: {
+        monthly: pkg.priceMonthly,
+        yearly: pkg.priceYearly,
+      },
+
+      features,
+      limits,
+
+      isPopular: pkg.code === "STANDARD",
+    };
+  });
 };

@@ -4,106 +4,89 @@ const AppError = require("../../../utils/AppError");
 /**
  * Refund Transaction (Enterprise)
  */
-exports.refundTransaction = async (transactionId, req) => {
+exports.refundTransaction = async (transactionId, data) => {
   const payment = await prisma.subscriptionPayment.findUnique({
     where: { id: transactionId },
-    include: {
-      subscription: true,
-    },
   });
 
   if (!payment) {
     throw new AppError("commerce.transaction_not_found", 404);
   }
 
+  // 🔥 ADD VALIDATION (NEW)
   if (payment.status === "REFUNDED") {
-    throw new AppError("commerce.transaction_already_refunded", 400);
+    throw new AppError("commerce.already_refunded", 400);
   }
 
-  // Update original transaction
-  const updated = await prisma.subscriptionPayment.update({
+  if (payment.status !== "CONFIRMED") {
+    throw new AppError("commerce.invalid_refund_state", 400);
+  }
+
+  // 🔥 STEP 5: MARK PAYMENT AS REFUNDED
+  const updatedPayment = await prisma.subscriptionPayment.update({
     where: { id: transactionId },
     data: {
       status: "REFUNDED",
-      adminOverride: true,
-      metadata: {
-        ...(payment.metadata || {}),
-        refund: {
-          refundedBy: req.user.id,
-          refundedAt: new Date(),
-        },
-      },
+    },
+  });
+
+  // 🔥 STEP 6: LOAD SUBSCRIPTION
+  const subscription = await prisma.subscription.findUnique({
+    where: { id: payment.subscriptionId },
+  });
+
+  if (!subscription) {
+    throw new AppError("subscription.not_found", 404);
+  }
+
+  // 🔥 STEP 7: APPLY 2-DAY GRACE PERIOD
+  const graceUntil = new Date();
+  graceUntil.setDate(graceUntil.getDate() + 2);
+
+  await prisma.subscription.update({
+    where: { id: subscription.id },
+    data: {
+      graceUntil, // kutumia existing field
     },
   });
 
   return {
-    id: updated.id,
-    status: updated.status,
-    adminOverride: updated.adminOverride,
+    refunded: true,
+    graceUntil,
   };
 };
 
 /**
  * Create Financial Adjustment (CREDIT / DEBIT)
  */
-exports.createAdjustment = async (data, req) => {
-  const { businessId, amount, type, reason } = data;
+exports.createAdjustment = async (data) => {
+  const { businessId, amount, reason, type, createdBy } = data;
 
-  if (!businessId || !amount || !type) {
-    throw new AppError("commerce.invalid_adjustment_data", 400);
+  // 🔥 REQUIRED FIELDS
+  if (!businessId) {
+    throw new AppError("commerce.business_required", 400);
   }
 
-  if (!["CREDIT", "DEBIT"].includes(type)) {
-    throw new AppError("commerce.invalid_adjustment_type", 400);
+  if (!amount || Number(amount) === 0) {
+    throw new AppError("commerce.invalid_amount", 400);
   }
 
-  // Create adjustment record
-  const adjustment = await prisma.financialAdjustment.create({
-    data: {
-      businessId,
-      amount,
-      type,
-      reason: reason || null,
-      createdBy: req.user.id,
-    },
+  if (!reason) {
+    throw new AppError("commerce.adjustment_reason_required", 400);
+  }
+
+  if (!type) {
+    throw new AppError("commerce.adjustment_type_required", 400);
+  }
+
+  if (!createdBy) {
+    throw new AppError("commerce.created_by_required", 400);
+  }
+
+  // 🔥 PRESERVE ORIGINAL DATA (NO FIELD LOSS)
+  return prisma.financialAdjustment.create({
+    data,
   });
-
-  return {
-    id: adjustment.id,
-    businessId: adjustment.businessId,
-    amount: adjustment.amount,
-    type: adjustment.type,
-    createdAt: adjustment.createdAt,
-  };
-};
-
-/**
- * Credit Allocation (Special Adjustment)
- */
-exports.allocateCredit = async (data, req) => {
-  const { businessId, amount, reason } = data;
-
-  if (!businessId || !amount) {
-    throw new AppError("commerce.invalid_credit_data", 400);
-  }
-
-  const credit = await prisma.financialAdjustment.create({
-    data: {
-      businessId,
-      amount,
-      type: "CREDIT",
-      reason: reason || "Admin credit allocation",
-      createdBy: req.user.id,
-    },
-  });
-
-  return {
-    id: credit.id,
-    businessId: credit.businessId,
-    amount: credit.amount,
-    type: credit.type,
-    createdAt: credit.createdAt,
-  };
 };
 
 /**
@@ -116,6 +99,11 @@ exports.regenerateInvoice = async (transactionId) => {
 
   if (!payment) {
     throw new AppError("commerce.transaction_not_found", 404);
+  }
+
+  // 🔥 ADD VALIDATION
+  if (!transactionId) {
+    throw new AppError("commerce.transaction_id_required", 400);
   }
 
   // Simulate invoice regeneration (can be replaced with real service)
