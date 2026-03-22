@@ -276,80 +276,6 @@ const refresh = async (refreshToken) => {
 
 /**
  * =====================================================
- * ACCEPT BUSINESS INVITE
- * =====================================================
- */
-const acceptInvite = async ({ token, password }) => {
-  const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
-
-  const invite = await prisma.businessInvite.findFirst({
-    where: {
-      tokenHash,
-      expiresAt: { gt: new Date() },
-    },
-  });
-
-  if (!invite) {
-    throw new AppError("auth.token_invalid", 400);
-  }
-
-  // 🔒 Enforce subscription active
-  await subscriptionAuthority.assertActiveSubscription(invite.businessId);
-
-  // 🔒 Enforce multi-user feature
-  await subscriptionAuthority.assertFeature(
-    invite.businessId,
-    "allowMultiUser",
-  );
-
-  // 🔒 Enforce maxUsers limit
-  const currentUsers = await prisma.user.count({
-    where: { businessId: invite.businessId },
-  });
-
-  await subscriptionAuthority.assertLimit(
-    invite.businessId,
-    "maxUsers",
-    currentUsers,
-  );
-
-  const passwordHash = await bcrypt.hash(password, 12);
-
-  const user = await prisma.user.create({
-    data: {
-      email: invite.email,
-      passwordHash,
-      role: invite.role,
-      status: "ACTIVE",
-      emailVerified: true,
-      businessId: invite.businessId,
-    },
-  });
-
-  await prisma.businessInvite.delete({
-    where: { id: invite.id },
-  });
-
-  const tokens = signToken({
-    sub: user.id,
-    identity_type: "business",
-    role: user.role,
-    businessId: user.businessId,
-  });
-
-  return {
-    user: {
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      businessId: user.businessId,
-    },
-    tokens,
-  };
-};
-
-/**
- * =====================================================
  * LOGOUT
  * =====================================================
  */
@@ -561,5 +487,4 @@ module.exports = {
   customerRequestOtp,
   customerVerifyOtp,
   verifyEmail,
-  acceptInvite,
 };

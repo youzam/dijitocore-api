@@ -44,17 +44,6 @@ const logout = catchAsync(async (req, res) => {
 
 /**
  * =====================================================
- * ACCEPT BUSINESS INVITE
- * =====================================================
- */
-const acceptInvite = catchAsync(async (req, res) => {
-  const token = req.body.token || req.params.token || req.query.token;
-  const data = await authService.acceptInvite({ ...req.body, token });
-  return response.success(req, res, data);
-});
-
-/**
- * =====================================================
  * PASSWORD RESET
  * =====================================================
  */
@@ -107,5 +96,4 @@ module.exports = {
   customerRequestOtp,
   customerVerifyOtp,
   verifyEmail,
-  acceptInvite,
 };

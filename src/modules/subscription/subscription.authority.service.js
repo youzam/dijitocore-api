@@ -80,21 +80,63 @@ exports.assertFeature = async (businessId, featureKey) => {
   return true;
 };
 
-exports.assertLimit = async (businessId, limitKey, currentValue) => {
+// =====================================================
+// 🔥 ASSERT LIMIT (UNIFIED VERSION)
+// =====================================================
+exports.assertLimit = async (businessId, limitKey, options = {}) => {
+  const { currentValue } = options;
+
+  // 🔹 validate limit key
   if (!registry.isValidLimitKey(limitKey)) {
     throw new AppError(`Invalid limit configuration: ${limitKey}`, 500);
   }
 
-  const subscription = await getCurrentSubscription(businessId);
+  // 🔹 get subscription
+  const subscription = await prisma.subscription.findFirst({
+    where: {
+      businessId,
+      status: {
+        in: ["ACTIVE", "TRIAL", "GRACE"],
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
 
-  const limits = subscription.limitsSnapshot || {};
-  const limit = limits[limitKey];
-
-  if (limit === undefined || limit === null) {
-    return true; // unlimited
+  if (!subscription) {
+    throw new AppError("subscription.not_found", 404);
   }
 
-  if (currentValue >= limit) {
+  const limits = subscription.limitsSnapshot || {};
+  const limitValue = limits[limitKey];
+
+  // 🔹 unlimited
+  if (limitValue === null || limitValue === undefined) {
+    return true;
+  }
+
+  let usage;
+
+  // =====================================================
+  // 🔹 MODE 1: DIRECT VALUE (preferred for performance)
+  // =====================================================
+  if (currentValue !== undefined) {
+    usage = currentValue;
+  }
+
+  // =====================================================
+  // 🔹 MODE 2: RESOLVER (fallback)
+  // =====================================================
+  else {
+    const resolver = limitResolver.getResolver(limitKey);
+
+    if (!resolver) {
+      throw new AppError("subscription.limit_not_configured", 500);
+    }
+
+    usage = await resolver(businessId);
+  }
+
+  if (Number(usage) >= Number(limitValue)) {
     throw new AppError("subscription.limit_exceeded", 403);
   }
 

@@ -30,61 +30,6 @@ exports.updateBusinessSettings = catchAsync(async (req, res) => {
 
 /**
  * =========================
- * BUSINESS USERS — INVITE FLOW
- * =========================
- */
-exports.inviteBusinessUser = catchAsync(async (req, res) => {
-  const data = await service.inviteBusinessUser(req.user, req.body);
-  return response.success(req, res, data);
-});
-
-exports.listInvites = catchAsync(async (req, res) => {
-  const data = await service.listInvites(req.user.businessId);
-  return response.success(req, res, data);
-});
-
-exports.revokeInvite = catchAsync(async (req, res) => {
-  const data = await service.revokeInvite(
-    req.user.businessId,
-    req.params.inviteId,
-  );
-  return response.success(req, res, data);
-});
-
-/**
- * =========================
- * ACTIVE BUSINESS USERS
- * =========================
- */
-exports.listBusinessUsers = catchAsync(async (req, res) => {
-  const data = await service.listBusinessUsers(req.user.businessId);
-  return response.success(req, res, data);
-});
-
-exports.updateBusinessUser = catchAsync(async (req, res) => {
-  const data = await service.updateBusinessUser(
-    req.user,
-    req.params.userId,
-    req.body,
-  );
-  return response.success(req, res, data);
-});
-
-exports.deactivateBusinessUser = catchAsync(async (req, res) => {
-  const data = await service.deactivateBusinessUser(
-    req.user,
-    req.params.userId,
-  );
-  return response.success(req, res, data);
-});
-
-exports.activateBusinessUser = catchAsync(async (req, res) => {
-  const data = await service.activateBusinessUser(req.user, req.params.userId);
-  return response.success(req, res, data);
-});
-
-/**
- * =========================
  * VIEW BUSINESS DETAILS
  * =========================
  */

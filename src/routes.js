@@ -10,6 +10,7 @@ const dashboardRoutes = require("./modules/dashboard/dashboard.routes");
 const notificationRoutes = require("./modules/notification/notification.routes");
 const deviceRoutes = require("./modules/device/device.routes");
 const subscriptionRoutes = require("./modules/subscription/subscription.routes");
+const userRoutes = require("./modules/user/user.routes");
 const webhookRoutes = require("./modules/webhooks/webhooks.routes");
 
 const accessRoutes = require("./modules/admin/access/access.routes");
@@ -44,6 +45,7 @@ router.use("/admin/operations", operationRoutes);
 router.use("/admin/settings", settingRoutes);
 
 router.use("/auth", authRoutes);
+router.use("/users", userRoutes);
 router.use("/businesses", businessRoutes);
 router.use("/customers", customerRoutes);
 router.use("/contracts", contractRoutes);

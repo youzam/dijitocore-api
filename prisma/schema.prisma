@@ -134,6 +134,9 @@ model RolePermission {
 //////////////////////////////////////////////////////
 model User {
   id           String     @id @default(uuid())
+  name      String?
+  phone     String?
+  createdBy String?
   email        String
   passwordHash String
   role         UserRole

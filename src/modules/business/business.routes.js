@@ -41,58 +41,6 @@ router.put(
   controller.updateBusinessSettings,
 );
 
-/**
- * BUSINESS USERS — INVITE FLOW (OWNER)
- */
-router.post(
-  "/me/users/invite",
-  tenant,
-  role(["BUSINESS_OWNER"]),
-  validate(validation.inviteUser),
-  controller.inviteBusinessUser,
-);
-
-router.get(
-  "/me/users/invites",
-  tenant,
-  role(["BUSINESS_OWNER"]),
-  controller.listInvites,
-);
-
-router.delete(
-  "/me/users/invites/:inviteId",
-  tenant,
-  role(["BUSINESS_OWNER"]),
-  controller.revokeInvite,
-);
-
-/**
- * ACTIVE BUSINESS USERS
- */
-router.get("/me/users", tenant, controller.listBusinessUsers);
-
-router.put(
-  "/me/users/:userId",
-  tenant,
-  role(["BUSINESS_OWNER"]),
-  validate(validation.updateUser),
-  controller.updateBusinessUser,
-);
-
-router.delete(
-  "/me/users/:userId",
-  tenant,
-  role(["BUSINESS_OWNER"]),
-  controller.deactivateBusinessUser,
-);
-
-router.post(
-  "/me/users/:userId/activate",
-  tenant,
-  role(["BUSINESS_OWNER"]),
-  controller.activateBusinessUser,
-);
-
 router.get(
   "/:businessId",
   tenant,

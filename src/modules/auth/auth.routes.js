@@ -4,7 +4,6 @@ const authController = require("./auth.controller");
 const validate = require("../../middlewares/validate.middleware");
 const { authRateLimiter } = require("../../middlewares/rateLimit.middleware");
 const authMiddleware = require("../../middlewares/auth.middleware");
-const roleMiddleware = require("../../middlewares/role.middleware");
 const customerAuthController = require("./customer.auth.controller");
 const customerAuthValidation = require("./customer.auth.validation");
 
@@ -15,7 +14,6 @@ const {
   refreshSchema,
   passwordResetRequestSchema,
   passwordResetSchema,
-  acceptInviteSchema,
 } = require("./auth.validation");
 
 const router = express.Router();
@@ -53,19 +51,6 @@ router.post(
 );
 
 router.post("/logout", authMiddleware, authController.logout);
-
-/**
- * =====================================================
- * ACCEPT BUSINESS INVITE (PUBLIC)
- * =====================================================
- */
-router.post(
-  "/accept-invite",
-  authRateLimiter,
-  validate(acceptInviteSchema),
-
-  authController.acceptInvite,
-);
 
 /**
  * =====================================================

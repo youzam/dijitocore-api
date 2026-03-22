@@ -5,6 +5,8 @@ const notAnalyticController = require("./notification-analytics.controller");
 const auth = require("../../middlewares/auth.middleware");
 const tenant = require("../../middlewares/tenant.middleware");
 const role = require("../../middlewares/role.middleware");
+const subscriptionFeature = require("../../middlewares/subscriptionFeature.middleware");
+const subscriptionLimit = require("../../middlewares/subscriptionLimit.middleware");
 
 const router = express.Router();
 
@@ -42,6 +44,8 @@ router.get("/analytics", notAnalyticController.getAnalytics);
 router.post(
   "/bulk",
   role(["BUSINESS_OWNER", "MANAGER", "STAFF"]),
+  subscriptionFeature("allowSMS"),
+  subscriptionLimit("maxMonthlySms"),
   controller.bulkNotify,
 );
 
