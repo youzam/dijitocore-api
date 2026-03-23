@@ -80,13 +80,13 @@ model AdminSession {
 }
 
 model SystemSeedLog {
-  id        String   @id @default(uuid())
-  key       String   @unique
-  status    String   // PENDING | SUCCESS | FAILED
+  id        String    @id @default(uuid())
+  key       String    @unique
+  status    String // PENDING | SUCCESS | FAILED
   lastRunAt DateTime?
   error     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 }
 
 model SystemSetting {
@@ -134,9 +134,9 @@ model RolePermission {
 //////////////////////////////////////////////////////
 model User {
   id           String     @id @default(uuid())
-  name      String?
-  phone     String?
-  createdBy String?
+  name         String?
+  phone        String?
+  createdBy    String?
   email        String
   passwordHash String
   role         UserRole
@@ -338,17 +338,17 @@ model Subscription {
   setupFeePaid Boolean @default(false)
 
   version       Int @default(1)
-  creditBalance   Int @default(0)
+  creditBalance Int @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  couponId        String?   @db.Uuid
-  couponCode      String?
-  couponDiscount  Int?      // store applied discount snapshot
-  finalAmount     Int?      // optional (snapshot for audit)
+  couponId       String
+  couponCode     String?
+  couponDiscount Int? // store applied discount snapshot
+  finalAmount    Int? // optional (snapshot for audit)
 
-  coupon Coupon? @relation(fields: [couponId], references: [id])
+  coupon               Coupon?               @relation(fields: [couponId], references: [id])
   subscriptionPayments SubscriptionPayment[]
 
   isTrial               Boolean               @default(false)
@@ -388,12 +388,12 @@ model SubscriptionPayment {
 
   couponId String?
 
-  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
+  subscription Subscription @relation(fields: [subscriptionId], references: [id])
 
   amount   Decimal
   currency String
 
-  status SubscriptionPaymentStatus 
+  status SubscriptionPaymentStatus
 
   type String // SUBSCRIPTION | SETUP_FEE | RENEWAL | REFUND | MANUAL_ADJUSTMENT
 
@@ -456,9 +456,9 @@ model FinancialAdjustment {
   createdBy String
 
   // 🔥 USAGE TRACKING (NEW)
-  isApplied Boolean @default(false)
+  isApplied        Boolean   @default(false)
   appliedPaymentId String?
-  appliedAt DateTime?
+  appliedAt        DateTime?
 
   createdAt DateTime @default(now())
 }
@@ -481,9 +481,10 @@ model Coupon {
 
   isActive Boolean @default(true)
 
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  couponUsages CouponUsage[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  couponUsages  CouponUsage[]
+  subscriptions Subscription[]
 }
 
 model CouponUsage {
@@ -885,7 +886,6 @@ model DeviceToken {
 ////////////////////////////////////////
 //          AUDIT LOG
 ////////////////////////////////////
-
 model AuditLog {
   id String @id @default(uuid())
 
@@ -902,6 +902,9 @@ model AuditLog {
   ipAddress String?
   userAgent String?
 
+  actorType String  @default("TENANT") // "ADMIN" | "TENANT"
+  module    String? // e.g. "AUTH", "PAYMENT", "ADMIN"
+
   createdAt DateTime @default(now())
 
   @@index([businessId])
@@ -909,6 +912,7 @@ model AuditLog {
   @@index([entityId])
   @@index([createdAt])
   @@index([action])
+  @@index([actorType]) // 🔥 new index
 }
 
 model SuspiciousActivity {
@@ -961,7 +965,7 @@ model SystemJobLog {
 }
 
 model DeadJob {
-  id         Int      @id @default(autoincrement())
+  id         String   @id @default(uuid())
   jobName    String
   instanceId String
   reason     String
@@ -969,7 +973,7 @@ model DeadJob {
 }
 
 model ApiMetric {
-  id              Int      @id @default(autoincrement())
+  id              String   @id @default(uuid())
   totalRequests   Int
   successRequests Int
   failedRequests  Int
@@ -1242,6 +1246,92 @@ model PurgeQueue {
   @@index([status])
 }
 
+//////////////////////////////////////
+// ANNOUNCEMENTS 
+/////////////////////////////////////
+model Announcement {
+  id String @id @default(uuid())
+
+  title   String
+  message String
+
+  priority String // LOW | MEDIUM | HIGH | CRITICAL
+
+  // UI + Product
+  placement AnnouncementPlacement
+  eventType AnnouncementEventType @default(GENERAL)
+
+  // Scheduling
+  startAt DateTime?
+  endAt   DateTime?
+
+  // Flags
+  trialOnly   Boolean @default(false)
+  isEmergency Boolean @default(false)
+
+  // Notification
+  sendNotification Boolean  @default(false)
+  channels         String[] // ["IN_APP", "SMS"]
+
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  countries AnnouncementCountry[]
+  packages  AnnouncementPackage[]
+  segments  AnnouncementSegment[]
+  reads     AnnouncementRead[]
+
+  @@index([priority])
+  @@index([startAt, endAt])
+}
+
+model AnnouncementCountry {
+  id             String @id @default(uuid())
+  announcementId String
+  countryCode    String
+
+  announcement Announcement @relation(fields: [announcementId], references: [id])
+
+  @@index([countryCode])
+}
+
+model AnnouncementPackage {
+  id             String @id @default(uuid())
+  announcementId String
+  packageId      String
+
+  announcement Announcement @relation(fields: [announcementId], references: [id])
+
+  @@index([packageId])
+}
+
+model AnnouncementSegment {
+  id             String @id @default(uuid())
+  announcementId String
+
+  segmentType String
+  rules       Json?
+
+  announcement Announcement @relation(fields: [announcementId], references: [id])
+}
+
+model AnnouncementRead {
+  id String @id @default(uuid())
+
+  announcementId String
+  userId         String
+
+  seenAt      DateTime?
+  dismissedAt DateTime?
+
+  announcement Announcement @relation(fields: [announcementId], references: [id])
+
+  @@unique([announcementId, userId])
+  @@index([userId])
+}
+
 ///////////////////////////////////
 // ENUMS
 ///////////////////////////////////
@@ -1380,4 +1470,21 @@ enum PurgeStatus {
   PROCESSING
   COMPLETED
   FAILED
+}
+
+enum AnnouncementPlacement {
+  TOP_BAR
+  SIDEBAR
+  CENTER_MODAL
+  BANNER
+  INLINE
+}
+
+enum AnnouncementEventType {
+  GENERAL
+  HOLIDAY
+  PROMOTION
+  SYSTEM
+  BILLING
+  SECURITY
 }

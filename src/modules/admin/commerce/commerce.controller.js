@@ -1,5 +1,6 @@
 const catchAsync = require("../../../utils/catchAsync");
 const response = require("../../../utils/response");
+const { logAudit } = require("../../../utils/audit.helper");
 
 // Services
 const ledgerService = require("./ledger.service");
@@ -45,19 +46,25 @@ exports.getTransactionDrilldown = catchAsync(async (req, res) => {
  */
 
 exports.refundTransaction = catchAsync(async (req, res) => {
-  const data = await financialService.refundTransaction(req.params.id, req);
+  const data = await financialService.refundTransaction(
+    req.params.id,
+    req.auth,
+  );
 
   return response.success(req, res, data, 200, "commerce.refund_success");
 });
 
 exports.createAdjustment = catchAsync(async (req, res) => {
-  const data = await financialService.createAdjustment(req.body, req);
+  const data = await financialService.createAdjustment(req.body, req.auth);
 
   return response.success(req, res, data, 201, "commerce.adjustment_created");
 });
 
 exports.regenerateInvoice = catchAsync(async (req, res) => {
-  const data = await financialService.regenerateInvoice(req.params.id);
+  const data = await financialService.regenerateInvoice(
+    req.params.id,
+    req.auth,
+  );
 
   return response.success(req, res, data, 200, "commerce.invoice_regenerated");
 });
@@ -69,7 +76,7 @@ exports.regenerateInvoice = catchAsync(async (req, res) => {
  */
 
 exports.createCoupon = catchAsync(async (req, res) => {
-  const data = await couponService.createCoupon(req.body);
+  const data = await couponService.createCoupon(req.body, req.auth);
 
   return response.success(req, res, data, 201, "commerce.coupon_created");
 });
@@ -81,7 +88,11 @@ exports.getCoupons = catchAsync(async (req, res) => {
 });
 
 exports.updateCoupon = catchAsync(async (req, res) => {
-  const data = await couponService.updateCoupon(req.params.id, req.body);
+  const data = await couponService.updateCoupon(
+    req.params.id,
+    req.body,
+    req.auth,
+  );
 
   return response.success(req, res, data, 200, "commerce.coupon_updated");
 });

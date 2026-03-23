@@ -1,6 +1,6 @@
 const prisma = require("../../../config/prisma");
 const AppError = require("../../../utils/AppError");
-
+const { logAudit } = require("../../../utils/audit.helper");
 const subscriptionService = require("../../subscription/subscription.service");
 const authService = require("../../auth/auth.service");
 
@@ -33,10 +33,24 @@ exports.updateBusinessStatus = async (businessId, status) => {
     throw new AppError("governance.invalid_status_transition", 400);
   }
 
-  return prisma.business.update({
+  const updated = await prisma.business.update({
     where: { id: businessId },
     data: { status },
   });
+
+  await logAudit({
+    userId: null,
+    entityType: "BUSINESS",
+    entityId: businessId,
+    action: "BUSINESS_STATUS_UPDATED",
+    metadata: {
+      previousStatus: currentStatus,
+      newStatus: status,
+    },
+    module: "GOVERNANCE",
+    actorType: "ADMIN",
+  });
+  return updated;
 };
 
 /*
@@ -174,11 +188,26 @@ exports.changeBusinessSubscription = async (businessId, packageId) => {
     throw new AppError("governance.business_not_found", 404);
   }
 
-  return subscriptionService.createSubscription({
+  const result = await subscriptionService.createSubscription({
     businessId,
     packageId,
     forcedByAdmin: true,
   });
+
+  await logAudit({
+    userId: null,
+    entityType: "SUBSCRIPTION",
+    entityId: result.id,
+    action: "BUSINESS_SUBSCRIPTION_CHANGED",
+    metadata: {
+      businessId,
+      packageId,
+    },
+    module: "GOVERNANCE",
+    actorType: "ADMIN",
+  });
+
+  return result;
 };
 
 /*
@@ -202,10 +231,25 @@ exports.extendBusinessGracePeriod = async (businessId, days) => {
   const newGraceDate = new Date(subscription.graceUntil);
   newGraceDate.setDate(newGraceDate.getDate() + days);
 
-  return prisma.subscription.update({
+  const updated = await prisma.subscription.update({
     where: { id: subscription.id },
     data: { graceUntil: newGraceDate },
   });
+
+  await logAudit({
+    userId: null,
+    entityType: "SUBSCRIPTION",
+    entityId: subscription.id,
+    action: "BUSINESS_GRACE_EXTENDED",
+    metadata: {
+      businessId,
+      days,
+      newGraceUntil: newGraceDate,
+    },
+    module: "GOVERNANCE",
+    actorType: "ADMIN",
+  });
+  return updated;
 };
 
 /*
@@ -270,10 +314,23 @@ exports.lockUser = async (userId) => {
 
   const lockUntil = new Date(Date.now() + 1000 * 60 * 60 * 24 * 365);
 
-  return prisma.user.update({
+  const updated = await prisma.user.update({
     where: { id: userId },
     data: { lockUntil },
   });
+
+  await logAudit({
+    userId: null,
+    entityType: "USER",
+    entityId: userId,
+    action: "USER_LOCKED",
+    metadata: {
+      lockUntil,
+    },
+    module: "GOVERNANCE",
+    actorType: "ADMIN",
+  });
+  return updated;
 };
 
 /*
@@ -291,13 +348,23 @@ exports.unlockUser = async (userId) => {
     throw new AppError("governance.user_not_found", 404);
   }
 
-  return prisma.user.update({
+  const updated = await prisma.user.update({
     where: { id: userId },
     data: {
       lockUntil: null,
       failedLoginAttempts: 0,
     },
   });
+
+  await logAudit({
+    userId: null,
+    entityType: "USER",
+    entityId: userId,
+    action: "USER_UNLOCKED",
+    module: "GOVERNANCE",
+    actorType: "ADMIN",
+  });
+  return updated;
 };
 
 /*
@@ -321,10 +388,24 @@ exports.updateUserStatus = async (userId, status) => {
     throw new AppError("governance.invalid_user_status", 400);
   }
 
-  return prisma.user.update({
+  const updated = await prisma.user.update({
     where: { id: userId },
     data: { status },
   });
+
+  await logAudit({
+    userId: null,
+    entityType: "USER",
+    entityId: userId,
+    action: "USER_STATUS_UPDATED",
+    metadata: {
+      newStatus: status,
+    },
+    module: "GOVERNANCE",
+    actorType: "ADMIN",
+  });
+
+  return updated;
 };
 
 /*
@@ -338,8 +419,18 @@ exports.forceLogoutUser = async (userId) => {
     where: { userId },
   });
 
+  await logAudit({
+    userId: null,
+    entityType: "USER",
+    entityId: userId,
+    action: "USER_FORCE_LOGOUT",
+    module: "GOVERNANCE",
+    actorType: "ADMIN",
+  });
+
   return { success: true };
 };
+
 /*
 |--------------------------------------------------------------------------
 | Impersonate User (SECURE)
@@ -391,22 +482,16 @@ exports.impersonateUser = async (adminId, userId) => {
 
   const accessToken = authService.signToken(tokenPayload);
 
-  /*
-  |--------------------------------------------------------------------------
-  | Audit Log
-  |--------------------------------------------------------------------------
-  */
-
-  await prisma.auditLog.create({
-    data: {
-      action: "ADMIN_IMPERSONATE_USER",
-      entityType: "User",
-      entityId: user.id,
-      meta: {
-        adminId,
-        businessId: user.businessId,
-      },
+  await logAudit({
+    userId: adminId,
+    entityType: "USER",
+    entityId: user.id,
+    action: "ADMIN_IMPERSONATE_USER",
+    metadata: {
+      businessId: user.businessId,
     },
+    module: "GOVERNANCE",
+    actorType: "ADMIN",
   });
 
   return {
@@ -456,10 +541,21 @@ exports.blacklistCustomer = async (customerId) => {
     throw new AppError("governance.customer_not_found", 404);
   }
 
-  return prisma.customer.update({
+  const updated = await prisma.customer.update({
     where: { id: customerId },
     data: { isBlacklisted: true },
   });
+
+  await logAudit({
+    userId: null,
+    entityType: "CUSTOMER",
+    entityId: customerId,
+    action: "CUSTOMER_BLACKLISTED",
+    module: "GOVERNANCE",
+    actorType: "ADMIN",
+  });
+
+  return updated;
 };
 
 /*
@@ -477,10 +573,21 @@ exports.unblacklistCustomer = async (customerId) => {
     throw new AppError("governance.customer_not_found", 404);
   }
 
-  return prisma.customer.update({
+  const updated = await prisma.customer.update({
     where: { id: customerId },
     data: { isBlacklisted: false },
   });
+
+  await logAudit({
+    userId: null,
+    entityType: "CUSTOMER",
+    entityId: customerId,
+    action: "CUSTOMER_UNBLACKLISTED",
+    module: "GOVERNANCE",
+    actorType: "ADMIN",
+  });
+
+  return updated;
 };
 
 exports.getBusinessProfile = async (businessId) => {
@@ -521,7 +628,18 @@ exports.resetUserPassword = async (userId, newPassword) => {
     throw new AppError("governance.user_not_found", 404);
   }
 
-  return authService.resetUserPassword(userId, newPassword);
+  const result = await authService.resetUserPassword(userId, newPassword);
+
+  await logAudit({
+    userId: null,
+    entityType: "USER",
+    entityId: userId,
+    action: "USER_PASSWORD_RESET",
+    module: "GOVERNANCE",
+    actorType: "ADMIN",
+  });
+
+  return result;
 };
 
 /*
@@ -531,15 +649,25 @@ exports.resetUserPassword = async (userId, newPassword) => {
 */
 
 exports.listAdminAuditLogs = async (query) => {
-  const { page = 1, limit = 20, action, entityType } = query;
+  const { page = 1, limit = 20, action, entityType, module, from, to } = query;
 
   const skip = (page - 1) * limit;
   const take = Number(limit);
 
-  const where = {};
+  const where = {
+    actorType: "ADMIN",
+  };
 
   if (action) where.action = action;
   if (entityType) where.entityType = entityType;
+  if (module) where.module = module;
+
+  if (from || to) {
+    where.createdAt = {
+      ...(from && { gte: new Date(from) }),
+      ...(to && { lte: new Date(to) }),
+    };
+  }
 
   const [logs, total] = await Promise.all([
     prisma.auditLog.findMany({
@@ -547,6 +675,14 @@ exports.listAdminAuditLogs = async (query) => {
       skip,
       take,
       orderBy: { createdAt: "desc" },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+          },
+        },
+      },
     }),
 
     prisma.auditLog.count({ where }),
@@ -602,11 +738,7 @@ exports.getRiskFlags = async () => {
 | Global Search (Cross Tenant)
 |--------------------------------------------------------------------------
 */
-/*
-|--------------------------------------------------------------------------
-| CONFIG
-|--------------------------------------------------------------------------
-*/
+
 const DEFAULT_LIMIT = 10;
 const DEFAULT_PAGE = 1;
 const MAX_LIMIT = 100;
@@ -641,11 +773,7 @@ const MODULE_RESOURCES = {
   settings: ["systemSettings"],
 };
 
-/*
-|--------------------------------------------------------------------------
-| GLOBAL FALLBACK
-|--------------------------------------------------------------------------
-*/
+// GLOBAL FALLBACK
 const GLOBAL_RESOURCES = [
   "businesses",
   "users",
@@ -797,7 +925,6 @@ const detectRouteContext = (req) => {
 
   const segments = source.toLowerCase().split("/");
 
-  // RESOURCE DETECTION
   for (const resource of Object.keys(RESOURCE_HANDLERS)) {
     const singular = resource.endsWith("s") ? resource.slice(0, -1) : resource;
 
@@ -806,7 +933,6 @@ const detectRouteContext = (req) => {
     }
   }
 
-  // MODULE DETECTION
   for (const module of Object.keys(MODULE_RESOURCES)) {
     if (segments.includes(module)) {
       return { module };
@@ -837,11 +963,6 @@ exports.globalSearch = async (query, options = {}) => {
   const targetResource = resource || detected.resource;
   const module = detected.module;
 
-  /*
-  |--------------------------------------------------------------------------
-  | RESOURCE MODE
-  |--------------------------------------------------------------------------
-  */
   if (targetResource && RESOURCE_HANDLERS[targetResource]) {
     return {
       [targetResource]: await RESOURCE_HANDLERS[targetResource](
@@ -852,11 +973,6 @@ exports.globalSearch = async (query, options = {}) => {
     };
   }
 
-  /*
-  |--------------------------------------------------------------------------
-  | MODULE MODE (PARALLEL 🚀)
-  |--------------------------------------------------------------------------
-  */
   if (module && MODULE_RESOURCES[module]) {
     const resources = MODULE_RESOURCES[module];
 
@@ -874,11 +990,6 @@ exports.globalSearch = async (query, options = {}) => {
     };
   }
 
-  /*
-  |--------------------------------------------------------------------------
-  | GLOBAL FALLBACK (PARALLEL 🚀)
-  |--------------------------------------------------------------------------
-  */
   const entries = await Promise.all(
     GLOBAL_RESOURCES.map(async (r) => {
       if (!RESOURCE_HANDLERS[r]) return [r, []];

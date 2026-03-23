@@ -1,6 +1,8 @@
 const prisma = require("../../../config/prisma");
 const AppError = require("../../../utils/AppError");
 const registry = require("../../../utils/subscriptionFeatureRegistry");
+const { logAudit } = require("../../../utils/audit.helper");
+
 /**
  * ===== INTERNAL HELPERS =====
  */
@@ -67,22 +69,6 @@ const validateConfigJSON = (data, type) => {
 };
 
 /**
- * Audit helper (lightweight, uses metadata pattern if no audit table)
- */
-const buildAuditMetadata = (existingMeta, changes, userId) => {
-  return {
-    ...(existingMeta || {}),
-    lastUpdatedBy: userId,
-    lastUpdatedAt: new Date(),
-    changes,
-  };
-};
-
-/**
- * ===== SERVICES =====
- */
-
-/**
  * Create Package
  */
 exports.createPackage = async (data, req) => {
@@ -119,6 +105,22 @@ exports.createPackage = async (data, req) => {
       },
     },
   });
+
+  await logAudit({
+    userId: req.auth?.id || null,
+    entityType: "PACKAGE",
+    entityId: pkg.id,
+    action: "PACKAGE_CREATED",
+    metadata: {
+      name: pkg.name,
+      code: pkg.code,
+      price: pkg.price,
+    },
+    module: "COMMERCE",
+    actorType: "ADMIN",
+  });
+
+  return pkg;
 
   return pkg;
 };
@@ -165,9 +167,19 @@ exports.updatePackage = async (id, data, req) => {
       ...(typeof data.isActive === "boolean" && {
         isActive: data.isActive,
       }),
-
-      metadata: buildAuditMetadata(existing.metadata, changes, req.user.id),
     },
+  });
+
+  await logAudit({
+    userId: req.auth?.id || null,
+    entityType: "PACKAGE",
+    entityId: id,
+    action: "PACKAGE_UPDATED",
+    metadata: {
+      changes,
+    },
+    module: "COMMERCE",
+    actorType: "ADMIN",
   });
 
   return updated;
@@ -204,16 +216,21 @@ exports.updatePackageConfiguration = async (id, data, req) => {
       ...(validatedLimits && {
         limits: validatedLimits,
       }),
-      metadata: buildAuditMetadata(
-        existing.metadata,
-        {
-          configUpdated: true,
-        },
-        req.user.id,
-      ),
     },
   });
 
+  await logAudit({
+    userId: actor?.id || null,
+    entityType: "PACKAGE",
+    entityId: id,
+    action: "PACKAGE_CONFIG_UPDATED",
+    metadata: {
+      featuresUpdated: !!data.features,
+      limitsUpdated: !!data.limits,
+    },
+    module: "COMMERCE",
+    actorType: "ADMIN",
+  });
   return updated;
 };
 
@@ -243,6 +260,15 @@ exports.deactivatePackage = async (id, req) => {
         req.user.id,
       ),
     },
+  });
+
+  await logAudit({
+    userId: req.auth?.id || null,
+    entityType: "PACKAGE",
+    entityId: id,
+    action: "PACKAGE_DEACTIVATED",
+    module: "COMMERCE",
+    actorType: "ADMIN",
   });
 
   return updated;

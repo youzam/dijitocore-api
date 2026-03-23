@@ -1,4 +1,5 @@
 const authService = require("./auth.service.js");
+const customerAuthService = require("./customer.auth.service");
 const catchAsync = require("../../utils/catchAsync.js");
 const response = require("../../utils/response");
 
@@ -7,7 +8,7 @@ const response = require("../../utils/response");
  * BUSINESS OWNER SIGNUP
  * =====================================================
  */
-const ownerSignup = catchAsync(async (req, res) => {
+exports.ownerSignup = catchAsync(async (req, res) => {
   const result = await authService.ownerSignup(req.body);
   return response.success(req, res, result, 201);
 });
@@ -17,7 +18,7 @@ const ownerSignup = catchAsync(async (req, res) => {
  * VERIFY EMAIL ADDRESS
  * =====================================================
  */
-const verifyEmail = catchAsync(async (req, res) => {
+exports.verifyEmail = catchAsync(async (req, res) => {
   const result = await authService.verifyEmail(req.body.code);
   return response.success(req, res, result);
 });
@@ -27,17 +28,17 @@ const verifyEmail = catchAsync(async (req, res) => {
  * LOGIN / REFRESH / LOGOUT
  * =====================================================
  */
-const login = catchAsync(async (req, res) => {
+exports.login = catchAsync(async (req, res) => {
   const result = await authService.login(req.body, req);
   return response.success(req, res, result);
 });
 
-const refresh = catchAsync(async (req, res) => {
+exports.refresh = catchAsync(async (req, res) => {
   const result = await authService.refresh(req.body.refresh_token);
   return response.success(req, res, result);
 });
 
-const logout = catchAsync(async (req, res) => {
+exports.logout = catchAsync(async (req, res) => {
   await authService.logout(req.auth);
   res.status(204).send();
 });
@@ -47,12 +48,12 @@ const logout = catchAsync(async (req, res) => {
  * PASSWORD RESET
  * =====================================================
  */
-const requestPasswordReset = catchAsync(async (req, res) => {
+exports.requestPasswordReset = catchAsync(async (req, res) => {
   await authService.requestPasswordReset(req.body.email);
   return response.success(req, res, {});
 });
 
-const resetPassword = catchAsync(async (req, res) => {
+exports.resetPassword = catchAsync(async (req, res) => {
   const result = await authService.resetPassword(
     req.body.token,
     req.body.password,
@@ -66,17 +67,17 @@ const resetPassword = catchAsync(async (req, res) => {
  * CUSTOMER AUTH – IDENTIFY + OTP
  * =====================================================
  */
-const customerIdentify = catchAsync(async (req, res) => {
+exports.customerIdentify = catchAsync(async (req, res) => {
   const result = await authService.customerIdentify(req.body.phone);
   return response.success(req, res, result);
 });
 
-const customerRequestOtp = catchAsync(async (req, res) => {
+exports.customerRequestOtp = catchAsync(async (req, res) => {
   await authService.customerRequestOtp(req.body.phone, req.body.businessId);
   res.status(200).json({});
 });
 
-const customerVerifyOtp = catchAsync(async (req, res) => {
+exports.customerVerifyOtp = catchAsync(async (req, res) => {
   const result = await authService.customerVerifyOtp(
     req.body.phone,
     req.body.businessId,
@@ -85,15 +86,61 @@ const customerVerifyOtp = catchAsync(async (req, res) => {
   return response.success(req, res, result);
 });
 
-module.exports = {
-  ownerSignup,
-  login,
-  refresh,
-  logout,
-  requestPasswordReset,
-  resetPassword,
-  customerIdentify,
-  customerRequestOtp,
-  customerVerifyOtp,
-  verifyEmail,
-};
+/**
+ * Request OTP
+ */
+exports.requestOtp = catchAsync(async (req, res) => {
+  const { phone, businessCode } = req.body;
+
+  await customerAuthService.requestOtp(phone, businessCode);
+
+  return response.success(req, res, {
+    message: translate("auth.otp_sent", req.locale),
+  });
+});
+
+/**
+ * Verify OTP
+ */
+exports.verifyOtp = catchAsync(async (req, res) => {
+  const { phone, businessCode, otp } = req.body;
+
+  const customer = await customerAuthService.verifyOtp(
+    phone,
+    businessCode,
+    otp,
+  );
+
+  return response.success(req, res, {
+    customerId: customer.id,
+  });
+});
+
+/**
+ * Set PIN
+ */
+exports.setPin = catchAsync(async (req, res) => {
+  const { customerId, pin } = req.body;
+
+  await customerAuthService.setPin(customerId, pin);
+
+  return response.success(req, res, {
+    message: translate("auth.pin_set_success", req.locale),
+  });
+});
+
+/**
+ * Login with PIN
+ */
+exports.loginWithPin = catchAsync(async (req, res) => {
+  const { phone, businessCode, pin } = req.body;
+
+  const result = await customerAuthService.loginWithPin(
+    phone,
+    businessCode,
+    pin,
+    req,
+  );
+
+  return response.success(req, res, result);
+});

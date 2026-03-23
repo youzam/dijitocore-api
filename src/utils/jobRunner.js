@@ -195,7 +195,7 @@ async function runSafeJob(jobName, jobFn, ttlSeconds = 900) {
       where: { jobName },
       data: {
         retryCount: { increment: 1 },
-        lastRetryAt: new Date(),
+        lastRetriedAt: new Date(),
       },
     });
 

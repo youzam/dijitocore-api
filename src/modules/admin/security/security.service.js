@@ -86,17 +86,39 @@ exports.getUserSessions = async (userId, query) => {
 };
 
 exports.revokeUserSession = async (tokenId) => {
-  return prisma.refreshToken.update({
+  const result = await prisma.refreshToken.update({
     where: { id: tokenId },
     data: { revokedAt: new Date() },
   });
+
+  await logAudit({
+    userId: null,
+    entityType: "SESSION",
+    entityId: tokenId,
+    action: "USER_SESSION_REVOKED",
+    module: "SECURITY",
+    actorType: "ADMIN",
+  });
+
+  return result;
 };
 
 exports.revokeAllUserSessions = async (userId) => {
-  return prisma.refreshToken.updateMany({
+  const result = await prisma.refreshToken.updateMany({
     where: { userId, revokedAt: null },
     data: { revokedAt: new Date() },
   });
+
+  await logAudit({
+    userId: userId,
+    entityType: "SESSION",
+    entityId: userId,
+    action: "ALL_USER_SESSIONS_REVOKED",
+    module: "SECURITY",
+    actorType: "ADMIN",
+  });
+
+  return result;
 };
 
 /**
@@ -117,17 +139,39 @@ exports.getAdminSessions = async (adminId, query) => {
 };
 
 exports.revokeAdminSession = async (tokenId) => {
-  return prisma.refreshToken.update({
+  const result = await prisma.refreshToken.update({
     where: { id: tokenId },
     data: { revokedAt: new Date() },
   });
+
+  await logAudit({
+    userId: null,
+    entityType: "SESSION",
+    entityId: tokenId,
+    action: "ADMIN_SESSION_REVOKED",
+    module: "SECURITY",
+    actorType: "ADMIN",
+  });
+
+  return result;
 };
 
 exports.revokeAllAdminSessions = async (adminId) => {
-  return prisma.refreshToken.updateMany({
+  const result = await prisma.refreshToken.updateMany({
     where: { adminId, revokedAt: null },
     data: { revokedAt: new Date() },
   });
+
+  await logAudit({
+    userId: adminId,
+    entityType: "SESSION",
+    entityId: adminId,
+    action: "ALL_ADMIN_SESSIONS_REVOKED",
+    module: "SECURITY",
+    actorType: "ADMIN",
+  });
+
+  return result;
 };
 
 /**
@@ -137,10 +181,21 @@ exports.revokeAllAdminSessions = async (adminId) => {
  */
 
 exports.revokeToken = async (tokenId) => {
-  return prisma.refreshToken.update({
+  const result = await prisma.refreshToken.update({
     where: { id: tokenId },
     data: { revokedAt: new Date() },
   });
+
+  await logAudit({
+    userId: null,
+    entityType: "SESSION",
+    entityId: tokenId,
+    action: "TOKEN_REVOKED",
+    module: "SECURITY",
+    actorType: "ADMIN",
+  });
+
+  return result;
 };
 
 /**
@@ -179,6 +234,15 @@ exports.flagUser = async (userId, reason) => {
     referenceId: userId,
   });
 
+  await logAudit({
+    userId: userId,
+    entityType: "FRAUD_FLAG",
+    entityId: flag.id,
+    action: "USER_FLAGGED",
+    module: "SECURITY",
+    actorType: "ADMIN",
+  });
+
   return flag;
 };
 
@@ -212,17 +276,36 @@ exports.flagTransaction = async (transactionId, reason) => {
     referenceId: transactionId,
   });
 
+  await logAudit({
+    userId: null,
+    entityType: "FRAUD_FLAG",
+    entityId: flag.id,
+    action: "TRANSACTION_FLAGGED",
+    module: "SECURITY",
+    actorType: "ADMIN",
+  });
   return flag;
 };
 
 exports.resolveFlag = async (flagId) => {
-  return prisma.fraudFlag.update({
+  const result = await prisma.fraudFlag.update({
     where: { id: flagId },
     data: {
       status: "RESOLVED",
       resolvedAt: new Date(),
     },
   });
+
+  await logAudit({
+    userId: null,
+    entityType: "FRAUD_FLAG",
+    entityId: flagId,
+    action: "FRAUD_FLAG_RESOLVED",
+    module: "SECURITY",
+    actorType: "ADMIN",
+  });
+
+  return result;
 };
 
 exports.getFlags = async (query) => {
@@ -305,10 +388,21 @@ exports.detectLoginAnomaly = async (userId) => {
 };
 
 exports.markTransactionAsSafe = async (transactionId) => {
-  return prisma.payment.update({
+  const result = await prisma.payment.update({
     where: { id: transactionId },
     data: { flagged: false },
   });
+
+  await logAudit({
+    userId: null,
+    entityType: "TRANSACTION",
+    entityId: transactionId,
+    action: "TRANSACTION_MARKED_SAFE",
+    module: "SECURITY",
+    actorType: "ADMIN",
+  });
+
+  return result;
 };
 
 /**
@@ -348,13 +442,24 @@ exports.logSystemError = async (error) => {
     });
   }
 
-  return prisma.systemError.create({
+  const result = await prisma.systemError.create({
     data: {
       groupId: group.id,
       stack: error.stack,
       environment: process.env.NODE_ENV || "development",
     },
   });
+
+  await logAudit({
+    userId: null,
+    entityType: "SYSTEM_ERROR",
+    entityId: result.id,
+    action: "SYSTEM_ERROR_LOGGED",
+    module: "SECURITY",
+    actorType: "SYSTEM",
+  });
+
+  return result;
 };
 
 /**
@@ -377,6 +482,14 @@ exports.forceLogoutUser = async (userId) => {
     data: { revokedAt: new Date() },
   });
 
+  await logAudit({
+    userId: userId,
+    entityType: "USER",
+    entityId: userId,
+    action: "USER_FORCE_LOGOUT",
+    module: "SECURITY",
+    actorType: "ADMIN",
+  });
   return true;
 };
 
@@ -527,7 +640,7 @@ exports.createSecurityIncident = async ({
   referenceId = null,
   metadata = null,
 }) => {
-  return prisma.securityIncident.create({
+  const result = await prisma.securityIncident.create({
     data: {
       type,
       title,
@@ -539,6 +652,17 @@ exports.createSecurityIncident = async ({
       metadata,
     },
   });
+
+  await logAudit({
+    userId: null,
+    entityType: "SECURITY_INCIDENT",
+    entityId: result.id,
+    action: "SECURITY_INCIDENT_CREATED",
+    module: "SECURITY",
+    actorType: "SYSTEM",
+  });
+
+  return result;
 };
 
 /**
@@ -598,8 +722,19 @@ exports.updateSecurityIncidentStatus = async (id, status) => {
     throw new AppError("security.invalid_status_transition", 400);
   }
 
-  return prisma.securityIncident.update({
+  const result = await prisma.securityIncident.update({
     where: { id },
     data: { status },
   });
+
+  await logAudit({
+    userId: null,
+    entityType: "SECURITY_INCIDENT",
+    entityId: id,
+    action: "SECURITY_INCIDENT_STATUS_UPDATED",
+    module: "SECURITY",
+    actorType: "ADMIN",
+  });
+
+  return result;
 };

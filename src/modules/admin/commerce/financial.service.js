@@ -1,10 +1,11 @@
 const prisma = require("../../../config/prisma");
 const AppError = require("../../../utils/AppError");
+const { logAudit } = require("../../../utils/audit.helper");
 
 /**
  * Refund Transaction (Enterprise)
  */
-exports.refundTransaction = async (transactionId, data) => {
+exports.refundTransaction = async (transactionId, actor) => {
   const payment = await prisma.subscriptionPayment.findUnique({
     where: { id: transactionId },
   });
@@ -50,6 +51,22 @@ exports.refundTransaction = async (transactionId, data) => {
     },
   });
 
+  await logAudit({
+    userId: actor?.id || null,
+    entityType: "PAYMENT",
+    entityId: transactionId,
+    action: "PAYMENT_REFUNDED",
+    metadata: {
+      subscriptionId: payment.subscriptionId,
+      amount: payment.amount,
+      previousStatus: payment.status,
+      newStatus: "REFUNDED",
+      graceUntil,
+    },
+    module: "COMMERCE",
+    actorType: "ADMIN",
+  });
+
   return {
     refunded: true,
     graceUntil,
@@ -59,7 +76,7 @@ exports.refundTransaction = async (transactionId, data) => {
 /**
  * Create Financial Adjustment (CREDIT / DEBIT)
  */
-exports.createAdjustment = async (data) => {
+exports.createAdjustment = async (data, actor) => {
   const { businessId, amount, reason, type, createdBy } = data;
 
   // 🔥 REQUIRED FIELDS
@@ -84,15 +101,32 @@ exports.createAdjustment = async (data) => {
   }
 
   // 🔥 PRESERVE ORIGINAL DATA (NO FIELD LOSS)
-  return prisma.financialAdjustment.create({
+  const adjustment = await prisma.financialAdjustment.create({
     data,
   });
+
+  await logAudit({
+    userId: actor?.id || null,
+    entityType: "FINANCIAL_ADJUSTMENT",
+    entityId: adjustment.id,
+    action: "FINANCIAL_ADJUSTMENT_CREATED",
+    metadata: {
+      businessId,
+      amount,
+      type,
+      reason,
+    },
+    module: "COMMERCE",
+    actorType: "ADMIN",
+  });
+
+  return adjustment;
 };
 
 /**
  * Regenerate Invoice
  */
-exports.regenerateInvoice = async (transactionId) => {
+exports.regenerateInvoice = async (transactionId, actor) => {
   const payment = await prisma.subscriptionPayment.findUnique({
     where: { id: transactionId },
   });
@@ -119,6 +153,18 @@ exports.regenerateInvoice = async (transactionId) => {
         invoiceRegeneratedAt: new Date(),
       },
     },
+  });
+
+  await logAudit({
+    userId: actor?.id || null,
+    entityType: "PAYMENT",
+    entityId: transactionId,
+    action: "INVOICE_REGENERATED",
+    metadata: {
+      invoiceUrl: updated.invoiceUrl,
+    },
+    module: "COMMERCE",
+    actorType: "ADMIN",
   });
 
   return {

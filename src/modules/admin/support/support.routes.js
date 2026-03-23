@@ -4,7 +4,6 @@ const router = express.Router();
 const auth = require("../../../middlewares/auth.middleware");
 const requirePermission = require("../../../middlewares/permission.middleware");
 const validate = require("../../../middlewares/validation.middleware");
-const adminAudit = require("../../../middlewares/adminAudit.middleware");
 
 const controller = require("./support.controller");
 const validation = require("./support.validation");
@@ -22,7 +21,6 @@ router.post(
   requirePermission({ module: "SUPPORT", action: "CREATE" }),
   validate(validation.createTicket),
   controller.createTicket,
-  adminAudit,
 );
 
 router.get(
@@ -44,7 +42,6 @@ router.patch(
   requirePermission({ module: "SUPPORT", action: "UPDATE" }),
   validate(validation.updateTicket),
   controller.updateTicket,
-  adminAudit,
 );
 
 router.delete(
@@ -52,7 +49,6 @@ router.delete(
   requirePermission({ module: "SUPPORT", action: "DELETE" }),
   validate(validation.ticketIdParam),
   controller.deleteTicket,
-  adminAudit,
 );
 
 /*
@@ -66,7 +62,6 @@ router.patch(
   requirePermission({ module: "SUPPORT", action: "ASSIGN" }),
   validate(validation.assignTicket),
   controller.assignTicket,
-  adminAudit,
 );
 
 /*
@@ -80,7 +75,6 @@ router.patch(
   requirePermission({ module: "SUPPORT", action: "UPDATE" }),
   validate(validation.changePriority),
   controller.changePriority,
-  adminAudit,
 );
 
 router.patch(
@@ -88,7 +82,6 @@ router.patch(
   requirePermission({ module: "SUPPORT", action: "UPDATE" }),
   validate(validation.changeStatus),
   controller.changeStatus,
-  adminAudit,
 );
 
 /*
@@ -102,7 +95,6 @@ router.post(
   requirePermission({ module: "SUPPORT", action: "UPDATE" }),
   validate(validation.addNote),
   controller.addInternalNote,
-  adminAudit,
 );
 
 router.get(
@@ -122,7 +114,6 @@ router.post(
   requirePermission({ module: "SUPPORT", action: "UPDATE" }),
   validate(validation.addMessage),
   controller.addMessage,
-  adminAudit,
 );
 
 router.get(
@@ -142,7 +133,6 @@ router.post(
   requirePermission({ module: "SUPPORT", action: "UPDATE" }),
   validate(validation.addAttachment),
   controller.addAttachment,
-  adminAudit,
 );
 
 router.get(

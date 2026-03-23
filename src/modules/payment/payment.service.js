@@ -36,7 +36,18 @@ exports.recordPayment = async ({
       const existing = await tx.payment.findFirst({
         where: { businessId, idempotencyKey },
       });
-      if (existing) return existing;
+
+      if (existing) {
+        await logAudit({
+          businessId,
+          userId,
+          entityType: "PAYMENT",
+          entityId: existing.id,
+          action: "PAYMENT_IDEMPOTENT_HIT",
+        });
+
+        return existing;
+      }
     }
 
     /* =====================================================
@@ -136,6 +147,21 @@ exports.recordPayment = async ({
         status: "POSTED",
       },
     });
+  });
+
+  await logAudit({
+    businessId,
+    userId,
+    entityType: "PAYMENT",
+    entityId: payment.id,
+    action: "PAYMENT_RECORDED",
+    metadata: {
+      amount: payment.amount,
+      contractId,
+      customerId,
+      reference: payment.reference,
+      channel: payment.channel,
+    },
   });
 
   /* =====================================================

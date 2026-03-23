@@ -6,7 +6,7 @@ const jwtConfig = require("../../config/jwt");
 const AppError = require("../../utils/AppError");
 const { signToken, verifyToken } = require("../../utils/auth.helper");
 const notifications = require("../../services/notifications");
-const subscriptionAuthority = require("../subscription/subscription.authority.service");
+const { logAudit } = require("../../utils/audit.helper");
 
 /**
  * OWNER SIGNUP (NO JWT – SEND 6 DIGIT CODE)
@@ -44,6 +44,14 @@ const ownerSignup = async ({ email, password }) => {
     code: verifyCode,
   });
 
+  await logAudit({
+    businessId: user.businessId,
+    userId: user.id,
+    entityType: "AUTH",
+    entityId: user.id,
+    action: "USER_SIGNUP",
+  });
+
   return {};
 };
 
@@ -74,6 +82,14 @@ const verifyEmail = async (code) => {
     },
   });
 
+  await logAudit({
+    businessId: user.businessId,
+    userId: user.id,
+    entityType: "AUTH",
+    entityId: user.id,
+    action: "EMAIL_VERIFIED",
+  });
+
   const tokens = signToken({
     sub: user.id,
     identity_type: "business",
@@ -102,6 +118,16 @@ const login = async ({ email, password }, req) => {
   });
 
   if (!user) {
+    await logAudit({
+      businessId: null,
+      userId: null,
+      entityType: "AUTH",
+      entityId: email,
+      action: "LOGIN_FAILED",
+      metadata: {
+        reason: "INVALID_CREDENTIALS",
+      },
+    });
     throw new AppError("auth.invalid_credentials", 401);
   }
 
@@ -157,10 +183,31 @@ const login = async ({ email, password }, req) => {
       data: updateData,
     });
 
+    await logAudit({
+      businessId: null,
+      userId: null,
+      entityType: "AUTH",
+      entityId: email,
+      action: "LOGIN_FAILED",
+      metadata: {
+        reason: "INVALID_CREDENTIALS",
+      },
+    });
+
     throw new AppError("auth.invalid_credentials", 401);
   }
 
   if (user.status !== "ACTIVE") {
+    await logAudit({
+      businessId: null,
+      userId: null,
+      entityType: "AUTH",
+      entityId: email,
+      action: "LOGIN_FAILED",
+      metadata: {
+        reason: "INVALID_CREDENTIALS",
+      },
+    });
     throw new AppError("auth.invalid_credentials", 401);
   }
 
@@ -206,6 +253,14 @@ const login = async ({ email, password }, req) => {
       userId: user.id,
       expiresAt: new Date(Date.now() + jwtConfig.refreshExpiresInMs),
     },
+  });
+
+  await logAudit({
+    businessId: user.businessId,
+    userId: user.id,
+    entityType: "AUTH",
+    entityId: user.id,
+    action: "LOGIN_SUCCESS",
   });
 
   return {
@@ -292,6 +347,14 @@ const logout = async (auth) => {
     },
   });
 
+  await logAudit({
+    businessId: user.businessId,
+    userId: user.id,
+    entityType: "AUTH",
+    entityId: user.id,
+    action: "LOGOUT",
+  });
+
   return true;
 };
 
@@ -326,6 +389,14 @@ const requestPasswordReset = async (email) => {
     locale: user.locale || "en",
     resetUrl,
   });
+
+  await logAudit({
+    businessId: user.businessId,
+    userId: user.id,
+    entityType: "AUTH",
+    entityId: user.id,
+    action: "PASSWORD_RESET_REQUESTED",
+  });
 };
 
 const resetPassword = async (token, newPassword) => {
@@ -357,6 +428,14 @@ const resetPassword = async (token, newPassword) => {
     identity_type: "business",
     role: user.role,
     businessId: user.businessId,
+  });
+
+  await logAudit({
+    businessId: user.businessId,
+    userId: user.id,
+    entityType: "AUTH",
+    entityId: user.id,
+    action: "PASSWORD_RESET_COMPLETED",
   });
 
   return {

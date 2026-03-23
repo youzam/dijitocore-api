@@ -4,6 +4,7 @@ const XLSX = require("xlsx");
 const prisma = require("../../config/prisma");
 const AppError = require("../../utils/AppError");
 const notificationService = require("../../services/notifications/notification.service");
+const auditHelper = require("../../utils/audit.helper");
 
 /**
  * =========================
@@ -13,7 +14,6 @@ const notificationService = require("../../services/notifications/notification.s
 exports.createCustomer = async (businessId, payload, req) => {
   const { phone, altPhone, nationalId } = payload;
 
-  // Strict duplicate detection (cross-field)
   const duplicate = await prisma.customer.findFirst({
     where: {
       businessId,
@@ -57,6 +57,17 @@ exports.createCustomer = async (businessId, payload, req) => {
   } catch (e) {
     console.error("SMS send failed:", e.message);
   }
+
+  await auditHelper.logAudit({
+    businessId,
+    userId: req?.user?.id || null,
+    entityType: "CUSTOMER",
+    entityId: customer.id,
+    action: "CUSTOMER_CREATED",
+    metadata: {
+      name: customer.name,
+    },
+  });
 
   return customer;
 };
@@ -126,8 +137,8 @@ exports.getCustomer = async (businessId, id) => {
  * UPDATE CUSTOMER
  * =========================
  */
-exports.updateCustomer = async (businessId, id, payload) => {
-  const existing = await exports.getCustomer(businessId, id);
+exports.updateCustomer = async (businessId, id, payload, context) => {
+  await exports.getCustomer(businessId, id);
 
   const { phone, altPhone, nationalId } = payload;
 
@@ -151,16 +162,25 @@ exports.updateCustomer = async (businessId, id, payload) => {
     }
   }
 
-  // Protect financial fields
   delete payload.totalPaid;
   delete payload.totalOutstanding;
   delete payload.totalContracts;
   delete payload.riskScore;
 
-  return prisma.customer.update({
+  const updated = await prisma.customer.update({
     where: { id },
     data: payload,
   });
+
+  await auditHelper.logAudit({
+    businessId,
+    userId: context?.userId || null,
+    entityType: "CUSTOMER",
+    entityId: id,
+    action: "CUSTOMER_UPDATED",
+  });
+
+  return updated;
 };
 
 /**
@@ -168,13 +188,24 @@ exports.updateCustomer = async (businessId, id, payload) => {
  * UPDATE STATUS
  * =========================
  */
-exports.updateStatus = async (businessId, id, status) => {
+exports.updateStatus = async (businessId, id, status, context) => {
   await exports.getCustomer(businessId, id);
 
-  return prisma.customer.update({
+  const updatedCustomer = await prisma.customer.update({
     where: { id },
     data: { status },
   });
+
+  await auditHelper.logAudit({
+    businessId,
+    userId: context?.userId || null,
+    entityType: "CUSTOMER",
+    entityId: id,
+    action: "CUSTOMER_STATUS_UPDATED",
+    metadata: { status },
+  });
+
+  return updatedCustomer;
 };
 
 /**
@@ -182,16 +213,27 @@ exports.updateStatus = async (businessId, id, status) => {
  * UPDATE BLACKLIST
  * =========================
  */
-exports.updateBlacklist = async (businessId, id, isBlacklisted) => {
+exports.updateBlacklist = async (businessId, id, isBlacklisted, context) => {
   await exports.getCustomer(businessId, id);
 
-  return prisma.customer.update({
+  const updatedCustomer = await prisma.customer.update({
     where: { id },
     data: {
       isBlacklisted,
       riskScore: isBlacklisted ? 100 : 0,
     },
   });
+
+  await auditHelper.logAudit({
+    businessId,
+    userId: context?.userId || null,
+    entityType: "CUSTOMER",
+    entityId: id,
+    action: "CUSTOMER_BLACKLISTED",
+    metadata: { isBlacklisted },
+  });
+
+  return updatedCustomer;
 };
 
 /**
@@ -199,7 +241,7 @@ exports.updateBlacklist = async (businessId, id, isBlacklisted) => {
  * IMPORT CUSTOMERS (TRANSACTION SAFE)
  * =========================
  */
-exports.importCustomers = async (businessId, req) => {
+exports.importCustomers = async (businessId, req, context) => {
   if (!req.files || !req.files.file) {
     throw new AppError("customer.file_required", 400);
   }
@@ -265,6 +307,19 @@ exports.importCustomers = async (businessId, req) => {
         skipped,
       },
     });
+  });
+
+  await auditHelper.logAudit({
+    businessId,
+    userId: context?.userId || null,
+    entityType: "CUSTOMER",
+    entityId: "BULK",
+    action: "CUSTOMER_IMPORTED",
+    metadata: {
+      total: rows.length,
+      imported,
+      skipped,
+    },
   });
 
   return { imported, skipped };

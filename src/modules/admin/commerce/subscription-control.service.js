@@ -1,5 +1,6 @@
 const prisma = require("../../../config/prisma");
 const AppError = require("../../../utils/AppError");
+const { logAudit } = require("../../../utils/audit.helper");
 
 // Import existing subscription service
 const subscriptionService = require("../../subscription/subscription.service");
@@ -22,6 +23,19 @@ exports.changeSubscriptionPlan = async (subscriptionId, data, req) => {
     { packageId, forced: true },
     req,
   );
+
+  await logAudit({
+    userId: req.auth?.id || null,
+    entityType: "SUBSCRIPTION",
+    entityId: subscriptionId,
+    action: "SUBSCRIPTION_PLAN_CHANGED",
+    metadata: {
+      newPackageId: packageId,
+      forced: true,
+    },
+    module: "COMMERCE",
+    actorType: "ADMIN",
+  });
 
   return {
     id: updated.id,
@@ -57,6 +71,15 @@ exports.cancelSubscription = async (subscriptionId, req) => {
     req,
   );
 
+  await logAudit({
+    userId: req.auth?.id || null,
+    entityType: "SUBSCRIPTION",
+    entityId: subscriptionId,
+    action: "SUBSCRIPTION_CANCELLED",
+    module: "COMMERCE",
+    actorType: "ADMIN",
+  });
+
   return {
     id: updated.id,
     status: updated.status,
@@ -91,6 +114,18 @@ exports.extendSubscription = async (subscriptionId, data, req) => {
     data,
     req,
   );
+
+  await logAudit({
+    userId: req.auth?.id || null,
+    entityType: "SUBSCRIPTION",
+    entityId: subscriptionId,
+    action: "SUBSCRIPTION_EXTENDED",
+    metadata: {
+      extensionData: data,
+    },
+    module: "COMMERCE",
+    actorType: "ADMIN",
+  });
 
   return {
     id: updated.id,
@@ -135,6 +170,18 @@ exports.extendGracePeriod = async (subscriptionId, data, req) => {
     data,
     req,
   );
+
+  await logAudit({
+    userId: req.auth?.id || null,
+    entityType: "SUBSCRIPTION",
+    entityId: subscriptionId,
+    action: "GRACE_PERIOD_EXTENDED",
+    metadata: {
+      graceData: data,
+    },
+    module: "COMMERCE",
+    actorType: "ADMIN",
+  });
 
   return {
     id: updated.id,

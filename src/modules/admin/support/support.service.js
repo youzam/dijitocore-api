@@ -1,5 +1,6 @@
 const prisma = require("../../../config/prisma");
 const AppError = require("../../../utils/AppError");
+const { logAudit } = require("../../../utils/audit.helper");
 
 /*
 |--------------------------------------------------------------------------
@@ -90,7 +91,7 @@ exports.createTicket = async (data) => {
 
   validatePriority(priority);
 
-  return prisma.ticket.create({
+  const result = await prisma.ticket.create({
     data: {
       businessId,
       userId,
@@ -101,6 +102,17 @@ exports.createTicket = async (data) => {
       slaDeadline: calculateSLA(priority),
     },
   });
+
+  await logAudit({
+    userId: userId,
+    entityType: "TICKET",
+    entityId: result.id,
+    action: "TICKET_CREATED",
+    module: "SUPPORT",
+    actorType: "USER",
+  });
+
+  return result;
 };
 
 exports.getTickets = async (query) => {
@@ -152,10 +164,21 @@ exports.updateTicket = async (id, data) => {
     validateStatus(data.status);
   }
 
-  return prisma.ticket.update({
+  const result = await prisma.ticket.update({
     where: { id },
     data,
   });
+
+  await logAudit({
+    userId: null,
+    entityType: "TICKET",
+    entityId: id,
+    action: "TICKET_UPDATED",
+    module: "SUPPORT",
+    actorType: "ADMIN",
+  });
+
+  return result;
 };
 
 exports.deleteTicket = async (id) => {
@@ -163,7 +186,21 @@ exports.deleteTicket = async (id) => {
 
   if (!ticket) throw new AppError("support.ticket_not_found", 404);
 
-  await prisma.ticket.delete({ where: { id } });
+  const result = await prisma.ticket.update({
+    where: { id },
+    data: {
+      deletedAt: new Date(),
+    },
+  });
+
+  await logAudit({
+    userId: null,
+    entityType: "TICKET",
+    entityId: id,
+    action: "TICKET_DELETED",
+    module: "SUPPORT",
+    actorType: "ADMIN",
+  });
 
   return true;
 };
@@ -210,6 +247,14 @@ exports.assignTicket = async (ticketId, adminId) => {
     recipient: adminId,
   });
 
+  await logAudit({
+    userId: adminId,
+    entityType: "TICKET",
+    entityId: ticketId,
+    action: "TICKET_ASSIGNED",
+    module: "SUPPORT",
+    actorType: "ADMIN",
+  });
   return updatedTicket;
 };
 
@@ -226,13 +271,24 @@ exports.changePriority = async (id, priority) => {
 
   if (!ticket) throw new AppError("support.ticket_not_found", 404);
 
-  return prisma.ticket.update({
+  const result = await prisma.ticket.update({
     where: { id },
     data: {
       priority,
       slaDeadline: calculateSLA(priority),
     },
   });
+
+  await logAudit({
+    userId: null,
+    entityType: "TICKET",
+    entityId: id,
+    action: "TICKET_PRIORITY_CHANGED",
+    module: "SUPPORT",
+    actorType: "ADMIN",
+  });
+
+  return result;
 };
 
 exports.changeStatus = async (id, status) => {
@@ -242,10 +298,21 @@ exports.changeStatus = async (id, status) => {
 
   if (!ticket) throw new AppError("support.ticket_not_found", 404);
 
-  return prisma.ticket.update({
+  const result = await prisma.ticket.update({
     where: { id },
     data: { status },
   });
+
+  await logAudit({
+    userId: null,
+    entityType: "TICKET",
+    entityId: id,
+    action: "TICKET_STATUS_CHANGED",
+    module: "SUPPORT",
+    actorType: "ADMIN",
+  });
+
+  return result;
 };
 
 exports.deleteTicket = async (id) => {
@@ -313,6 +380,15 @@ exports.escalateTicket = async (id) => {
     });
   }
 
+  await logAudit({
+    userId: ticket.assignedAdminId || null,
+    entityType: "TICKET",
+    entityId: id,
+    action: "TICKET_ESCALATED",
+    module: "SUPPORT",
+    actorType: "SYSTEM",
+  });
+
   return updatedTicket;
 };
 
@@ -327,9 +403,20 @@ exports.addInternalNote = async (ticketId, adminId, note) => {
 
   if (!ticket) throw new AppError("support.ticket_not_found", 404);
 
-  return prisma.ticketNote.create({
+  const result = await prisma.ticketNote.create({
     data: { ticketId, adminId, note },
   });
+
+  await logAudit({
+    userId: adminId,
+    entityType: "TICKET_NOTE",
+    entityId: result.id,
+    action: "INTERNAL_NOTE_ADDED",
+    module: "SUPPORT",
+    actorType: "ADMIN",
+  });
+
+  return result;
 };
 
 exports.getInternalNotes = async (ticketId) => {
@@ -376,6 +463,14 @@ exports.addMessage = async (ticketId, senderId, senderType, message) => {
     });
   }
 
+  await logAudit({
+    userId: senderId,
+    entityType: "TICKET_MESSAGE",
+    entityId: newMessage.id,
+    action: "TICKET_MESSAGE_ADDED",
+    module: "SUPPORT",
+    actorType: senderType,
+  });
   return newMessage;
 };
 
@@ -401,9 +496,20 @@ exports.addAttachment = async (ticketId, fileUrl) => {
 
   if (!ticket) throw new AppError("support.ticket_not_found", 404);
 
-  return prisma.ticketAttachment.create({
+  const result = await prisma.ticketAttachment.create({
     data: { ticketId, fileUrl },
   });
+
+  await logAudit({
+    userId: null,
+    entityType: "TICKET_ATTACHMENT",
+    entityId: result.id,
+    action: "TICKET_ATTACHMENT_ADDED",
+    module: "SUPPORT",
+    actorType: "USER",
+  });
+
+  return result;
 };
 
 exports.getAttachments = async (ticketId) => {

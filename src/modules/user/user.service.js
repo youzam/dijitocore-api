@@ -6,6 +6,7 @@ const AppError = require("../../utils/AppError");
 const notifications = require("../../services/notifications");
 const { signToken } = require("../../utils/auth.helper");
 const subscriptionAuthority = require("../subscription/subscription.authority.service");
+const auditHelper = require("../../utils/audit.helper");
 
 // =====================================================
 // 🔹 INVITE USER
@@ -56,6 +57,18 @@ exports.inviteUser = async (owner, payload) => {
     to: email,
     inviteUrl,
     role,
+  });
+
+  await auditHelper.logAudit({
+    businessId: owner.businessId,
+    entityType: "USER_INVITE",
+    entityId: email,
+    action: "USER_INVITED",
+    metadata: {
+      email,
+      role,
+      invitedBy: owner.id,
+    },
   });
 
   return { invited: true, email, role };
@@ -116,6 +129,17 @@ exports.acceptInvite = async ({ token, password }) => {
     where: { id: invite.id },
   });
 
+  await auditHelper.logAudit({
+    businessId: user.businessId,
+    entityType: "USER",
+    entityId: user.id,
+    action: "USER_CREATED_FROM_INVITE",
+    metadata: {
+      email: user.email,
+      role: user.role,
+    },
+  });
+
   const tokens = signToken({
     sub: user.id,
     identity_type: "business",
@@ -160,12 +184,34 @@ exports.revokeInvite = async (owner, inviteId) => {
     throw new AppError("auth.forbidden", 403);
   }
 
-  return prisma.businessInvite.delete({
+  const invite = await prisma.businessInvite.findFirst({
     where: {
       id: inviteId,
       businessId: owner.businessId,
     },
   });
+
+  if (!invite) {
+    throw new AppError("invite.not_found", 404);
+  }
+
+  await prisma.businessInvite.delete({
+    where: { id: inviteId },
+  });
+
+  await auditHelper.logAudit({
+    businessId: owner.businessId,
+    entityType: "USER_INVITE",
+    entityId: inviteId,
+    action: "INVITE_REVOKED",
+    metadata: {
+      email: invite.email,
+      role: invite.role,
+      revokedBy: owner.id,
+    },
+  });
+
+  return { revoked: true };
 };
 
 // =====================================================
@@ -204,10 +250,23 @@ exports.updateUser = async (owner, userId, payload) => {
     throw new AppError("user.not_found", 404);
   }
 
-  return prisma.user.update({
+  const updated = await prisma.user.update({
     where: { id: userId },
     data: payload,
   });
+
+  await auditHelper.logAudit({
+    businessId: owner.businessId,
+    entityType: "USER",
+    entityId: userId,
+    action: "USER_UPDATED",
+    metadata: {
+      updatedBy: owner.id,
+      changes: payload,
+    },
+  });
+
+  return updated;
 };
 
 exports.activateUser = async (owner, userId) => {
@@ -230,10 +289,22 @@ exports.activateUser = async (owner, userId) => {
     throw new AppError("user.self_action_not_allowed", 400);
   }
 
-  return prisma.user.update({
+  const updated = await prisma.user.update({
     where: { id: userId },
     data: { status: "ACTIVE" },
   });
+
+  await auditHelper.logAudit({
+    businessId: owner.businessId,
+    entityType: "USER",
+    entityId: userId,
+    action: "USER_ACTIVATED",
+    metadata: {
+      activatedBy: owner.id,
+    },
+  });
+
+  return updated;
 };
 
 exports.deactivateUser = async (owner, userId) => {
@@ -256,8 +327,20 @@ exports.deactivateUser = async (owner, userId) => {
     throw new AppError("user.self_action_not_allowed", 400);
   }
 
-  return prisma.user.update({
+  const updated = await prisma.user.update({
     where: { id: userId },
     data: { status: "SUSPENDED" },
   });
+
+  await auditHelper.logAudit({
+    businessId: owner.businessId,
+    entityType: "USER",
+    entityId: userId,
+    action: "USER_SUSPENDED",
+    metadata: {
+      suspendedBy: owner.id,
+    },
+  });
+
+  return updated;
 };

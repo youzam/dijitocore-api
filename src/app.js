@@ -11,7 +11,6 @@ const localeMiddleware = require("./middlewares/locale.middleware");
 const requestIdMiddleware = require("./middlewares/requestId.middleware");
 const loggerMiddleware = require("./middlewares/logger.middleware");
 const metricsMiddleware = require("./middlewares/metrics.middleware");
-const adminAudit = require("./middlewares/adminAudit.middleware");
 const adminActionRateLimit = require("./middlewares/adminActionRateLimit.middleware");
 const suspiciousActivity = require("./middlewares/suspiciousActivity.middleware");
 const bootstrapGuard = require("./middlewares/bootstrap.middleware");
@@ -106,11 +105,9 @@ app.use(loggerMiddleware);
 |--------------------------------------------------------------------------
 | - adminActionRateLimit: restrict admin abuse actions
 | - suspiciousActivity: detect anomalies (security layer)
-| - adminAudit: track admin actions for audit/compliance
 */
 app.use(adminActionRateLimit);
 app.use(suspiciousActivity);
-app.use(adminAudit);
 
 /*
 |--------------------------------------------------------------------------

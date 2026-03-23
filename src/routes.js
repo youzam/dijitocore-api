@@ -11,7 +11,9 @@ const notificationRoutes = require("./modules/notification/notification.routes")
 const deviceRoutes = require("./modules/device/device.routes");
 const subscriptionRoutes = require("./modules/subscription/subscription.routes");
 const userRoutes = require("./modules/user/user.routes");
+const announcementRoutes = require("./modules/announcement/announcement.routes");
 const webhookRoutes = require("./modules/webhooks/webhooks.routes");
+const auditRoutes = require("./modules/audit/audit.routes");
 
 const accessRoutes = require("./modules/admin/access/access.routes");
 const governanceRoutes = require("./modules/admin/governance/governance.routes");
@@ -54,6 +56,8 @@ router.use("/dashboards", dashboardRoutes);
 router.use("/notifications", notificationRoutes);
 router.use("/devices", deviceRoutes);
 router.use("/subscriptions", subscriptionRoutes);
+router.use("/announcements", announcementRoutes);
 router.use("/webhooks", webhookRoutes);
+router.use("/audit", auditRoutes);
 
 module.exports = router;

@@ -1,33 +1,40 @@
 const prisma = require("../config/prisma");
 
-/**
- * Append-only audit logger
- */
 exports.logAudit = async ({
   tx,
-  businessId,
+  businessId = null,
   userId = null,
+  customerId = null,
   entityType = null,
   entityId = null,
   action,
   metadata = {},
+  ipAddress = null,
+  userAgent = null,
+  actorType, // optional
+  module, // optional
 }) => {
-  try {
-    if (!businessId || !action) {
-      return; // prevent invalid logs
-    }
-
-    await (tx || prisma).auditLog.create({
-      data: {
-        businessId,
-        userId,
-        entityType,
-        entityId,
-        action,
-        metadata,
-      },
-    });
-  } catch (err) {
-    console.error("Audit log failed:", err);
+  if (!action) {
+    throw new Error("Audit missing action");
   }
+
+  const data = {
+    businessId,
+    userId,
+    customerId,
+    entityType,
+    entityId,
+    action,
+    metadata,
+    ipAddress,
+    userAgent,
+    actorType: actorType || (businessId ? "TENANT" : "ADMIN"),
+    module: module || null,
+  };
+
+  if (tx) {
+    return tx.auditLog.create({ data });
+  }
+
+  return prisma.auditLog.create({ data });
 };

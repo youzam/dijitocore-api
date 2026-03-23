@@ -5,7 +5,7 @@ const Joi = require("joi");
  * BUSINESS OWNER SIGNUP
  * =====================================================
  */
-const ownerSignupSchema = Joi.object({
+exports.ownerSignup = Joi.object({
   email: Joi.string().email().required(),
   password: Joi.string()
     .min(8)
@@ -21,18 +21,8 @@ const ownerSignupSchema = Joi.object({
  * VERIFY EMAIL
  * =====================================================
  */
-const verifyEmailSchema = Joi.object({
+exports.verifyEmail = Joi.object({
   code: Joi.string().length(6).required(),
-});
-
-/**
- * =====================================================
- * ACCEPT BUSINESS INVITE
- * =====================================================
- */
-const acceptInviteSchema = Joi.object({
-  token: Joi.string().required(),
-  password: Joi.string().min(6).required(),
 });
 
 /**
@@ -40,7 +30,7 @@ const acceptInviteSchema = Joi.object({
  * LOGIN (SYSTEM / BUSINESS USERS)
  * =====================================================
  */
-const loginSchema = Joi.object({
+exports.login = Joi.object({
   email: Joi.string().email().required(),
   password: Joi.string().required(),
 });
@@ -50,7 +40,7 @@ const loginSchema = Joi.object({
  * REFRESH TOKEN
  * =====================================================
  */
-const refreshSchema = Joi.object({
+exports.refresh = Joi.object({
   refresh_token: Joi.string().required(),
 });
 
@@ -59,11 +49,11 @@ const refreshSchema = Joi.object({
  * PASSWORD RESET
  * =====================================================
  */
-const passwordResetRequestSchema = Joi.object({
+exports.passwordResetRequest = Joi.object({
   email: Joi.string().email().required(),
 });
 
-const passwordResetSchema = Joi.object({
+exports.passwordReset = Joi.object({
   token: Joi.string().required(),
   password: Joi.string()
     .min(8)
@@ -83,16 +73,16 @@ const passwordResetSchema = Joi.object({
 /**
  * STEP 1: Identify customer
  */
-const customerIdentifySchema = Joi.object({
+exports.customerIdentify = Joi.object({
   phone: Joi.string()
     .pattern(/^[0-9]{9,15}$/)
     .required(),
 });
 
 /**
- * STEP 2: Request OTP (scoped to business)
+ * STEP 2: Request OTP
  */
-const customerRequestOtpSchema = Joi.object({
+exports.customerRequestOtp = Joi.object({
   phone: Joi.string()
     .pattern(/^[0-9]{9,15}$/)
     .required(),
@@ -102,7 +92,7 @@ const customerRequestOtpSchema = Joi.object({
 /**
  * STEP 3: Verify OTP
  */
-const customerVerifyOtpSchema = Joi.object({
+exports.customerVerifyOtp = Joi.object({
   phone: Joi.string()
     .pattern(/^[0-9]{9,15}$/)
     .required(),
@@ -115,24 +105,26 @@ const customerVerifyOtpSchema = Joi.object({
 
 /**
  * =====================================================
+ * CUSTOMER PIN AUTH
+ * =====================================================
+ */
+exports.setPin = Joi.object({
+  customerId: Joi.string().uuid().required(),
+  pin: Joi.string().min(4).max(6).required(),
+});
+
+exports.loginWithPin = Joi.object({
+  phone: Joi.string().required(),
+  businessCode: Joi.string().required(),
+  pin: Joi.string().required(),
+});
+
+/**
+ * =====================================================
  * SYSTEM (SUPER ADMIN) LOGIN
  * =====================================================
  */
-const adminLoginSchema = Joi.object({
+exports.adminLogin = Joi.object({
   email: Joi.string().email().required(),
   password: Joi.string().required(),
 });
-
-module.exports = {
-  ownerSignupSchema,
-  verifyEmailSchema,
-  loginSchema,
-  refreshSchema,
-  passwordResetRequestSchema,
-  passwordResetSchema,
-  customerIdentifySchema,
-  customerRequestOtpSchema,
-  customerVerifyOtpSchema,
-  acceptInviteSchema,
-  adminLoginSchema,
-};

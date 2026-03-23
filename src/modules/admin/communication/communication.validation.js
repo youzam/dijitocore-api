@@ -1,35 +1,152 @@
 const Joi = require("joi");
 
+const Joi = require("joi");
+
 /*
 |--------------------------------------------------------------------------
-| Announcements
+| ENUMS
 |--------------------------------------------------------------------------
 */
+const placementEnum = [
+  "TOP_BAR",
+  "SIDEBAR",
+  "CENTER_MODAL",
+  "BANNER",
+  "INLINE",
+];
 
+const eventTypeEnum = [
+  "GENERAL",
+  "HOLIDAY",
+  "PROMOTION",
+  "SYSTEM",
+  "BILLING",
+  "SECURITY",
+];
+
+const priorityEnum = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
+
+const channelEnum = ["IN_APP", "SMS", "EMAIL"];
+
+/*
+|--------------------------------------------------------------------------
+| SEGMENT SCHEMA
+|--------------------------------------------------------------------------
+*/
+const segmentSchema = Joi.object({
+  type: Joi.string().required(),
+  rules: Joi.object().optional(),
+});
+
+/*
+|--------------------------------------------------------------------------
+| CREATE ANNOUNCEMENT
+|--------------------------------------------------------------------------
+*/
 exports.createAnnouncement = Joi.object({
-  title: Joi.string().required(),
-  message: Joi.string().required(),
-  priority: Joi.string().required(),
-  startAt: Joi.date().required(),
-  endAt: Joi.date().required(),
-  targetCountry: Joi.string(),
-  targetPackageId: Joi.string(),
-  trialOnly: Joi.boolean(),
-  isEmergency: Joi.boolean(),
+  title: Joi.string().min(3).max(255).required(),
+
+  message: Joi.string().min(3).required(),
+
+  priority: Joi.string()
+    .valid(...priorityEnum)
+    .required(),
+
+  placement: Joi.string()
+    .valid(...placementEnum)
+    .required(),
+
+  eventType: Joi.string()
+    .valid(...eventTypeEnum)
+    .optional(),
+
+  startAt: Joi.date().optional(),
+
+  endAt: Joi.date().greater(Joi.ref("startAt")).optional(),
+
+  trialOnly: Joi.boolean().optional(),
+
+  isEmergency: Joi.boolean().optional(),
+
+  /*
+  |--------------------------------------------------------------------------
+  | TARGETING
+  |--------------------------------------------------------------------------
+  */
+  countries: Joi.array().items(Joi.string()).optional(),
+
+  packages: Joi.array().items(Joi.string()).optional(),
+
+  segments: Joi.array().items(segmentSchema).optional(),
+
+  /*
+  |--------------------------------------------------------------------------
+  | NOTIFICATIONS
+  |--------------------------------------------------------------------------
+  */
+  sendNotification: Joi.boolean().optional(),
+
+  channels: Joi.array()
+    .items(Joi.string().valid(...channelEnum))
+    .when("sendNotification", {
+      is: true,
+      then: Joi.required(),
+      otherwise: Joi.optional(),
+    }),
 });
 
+/*
+|--------------------------------------------------------------------------
+| UPDATE ANNOUNCEMENT
+|--------------------------------------------------------------------------
+*/
 exports.updateAnnouncement = Joi.object({
-  title: Joi.string(),
-  message: Joi.string(),
-  priority: Joi.string(),
-  startAt: Joi.date(),
-  endAt: Joi.date(),
-  targetCountry: Joi.string(),
-  targetPackageId: Joi.string(),
-  trialOnly: Joi.boolean(),
-  isEmergency: Joi.boolean(),
-});
+  title: Joi.string().min(3).max(255).optional(),
 
+  message: Joi.string().min(3).optional(),
+
+  priority: Joi.string()
+    .valid(...priorityEnum)
+    .optional(),
+
+  placement: Joi.string()
+    .valid(...placementEnum)
+    .optional(),
+
+  eventType: Joi.string()
+    .valid(...eventTypeEnum)
+    .optional(),
+
+  startAt: Joi.date().optional(),
+
+  endAt: Joi.date().greater(Joi.ref("startAt")).optional(),
+
+  trialOnly: Joi.boolean().optional(),
+
+  isEmergency: Joi.boolean().optional(),
+
+  /*
+  |--------------------------------------------------------------------------
+  | TARGETING (FULL REPLACEMENT)
+  |--------------------------------------------------------------------------
+  */
+  countries: Joi.array().items(Joi.string()).optional(),
+
+  packages: Joi.array().items(Joi.string()).optional(),
+
+  segments: Joi.array().items(segmentSchema).optional(),
+
+  /*
+  |--------------------------------------------------------------------------
+  | NOTIFICATIONS
+  |--------------------------------------------------------------------------
+  */
+  sendNotification: Joi.boolean().optional(),
+
+  channels: Joi.array()
+    .items(Joi.string().valid(...channelEnum))
+    .optional(),
+});
 /*
 |--------------------------------------------------------------------------
 | Messaging

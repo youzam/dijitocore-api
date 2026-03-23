@@ -1,10 +1,11 @@
 const prisma = require("../../../config/prisma");
 const AppError = require("../../../utils/AppError");
+const { logAudit } = require("../../../utils/audit.helper");
 
 /**
  * Create Coupon
  */
-exports.createCoupon = async (data) => {
+exports.createCoupon = async (data, actor) => {
   const { code, type, value, maxUsage, validFrom, validTo, isActive } = data;
 
   if (!code || !type || !value) {
@@ -39,6 +40,20 @@ exports.createCoupon = async (data) => {
     },
   });
 
+  await logAudit({
+    userId: actor?.id || null,
+    entityType: "COUPON",
+    entityId: coupon.id,
+    action: "COUPON_CREATED",
+    metadata: {
+      code: coupon.code,
+      type: coupon.type,
+      value: coupon.value,
+    },
+    module: "COMMERCE",
+    actorType: "ADMIN",
+  });
+
   return coupon;
 };
 
@@ -69,7 +84,7 @@ exports.getCoupons = async (query) => {
 /**
  * Update Coupon
  */
-exports.updateCoupon = async (id, data) => {
+exports.updateCoupon = async (id, data, actor) => {
   const existing = await prisma.coupon.findUnique({
     where: { id },
   });
@@ -88,7 +103,7 @@ exports.updateCoupon = async (id, data) => {
     }
   }
 
-  return prisma.coupon.update({
+  const updated = await prisma.coupon.update({
     where: { id },
     data: {
       ...(data.code && { code: data.code.toUpperCase() }),
@@ -102,4 +117,18 @@ exports.updateCoupon = async (id, data) => {
       ...(data.maxUsage && { maxUsage: data.maxUsage }),
     },
   });
+
+  await logAudit({
+    userId: actor?.id || null,
+    entityType: "COUPON",
+    entityId: id,
+    action: "COUPON_UPDATED",
+    metadata: {
+      updatedFields: Object.keys(data),
+    },
+    module: "COMMERCE",
+    actorType: "ADMIN",
+  });
+
+  return updated;
 };

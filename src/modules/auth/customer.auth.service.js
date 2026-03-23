@@ -48,6 +48,14 @@ exports.requestOtp = async (phone, businessCode) => {
     },
   });
 
+  await logAudit({
+    businessId: business.id,
+    userId: null,
+    entityType: "AUTH",
+    entityId: phone,
+    action: "OTP_REQUESTED",
+  });
+
   await notificationService.sendOtp({
     to: phone,
     locale: "sw",
@@ -90,6 +98,14 @@ exports.verifyOtp = async (phone, businessCode, otp) => {
       otpHash: null,
       otpExpiresAt: null,
     },
+  });
+
+  await logAudit({
+    businessId: business.id,
+    userId: customer.id,
+    entityType: "AUTH",
+    entityId: customer.id,
+    action: "CUSTOMER_LOGIN_SUCCESS",
   });
 
   return customer;
@@ -148,15 +164,35 @@ exports.loginWithPin = async (phone, businessCode, pin, req) => {
 
     // 🔥 DETECT ANOMALY
     await securityService.detectLoginAnomaly(customer.id);
-
+    await logAudit({
+      businessId: null,
+      userId: null,
+      entityType: "AUTH",
+      entityId: phone,
+      action: "CUSTOMER_LOGIN_FAILED",
+    });
     throw new AppError("auth.invalid_pin", 401);
   }
 
   if (customer.isBlacklisted) {
+    await logAudit({
+      businessId: null,
+      userId: null,
+      entityType: "AUTH",
+      entityId: phone,
+      action: "CUSTOMER_LOGIN_FAILED",
+    });
     throw new AppError("customer.blacklisted", 403);
   }
 
   if (customer.status !== "ACTIVE") {
+    await logAudit({
+      businessId: null,
+      userId: null,
+      entityType: "AUTH",
+      entityId: phone,
+      action: "CUSTOMER_LOGIN_FAILED",
+    });
     throw new AppError("customer.inactive", 403);
   }
 
@@ -199,6 +235,14 @@ exports.loginWithPin = async (phone, businessCode, pin, req) => {
       customerId: customer.id,
       expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     },
+  });
+
+  await logAudit({
+    businessId: customer.businessId,
+    userId: customer.id,
+    entityType: "AUTH",
+    entityId: customer.id,
+    action: "CUSTOMER_LOGIN_SUCCESS",
   });
 
   return {

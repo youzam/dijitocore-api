@@ -5,6 +5,7 @@ const prisma = require("../../../config/prisma");
 const { signToken } = require("../../../utils/auth.helper");
 const { runSeeders } = require("../../../database/seeders/seedManager");
 const { seedRegistry } = require("../../../database/seeders/seedRegistry");
+const { logAudit } = require("../../../utils/audit.helper");
 
 const speakeasy = require("speakeasy");
 const QRCode = require("qrcode");
@@ -87,6 +88,16 @@ exports.bootstrapSystemService = async ({ email, password, currency }) => {
       },
     });
 
+    await logAudit({
+      tx,
+      userId: admin.id,
+      entityType: "SYSTEM",
+      entityId: admin.id,
+      action: "SYSTEM_BOOTSTRAPPED",
+      module: "ACCESS",
+      actorType: "ADMIN",
+    });
+
     return settings;
   });
 };
@@ -124,10 +135,28 @@ exports.adminLogin = async ({ email, password, mfaToken }, req) => {
 
   if (!admin) {
     await new Promise((resolve) => setTimeout(resolve, 500));
+    await logAudit({
+      userId: admin?.id || null,
+      entityType: "AUTH",
+      entityId: email,
+      action: "ADMIN_LOGIN_FAILED",
+      metadata: { reason: "INVALID_CREDENTIALS" },
+      module: "ACCESS",
+      actorType: "ADMIN",
+    });
     throw new Error(genericError);
   }
 
   if (admin.lockUntil && admin.lockUntil > new Date()) {
+    await logAudit({
+      userId: admin?.id || null,
+      entityType: "AUTH",
+      entityId: email,
+      action: "ADMIN_LOGIN_FAILED",
+      metadata: { reason: "INVALID_CREDENTIALS" },
+      module: "ACCESS",
+      actorType: "ADMIN",
+    });
     throw new Error("Account temporarily locked");
   }
 
@@ -268,6 +297,16 @@ exports.adminLogin = async ({ email, password, mfaToken }, req) => {
     },
   });
 
+  await logAudit({
+    userId: admin.id,
+    entityType: "AUTH",
+    entityId: admin.id,
+    action: "ADMIN_LOGIN_SUCCESS",
+    metadata: { ip: req.ip },
+    module: "ACCESS",
+    actorType: "ADMIN",
+  });
+
   return {
     accessToken,
     refreshToken,
@@ -318,6 +357,15 @@ exports.refreshToken = async ({ refreshToken }) => {
     },
   });
 
+  await logAudit({
+    userId: admin.id,
+    entityType: "AUTH",
+    entityId: admin.id,
+    action: "ADMIN_TOKEN_REFRESHED",
+    module: "ACCESS",
+    actorType: "ADMIN",
+  });
+
   return tokens;
 };
 
@@ -342,6 +390,15 @@ exports.resetAdminPassword = async (adminId, actor) => {
       forcePasswordChange: true,
       tokenVersion: { increment: 1 }, // 🔥 invalidate tokens
     },
+  });
+
+  await logAudit({
+    userId: actor.id,
+    entityType: "ADMIN",
+    entityId: adminId,
+    action: "ADMIN_PASSWORD_RESET",
+    module: "ACCESS",
+    actorType: "ADMIN",
   });
 
   return {
@@ -384,6 +441,15 @@ exports.changePassword = async (adminId, currentPassword, newPassword) => {
 
   const tokens = generateTokens(updatedAdmin, permissions); // ✅ new tokenVersion
 
+  await logAudit({
+    userId: adminId,
+    entityType: "ADMIN",
+    entityId: adminId,
+    action: "ADMIN_PASSWORD_CHANGED",
+    module: "ACCESS",
+    actorType: "ADMIN",
+  });
+
   return {
     success: true,
     accessToken: tokens.accessToken,
@@ -396,7 +462,6 @@ exports.changePassword = async (adminId, currentPassword, newPassword) => {
 | ADMIN MANAGEMENT (FINAL ALIGNED)
 |--------------------------------------------------------------------------
 */
-
 exports.createAdmin = async ({ email, password, roleId }, actor) => {
   // 🔒 ONLY SUPER_ADMIN
   const actorAdmin = await prisma.systemAdmin.findUnique({
@@ -426,7 +491,7 @@ exports.createAdmin = async ({ email, password, roleId }, actor) => {
 
   const hashedPassword = await bcrypt.hash(password, 10);
 
-  return prisma.systemAdmin.create({
+  const created = await prisma.systemAdmin.create({
     data: {
       email,
       password: hashedPassword,
@@ -436,6 +501,17 @@ exports.createAdmin = async ({ email, password, roleId }, actor) => {
       forcePasswordChange: true,
     },
   });
+
+  await logAudit({
+    userId: actor.id,
+    entityType: "ADMIN",
+    entityId: created.id,
+    action: "ADMIN_CREATED",
+    module: "ACCESS",
+    actorType: "ADMIN",
+  });
+
+  return created;
 };
 
 exports.listAdmins = async () => {
@@ -479,10 +555,21 @@ exports.updateAdmin = async (id, data, actor) => {
     }
   }
 
-  return prisma.systemAdmin.update({
+  const updated = await prisma.systemAdmin.update({
     where: { id },
     data,
   });
+
+  await logAudit({
+    userId: actor.id,
+    entityType: "ADMIN",
+    entityId: id,
+    action: "ADMIN_UPDATED",
+    module: "ACCESS",
+    actorType: "ADMIN",
+  });
+
+  return updated;
 };
 
 exports.suspendAdmin = async (id, actor) => {
@@ -517,12 +604,23 @@ exports.suspendAdmin = async (id, actor) => {
     },
   });
 
-  return prisma.systemAdmin.update({
+  const updated = await prisma.systemAdmin.update({
     where: { id },
     data: {
       status: "SUSPENDED",
     },
   });
+
+  await logAudit({
+    userId: actor.id,
+    entityType: "ADMIN",
+    entityId: id,
+    action: "ADMIN_SUSPENDED",
+    module: "ACCESS",
+    actorType: "ADMIN",
+  });
+
+  return updated;
 };
 
 /*
@@ -550,10 +648,22 @@ exports.changeAdminRole = async (adminId, roleId, actor) => {
     throw new Error("Invalid role");
   }
 
-  return prisma.systemAdmin.update({
+  const updated = await prisma.systemAdmin.update({
     where: { id: adminId },
     data: { roleId },
   });
+
+  await logAudit({
+    userId: actor.id,
+    entityType: "ADMIN",
+    entityId: adminId,
+    action: "ADMIN_ROLE_CHANGED",
+    metadata: { roleId },
+    module: "ACCESS",
+    actorType: "ADMIN",
+  });
+
+  return updated;
 };
 
 /*
@@ -599,9 +709,20 @@ exports.createRoleFromEnum = async (name, actor) => {
     throw new Error("Role already exists");
   }
 
-  return prisma.systemAdminRole.create({
+  const role = await prisma.systemAdminRole.create({
     data: { name },
   });
+
+  await logAudit({
+    userId: actor.id,
+    entityType: "ROLE",
+    entityId: role.id,
+    action: "ROLE_CREATED",
+    module: "ACCESS",
+    actorType: "ADMIN",
+  });
+
+  return role;
 };
 
 exports.updateRole = async (id, data, actor) => {
@@ -631,10 +752,21 @@ exports.updateRole = async (id, data, actor) => {
     }
   }
 
-  return prisma.systemAdminRole.update({
+  const updated = await prisma.systemAdminRole.update({
     where: { id },
     data,
   });
+
+  await logAudit({
+    userId: actor.id,
+    entityType: "ROLE",
+    entityId: id,
+    action: "ROLE_UPDATED",
+    module: "ACCESS",
+    actorType: "ADMIN",
+  });
+
+  return updated;
 };
 
 exports.activateRole = async (id, actor) => {
@@ -647,10 +779,21 @@ exports.activateRole = async (id, actor) => {
     throw new Error("Unauthorized");
   }
 
-  return prisma.systemAdminRole.update({
+  const updated = await prisma.systemAdminRole.update({
     where: { id },
     data: { isActive: true },
   });
+
+  await logAudit({
+    userId: actor.id,
+    entityType: "ROLE",
+    entityId: id,
+    action: "ROLE_ACTIVATED",
+    module: "ACCESS",
+    actorType: "ADMIN",
+  });
+
+  return updated;
 };
 
 exports.deactivateRole = async (id, actor) => {
@@ -673,10 +816,21 @@ exports.deactivateRole = async (id, actor) => {
     throw new Error("Cannot deactivate SUPER_ADMIN role");
   }
 
-  return prisma.systemAdminRole.update({
+  const updated = await prisma.systemAdminRole.update({
     where: { id },
     data: { isActive: false },
   });
+
+  await logAudit({
+    userId: actor.id,
+    entityType: "ROLE",
+    entityId: id,
+    action: "ROLE_DEACTIVATED",
+    module: "ACCESS",
+    actorType: "ADMIN",
+  });
+
+  return updated;
 };
 
 exports.setupAdminMFA = async (actor) => {
@@ -687,6 +841,15 @@ exports.setupAdminMFA = async (actor) => {
     data: {
       mfaSecret: secret.base32,
     },
+  });
+
+  await logAudit({
+    userId: actor.id,
+    entityType: "ADMIN",
+    entityId: actor.id,
+    action: "ADMIN_MFA_SETUP",
+    module: "ACCESS",
+    actorType: "ADMIN",
   });
 
   const qr = await QRCode.toDataURL(secret.otpauth_url);
@@ -720,33 +883,75 @@ exports.verifyAdminMFASetup = async (token, actor) => {
     },
   });
 
+  await logAudit({
+    userId: actor.id,
+    entityType: "ADMIN",
+    entityId: actor.id,
+    action: "ADMIN_MFA_VERIFIED",
+    module: "ACCESS",
+    actorType: "ADMIN",
+  });
+
   return true;
 };
 
 exports.disableAdminMFA = async (actor) => {
-  return prisma.systemAdmin.update({
+  const updated = await prisma.systemAdmin.update({
     where: { id: actor.id },
     data: {
       mfaEnabled: false,
       mfaSecret: null,
     },
   });
+
+  await logAudit({
+    userId: actor.id,
+    entityType: "ADMIN",
+    entityId: actor.id,
+    action: "ADMIN_MFA_DISABLED",
+    module: "ACCESS",
+    actorType: "ADMIN",
+  });
+
+  return updated;
 };
 
 exports.getMyProfile = async (actor) => {
-  return prisma.systemAdmin.findUnique({
-    where: { id: actor.id },
-    include: {
-      role: true,
-    },
-  });
-};
-
-exports.updateMyProfile = async (actor, data) => {
-  return prisma.systemAdmin.update({
+  const updated = await prisma.systemAdmin.update({
     where: { id: actor.id },
     data,
   });
+
+  await logAudit({
+    userId: actor.id,
+    entityType: "ADMIN",
+    entityId: actor.id,
+    action: "ADMIN_PROFILE_UPDATED",
+    module: "ACCESS",
+    actorType: "ADMIN",
+  });
+
+  return updated;
+};
+
+exports.updateMyProfile = async (actor, data) => {
+  const updated = await prisma.adminSession.update({
+    where: { id: sessionId },
+    data: {
+      isActive: false,
+    },
+  });
+
+  await logAudit({
+    userId: actor.id,
+    entityType: "SESSION",
+    entityId: sessionId,
+    action: "ADMIN_SESSION_REVOKED",
+    module: "ACCESS",
+    actorType: "ADMIN",
+  });
+
+  return updated;
 };
 
 exports.getMySessions = async (actor) => {
@@ -765,19 +970,41 @@ exports.revokeSession = async (sessionId, actor) => {
     throw new Error("Unauthorized");
   }
 
-  return prisma.adminSession.update({
+  const updated = await prisma.adminSession.update({
     where: { id: sessionId },
     data: {
       isActive: false,
     },
   });
+
+  await logAudit({
+    userId: actor.id,
+    entityType: "ADMIN",
+    entityId: actor.id,
+    action: "ADMIN_REVOKE_SESSION",
+    module: "ACCESS",
+    actorType: "ADMIN",
+  });
+
+  return updated;
 };
 
 exports.logoutAdmin = async (actor) => {
-  return prisma.systemAdmin.update({
+  const updated = await prisma.systemAdmin.update({
     where: { id: actor.id },
     data: {
-      tokenVersion: { increment: 1 }, // 🔥 muhimu
+      tokenVersion: { increment: 1 },
     },
   });
+
+  await logAudit({
+    userId: actor.id,
+    entityType: "ADMIN",
+    entityId: actor.id,
+    action: "ADMIN_LOGOUT",
+    module: "ACCESS",
+    actorType: "ADMIN",
+  });
+
+  return updated;
 };

@@ -1,20 +1,11 @@
 const express = require("express");
 
-const authController = require("./auth.controller");
+const controller = require("./auth.controller");
 const validate = require("../../middlewares/validate.middleware");
 const { authRateLimiter } = require("../../middlewares/rateLimit.middleware");
 const authMiddleware = require("../../middlewares/auth.middleware");
-const customerAuthController = require("./customer.auth.controller");
-const customerAuthValidation = require("./customer.auth.validation");
 
-const {
-  ownerSignupSchema,
-  verifyEmailSchema,
-  loginSchema,
-  refreshSchema,
-  passwordResetRequestSchema,
-  passwordResetSchema,
-} = require("./auth.validation");
+const validation = require("./auth.validation");
 
 const router = express.Router();
 
@@ -26,31 +17,31 @@ const router = express.Router();
 router.post(
   "/signup",
   authRateLimiter,
-  validate(ownerSignupSchema),
-  authController.ownerSignup,
+  validate(validation.ownerSignup),
+  controller.ownerSignup,
 );
 
 router.post(
   "/verify-email",
-  validate(verifyEmailSchema),
-  authController.verifyEmail,
+  validate(validation.verifyEmail),
+  controller.verifyEmail,
 );
 
 router.post(
   "/login",
   authRateLimiter,
-  validate(loginSchema),
-  authController.login,
+  validate(validation.login),
+  controller.login,
 );
 
 router.post(
   "/refresh",
   authRateLimiter,
-  validate(refreshSchema),
-  authController.refresh,
+  validate(validation.refresh),
+  controller.refresh,
 );
 
-router.post("/logout", authMiddleware, authController.logout);
+router.post("/logout", authMiddleware, controller.logout);
 
 /**
  * =====================================================
@@ -60,15 +51,15 @@ router.post("/logout", authMiddleware, authController.logout);
 router.post(
   "/password/request-reset",
   authRateLimiter,
-  validate(passwordResetRequestSchema),
-  authController.requestPasswordReset,
+  validate(validation.passwordResetRequest),
+  controller.requestPasswordReset,
 );
 
 router.post(
   "/password/reset",
   authRateLimiter,
-  validate(passwordResetSchema),
-  authController.resetPassword,
+  validate(validation.passwordReset),
+  controller.resetPassword,
 );
 
 /**
@@ -78,37 +69,44 @@ router.post(
  */
 
 router.post(
+  "/customer/identify",
+  authRateLimiter,
+  validate(validation.customerIdentify),
+  controller.customerIdentify,
+);
+
+router.post(
   "/customer/request-otp",
   authRateLimiter,
-  validate(customerAuthValidation.requestOtp),
-  customerAuthController.requestOtp,
+  validate(validation.customerRequestOtp),
+  controller.customerRequestOtp,
 );
 
 router.post(
   "/customer/verify-otp",
   authRateLimiter,
-  validate(customerAuthValidation.verifyOtp),
-  customerAuthController.verifyOtp,
+  validate(validation.customerVerifyOtp),
+  controller.customerVerifyOtp,
 );
 
 router.post(
   "/customer/set-pin",
-  validate(customerAuthValidation.setPin),
-  customerAuthController.setPin,
+  validate(validation.setPin),
+  controller.setPin,
 );
 
 router.post(
   "/customer/login",
   authRateLimiter,
-  validate(customerAuthValidation.loginWithPin),
-  customerAuthController.loginWithPin,
+  validate(validation.loginWithPin),
+  controller.loginWithPin,
 );
 
 router.post(
   "/customer/forgot-pin",
   authRateLimiter,
-  validate(customerAuthValidation.requestOtp),
-  customerAuthController.requestOtp,
+  validate(validation.customerRequestOtp),
+  controller.customerRequestOtp,
 );
 
 module.exports = router;

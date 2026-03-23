@@ -449,12 +449,39 @@ exports.createAsyncExport = async (query, adminId, type) => {
           completedAt: new Date(),
         },
       });
+
+      await logAudit({
+        userId: adminId,
+        entityType: "REPORT_EXPORT",
+        entityId: record.id,
+        action: "REPORT_EXPORT_COMPLETED",
+        module: "REPORTING",
+        actorType: "SYSTEM",
+      });
     } catch (err) {
       await prisma.reportExport.update({
         where: { id: record.id },
         data: { status: "FAILED" },
       });
+
+      await logAudit({
+        userId: adminId,
+        entityType: "REPORT_EXPORT",
+        entityId: record.id,
+        action: "REPORT_EXPORT_FAILED",
+        module: "REPORTING",
+        actorType: "SYSTEM",
+      });
     }
+  });
+
+  await logAudit({
+    userId: adminId,
+    entityType: "REPORT_EXPORT",
+    entityId: record.id,
+    action: "REPORT_EXPORT_CREATED",
+    module: "REPORTING",
+    actorType: "ADMIN",
   });
 
   return record;

@@ -14,7 +14,7 @@ CREATE TYPE "BusinessStatus" AS ENUM ('PENDING', 'ACTIVE', 'GRACE', 'SUSPENDED',
 CREATE TYPE "SubscriptionPaymentMethod" AS ENUM ('SELCOM', 'MPESA', 'AIRTEL');
 
 -- CreateEnum
-CREATE TYPE "SubscriptionPaymentStatus" AS ENUM ('PENDING', 'CONFIRMED', 'FAILED');
+CREATE TYPE "SubscriptionPaymentStatus" AS ENUM ('PENDING', 'CONFIRMED', 'FAILED', 'REFUNDED');
 
 -- CreateEnum
 CREATE TYPE "SubscriptionStatus" AS ENUM ('TRIAL', 'ACTIVE', 'GRACE', 'SUSPENDED');
@@ -52,12 +52,27 @@ CREATE TYPE "ApprovalStatus" AS ENUM ('PENDING', 'APPROVED', 'REJECTED');
 -- CreateEnum
 CREATE TYPE "BillingCycle" AS ENUM ('MONTHLY', 'YEARLY');
 
+-- CreateEnum
+CREATE TYPE "DataRequestType" AS ENUM ('EXPORT', 'DELETE');
+
+-- CreateEnum
+CREATE TYPE "DataRequestStatus" AS ENUM ('PENDING', 'APPROVED', 'REJECTED', 'PROCESSING', 'COMPLETED', 'FAILED');
+
+-- CreateEnum
+CREATE TYPE "PurgeStatus" AS ENUM ('PENDING', 'PROCESSING', 'COMPLETED', 'FAILED');
+
+-- CreateEnum
+CREATE TYPE "AnnouncementPlacement" AS ENUM ('TOP_BAR', 'SIDEBAR', 'CENTER_MODAL', 'BANNER', 'INLINE');
+
+-- CreateEnum
+CREATE TYPE "AnnouncementEventType" AS ENUM ('GENERAL', 'HOLIDAY', 'PROMOTION', 'SYSTEM', 'BILLING', 'SECURITY');
+
 -- CreateTable
-CREATE TABLE "SuperAdmin" (
+CREATE TABLE "SystemAdmin" (
     "id" TEXT NOT NULL,
     "email" TEXT NOT NULL,
     "password" TEXT NOT NULL,
-    "role" "AdminRole" NOT NULL,
+    "roleId" TEXT NOT NULL,
     "status" "AdminStatus" NOT NULL,
     "loginAttempts" INTEGER NOT NULL DEFAULT 0,
     "lockUntil" TIMESTAMP(3),
@@ -66,8 +81,20 @@ CREATE TABLE "SuperAdmin" (
     "mfaSecret" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "tokenVersion" INTEGER NOT NULL DEFAULT 0,
 
-    CONSTRAINT "SuperAdmin_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "SystemAdmin_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SystemAdminRole" (
+    "id" TEXT NOT NULL,
+    "name" "AdminRole" NOT NULL,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "SystemAdminRole_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -82,6 +109,19 @@ CREATE TABLE "AdminSession" (
     "lastSeen" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "AdminSession_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SystemSeedLog" (
+    "id" TEXT NOT NULL,
+    "key" TEXT NOT NULL,
+    "status" TEXT NOT NULL,
+    "lastRunAt" TIMESTAMP(3),
+    "error" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "SystemSeedLog_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -115,6 +155,7 @@ CREATE TABLE "RolePermission" (
     "role" "AdminRole" NOT NULL,
     "permissionId" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "systemAdminRoleId" TEXT,
 
     CONSTRAINT "RolePermission_pkey" PRIMARY KEY ("id")
 );
@@ -122,6 +163,9 @@ CREATE TABLE "RolePermission" (
 -- CreateTable
 CREATE TABLE "User" (
     "id" TEXT NOT NULL,
+    "name" TEXT,
+    "phone" TEXT,
+    "createdBy" TEXT,
     "email" TEXT NOT NULL,
     "passwordHash" TEXT NOT NULL,
     "role" "UserRole" NOT NULL,
@@ -216,11 +260,13 @@ CREATE TABLE "Business" (
     "name" TEXT NOT NULL,
     "email" TEXT,
     "phone" TEXT,
+    "country" TEXT NOT NULL,
     "businessCode" TEXT NOT NULL,
     "status" "BusinessStatus" NOT NULL DEFAULT 'PENDING',
     "setupCompleted" BOOLEAN NOT NULL DEFAULT false,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "lastActiveAt" TIMESTAMP(3),
 
     CONSTRAINT "Business_pkey" PRIMARY KEY ("id")
 );
@@ -289,6 +335,14 @@ CREATE TABLE "Subscription" (
     "creditBalance" INTEGER NOT NULL DEFAULT 0,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "couponId" TEXT NOT NULL,
+    "couponCode" TEXT,
+    "couponDiscount" INTEGER,
+    "finalAmount" INTEGER,
+    "isTrial" BOOLEAN NOT NULL DEFAULT false,
+    "trialStartedAt" TIMESTAMP(3),
+    "trialEndedAt" TIMESTAMP(3),
+    "convertedAt" TIMESTAMP(3),
 
     CONSTRAINT "Subscription_pkey" PRIMARY KEY ("id")
 );
@@ -310,17 +364,83 @@ CREATE TABLE "SubscriptionUsage" (
 CREATE TABLE "SubscriptionPayment" (
     "id" TEXT NOT NULL,
     "subscriptionId" TEXT NOT NULL,
-    "businessId" TEXT NOT NULL,
-    "amount" INTEGER NOT NULL,
-    "method" "SubscriptionPaymentMethod" NOT NULL,
-    "reference" TEXT,
+    "couponId" TEXT,
+    "amount" DECIMAL(65,30) NOT NULL,
+    "currency" TEXT NOT NULL,
     "status" "SubscriptionPaymentStatus" NOT NULL,
-    "externalTransactionId" TEXT,
-    "gatewayPayloadHash" TEXT,
+    "type" TEXT NOT NULL,
+    "gateway" TEXT,
     "paidAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "invoiceUrl" TEXT,
+    "webhookStatus" TEXT,
+    "adminOverride" BOOLEAN NOT NULL DEFAULT false,
+    "gatewayPayload" JSONB,
+    "retryCount" INTEGER NOT NULL DEFAULT 0,
+    "metadata" JSONB,
+    "businessId" TEXT,
 
     CONSTRAINT "SubscriptionPayment_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SubscriptionHistory" (
+    "id" TEXT NOT NULL,
+    "subscriptionId" TEXT NOT NULL,
+    "businessId" TEXT NOT NULL,
+    "oldPackageId" TEXT,
+    "newPackageId" TEXT,
+    "oldPrice" INTEGER,
+    "newPrice" INTEGER,
+    "changeType" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "SubscriptionHistory_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "FinancialAdjustment" (
+    "id" TEXT NOT NULL,
+    "businessId" TEXT NOT NULL,
+    "amount" DECIMAL(65,30) NOT NULL,
+    "type" TEXT NOT NULL,
+    "reason" TEXT,
+    "createdBy" TEXT NOT NULL,
+    "isApplied" BOOLEAN NOT NULL DEFAULT false,
+    "appliedPaymentId" TEXT,
+    "appliedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "FinancialAdjustment_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Coupon" (
+    "id" TEXT NOT NULL,
+    "code" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "value" DECIMAL(65,30) NOT NULL,
+    "maxUsage" INTEGER,
+    "usageCount" INTEGER NOT NULL DEFAULT 0,
+    "maxUsagePerBusiness" INTEGER,
+    "validFrom" TIMESTAMP(3),
+    "validTo" TIMESTAMP(3),
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Coupon_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "CouponUsage" (
+    "id" TEXT NOT NULL,
+    "couponId" TEXT NOT NULL,
+    "businessId" TEXT NOT NULL,
+    "usedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "CouponUsage_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -622,6 +742,8 @@ CREATE TABLE "AuditLog" (
     "metadata" JSONB,
     "ipAddress" TEXT,
     "userAgent" TEXT,
+    "actorType" TEXT NOT NULL DEFAULT 'TENANT',
+    "module" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "AuditLog_pkey" PRIMARY KEY ("id")
@@ -663,9 +785,33 @@ CREATE TABLE "SystemJobLog" (
     "durationMs" INTEGER,
     "errorMessage" TEXT,
     "retryCount" INTEGER NOT NULL DEFAULT 0,
+    "lastRetriedAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "SystemJobLog_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "DeadJob" (
+    "id" TEXT NOT NULL,
+    "jobName" TEXT NOT NULL,
+    "instanceId" TEXT NOT NULL,
+    "reason" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "DeadJob_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ApiMetric" (
+    "id" TEXT NOT NULL,
+    "totalRequests" INTEGER NOT NULL,
+    "successRequests" INTEGER NOT NULL,
+    "failedRequests" INTEGER NOT NULL,
+    "avgResponseTime" DOUBLE PRECISION NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ApiMetric_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -704,19 +850,32 @@ CREATE TABLE "SystemHealthSnapshot" (
 );
 
 -- CreateTable
-CREATE TABLE "SupportIncident" (
+CREATE TABLE "SecurityIncident" (
     "id" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
     "title" TEXT NOT NULL,
     "description" TEXT NOT NULL,
     "severity" TEXT NOT NULL,
-    "status" TEXT NOT NULL DEFAULT 'open',
-    "assignedTo" TEXT,
-    "resolvedAt" TIMESTAMP(3),
-    "createdBy" TEXT NOT NULL,
+    "status" TEXT NOT NULL,
+    "source" TEXT NOT NULL,
+    "referenceId" TEXT,
+    "metadata" JSONB,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "SupportIncident_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "SecurityIncident_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "LoginActivity" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT,
+    "adminId" TEXT,
+    "status" TEXT NOT NULL,
+    "ipAddress" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "LoginActivity_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -741,11 +900,218 @@ CREATE TABLE "JobLock" (
     CONSTRAINT "JobLock_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "ReportExport" (
+    "id" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "format" TEXT NOT NULL,
+    "status" TEXT NOT NULL,
+    "filePath" TEXT,
+    "requestedBy" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "completedAt" TIMESTAMP(3),
+
+    CONSTRAINT "ReportExport_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Ticket" (
+    "id" TEXT NOT NULL,
+    "businessId" TEXT NOT NULL,
+    "userId" TEXT,
+    "assignedAdminId" TEXT,
+    "subject" TEXT NOT NULL,
+    "description" TEXT NOT NULL,
+    "status" TEXT NOT NULL,
+    "priority" TEXT NOT NULL,
+    "slaDeadline" TIMESTAMP(3),
+    "escalated" BOOLEAN NOT NULL DEFAULT false,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "deletedAt" TIMESTAMP(3),
+
+    CONSTRAINT "Ticket_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "TicketMessage" (
+    "id" TEXT NOT NULL,
+    "ticketId" TEXT NOT NULL,
+    "senderId" TEXT NOT NULL,
+    "senderType" TEXT NOT NULL,
+    "message" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "TicketMessage_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "TicketNote" (
+    "id" TEXT NOT NULL,
+    "ticketId" TEXT NOT NULL,
+    "adminId" TEXT NOT NULL,
+    "note" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "TicketNote_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "TicketAttachment" (
+    "id" TEXT NOT NULL,
+    "ticketId" TEXT NOT NULL,
+    "fileUrl" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "TicketAttachment_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "DataRetentionPolicy" (
+    "id" TEXT NOT NULL,
+    "resource" TEXT NOT NULL,
+    "retentionDays" INTEGER NOT NULL,
+    "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "version" INTEGER NOT NULL DEFAULT 1,
+    "createdById" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "DataRetentionPolicy_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "PolicyVersion" (
+    "id" TEXT NOT NULL,
+    "policyId" TEXT NOT NULL,
+    "resource" TEXT NOT NULL,
+    "retentionDays" INTEGER NOT NULL,
+    "version" INTEGER NOT NULL,
+    "createdById" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "PolicyVersion_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "DataRequest" (
+    "id" TEXT NOT NULL,
+    "type" "DataRequestType" NOT NULL,
+    "status" "DataRequestStatus" NOT NULL DEFAULT 'PENDING',
+    "requestedById" TEXT NOT NULL,
+    "targetType" TEXT NOT NULL,
+    "targetId" TEXT NOT NULL,
+    "exportFilePath" TEXT,
+    "reason" TEXT,
+    "approvedById" TEXT,
+    "approvedAt" TIMESTAMP(3),
+    "processedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "DataRequest_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ConsentLog" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT,
+    "businessId" TEXT,
+    "type" TEXT NOT NULL,
+    "status" TEXT NOT NULL,
+    "source" TEXT,
+    "metadata" JSONB,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ConsentLog_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "PurgeQueue" (
+    "id" TEXT NOT NULL,
+    "dataRequestId" TEXT NOT NULL,
+    "status" "PurgeStatus" NOT NULL DEFAULT 'PENDING',
+    "attempts" INTEGER NOT NULL DEFAULT 0,
+    "lastError" TEXT,
+    "startedAt" TIMESTAMP(3),
+    "completedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "PurgeQueue_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Announcement" (
+    "id" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "message" TEXT NOT NULL,
+    "priority" TEXT NOT NULL,
+    "placement" "AnnouncementPlacement" NOT NULL,
+    "eventType" "AnnouncementEventType" NOT NULL DEFAULT 'GENERAL',
+    "startAt" TIMESTAMP(3),
+    "endAt" TIMESTAMP(3),
+    "trialOnly" BOOLEAN NOT NULL DEFAULT false,
+    "isEmergency" BOOLEAN NOT NULL DEFAULT false,
+    "sendNotification" BOOLEAN NOT NULL DEFAULT false,
+    "channels" TEXT[],
+    "createdBy" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "Announcement_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "AnnouncementCountry" (
+    "id" TEXT NOT NULL,
+    "announcementId" TEXT NOT NULL,
+    "countryCode" TEXT NOT NULL,
+
+    CONSTRAINT "AnnouncementCountry_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "AnnouncementPackage" (
+    "id" TEXT NOT NULL,
+    "announcementId" TEXT NOT NULL,
+    "packageId" TEXT NOT NULL,
+
+    CONSTRAINT "AnnouncementPackage_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "AnnouncementSegment" (
+    "id" TEXT NOT NULL,
+    "announcementId" TEXT NOT NULL,
+    "segmentType" TEXT NOT NULL,
+    "rules" JSONB,
+
+    CONSTRAINT "AnnouncementSegment_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "AnnouncementRead" (
+    "id" TEXT NOT NULL,
+    "announcementId" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "seenAt" TIMESTAMP(3),
+    "dismissedAt" TIMESTAMP(3),
+
+    CONSTRAINT "AnnouncementRead_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
-CREATE UNIQUE INDEX "SuperAdmin_email_key" ON "SuperAdmin"("email");
+CREATE UNIQUE INDEX "SystemAdmin_email_key" ON "SystemAdmin"("email");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "SystemAdminRole_name_key" ON "SystemAdminRole"("name");
 
 -- CreateIndex
 CREATE INDEX "AdminSession_adminId_idx" ON "AdminSession"("adminId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "SystemSeedLog_key_key" ON "SystemSeedLog"("key");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Permission_module_action_scope_key" ON "Permission"("module", "action", "scope");
@@ -767,6 +1133,9 @@ CREATE UNIQUE INDEX "RefreshToken_token_key" ON "RefreshToken"("token");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Business_businessCode_key" ON "Business"("businessCode");
+
+-- CreateIndex
+CREATE INDEX "Business_country_idx" ON "Business"("country");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "BusinessSettings_businessId_key" ON "BusinessSettings"("businessId");
@@ -799,22 +1168,16 @@ CREATE INDEX "SubscriptionUsage_metric_idx" ON "SubscriptionUsage"("metric");
 CREATE UNIQUE INDEX "SubscriptionUsage_businessId_metric_period_key" ON "SubscriptionUsage"("businessId", "metric", "period");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "SubscriptionPayment_externalTransactionId_key" ON "SubscriptionPayment"("externalTransactionId");
+CREATE INDEX "SubscriptionHistory_subscriptionId_idx" ON "SubscriptionHistory"("subscriptionId");
 
 -- CreateIndex
-CREATE INDEX "SubscriptionPayment_businessId_idx" ON "SubscriptionPayment"("businessId");
+CREATE INDEX "SubscriptionHistory_businessId_idx" ON "SubscriptionHistory"("businessId");
 
 -- CreateIndex
-CREATE INDEX "SubscriptionPayment_subscriptionId_idx" ON "SubscriptionPayment"("subscriptionId");
+CREATE INDEX "SubscriptionHistory_changeType_idx" ON "SubscriptionHistory"("changeType");
 
 -- CreateIndex
-CREATE INDEX "SubscriptionPayment_status_idx" ON "SubscriptionPayment"("status");
-
--- CreateIndex
-CREATE INDEX "SubscriptionPayment_createdAt_idx" ON "SubscriptionPayment"("createdAt");
-
--- CreateIndex
-CREATE INDEX "SubscriptionPayment_subscriptionId_status_idx" ON "SubscriptionPayment"("subscriptionId", "status");
+CREATE UNIQUE INDEX "Coupon_code_key" ON "Coupon"("code");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Contract_contractNumber_key" ON "Contract"("contractNumber");
@@ -922,6 +1285,9 @@ CREATE INDEX "AuditLog_createdAt_idx" ON "AuditLog"("createdAt");
 CREATE INDEX "AuditLog_action_idx" ON "AuditLog"("action");
 
 -- CreateIndex
+CREATE INDEX "AuditLog_actorType_idx" ON "AuditLog"("actorType");
+
+-- CreateIndex
 CREATE INDEX "SuspiciousActivity_adminId_idx" ON "SuspiciousActivity"("adminId");
 
 -- CreateIndex
@@ -955,13 +1321,16 @@ CREATE INDEX "SystemError_createdAt_idx" ON "SystemError"("createdAt");
 CREATE INDEX "SystemHealthSnapshot_createdAt_idx" ON "SystemHealthSnapshot"("createdAt");
 
 -- CreateIndex
-CREATE INDEX "SupportIncident_status_idx" ON "SupportIncident"("status");
+CREATE INDEX "SecurityIncident_type_idx" ON "SecurityIncident"("type");
 
 -- CreateIndex
-CREATE INDEX "SupportIncident_severity_idx" ON "SupportIncident"("severity");
+CREATE INDEX "SecurityIncident_status_idx" ON "SecurityIncident"("status");
 
 -- CreateIndex
-CREATE INDEX "SupportIncident_createdAt_idx" ON "SupportIncident"("createdAt");
+CREATE INDEX "SecurityIncident_severity_idx" ON "SecurityIncident"("severity");
+
+-- CreateIndex
+CREATE INDEX "SecurityIncident_referenceId_idx" ON "SecurityIncident"("referenceId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "GatewayHealth_code_key" ON "GatewayHealth"("code");
@@ -972,11 +1341,74 @@ CREATE UNIQUE INDEX "JobLock_jobName_key" ON "JobLock"("jobName");
 -- CreateIndex
 CREATE INDEX "JobLock_lockedUntil_idx" ON "JobLock"("lockedUntil");
 
+-- CreateIndex
+CREATE INDEX "Ticket_businessId_idx" ON "Ticket"("businessId");
+
+-- CreateIndex
+CREATE INDEX "Ticket_status_idx" ON "Ticket"("status");
+
+-- CreateIndex
+CREATE INDEX "TicketMessage_ticketId_idx" ON "TicketMessage"("ticketId");
+
+-- CreateIndex
+CREATE INDEX "TicketNote_ticketId_idx" ON "TicketNote"("ticketId");
+
+-- CreateIndex
+CREATE INDEX "TicketAttachment_ticketId_idx" ON "TicketAttachment"("ticketId");
+
+-- CreateIndex
+CREATE INDEX "DataRetentionPolicy_resource_idx" ON "DataRetentionPolicy"("resource");
+
+-- CreateIndex
+CREATE INDEX "PolicyVersion_policyId_idx" ON "PolicyVersion"("policyId");
+
+-- CreateIndex
+CREATE INDEX "DataRequest_type_status_idx" ON "DataRequest"("type", "status");
+
+-- CreateIndex
+CREATE INDEX "DataRequest_targetType_targetId_idx" ON "DataRequest"("targetType", "targetId");
+
+-- CreateIndex
+CREATE INDEX "ConsentLog_userId_idx" ON "ConsentLog"("userId");
+
+-- CreateIndex
+CREATE INDEX "ConsentLog_businessId_idx" ON "ConsentLog"("businessId");
+
+-- CreateIndex
+CREATE INDEX "ConsentLog_type_idx" ON "ConsentLog"("type");
+
+-- CreateIndex
+CREATE INDEX "PurgeQueue_status_idx" ON "PurgeQueue"("status");
+
+-- CreateIndex
+CREATE INDEX "Announcement_priority_idx" ON "Announcement"("priority");
+
+-- CreateIndex
+CREATE INDEX "Announcement_startAt_endAt_idx" ON "Announcement"("startAt", "endAt");
+
+-- CreateIndex
+CREATE INDEX "AnnouncementCountry_countryCode_idx" ON "AnnouncementCountry"("countryCode");
+
+-- CreateIndex
+CREATE INDEX "AnnouncementPackage_packageId_idx" ON "AnnouncementPackage"("packageId");
+
+-- CreateIndex
+CREATE INDEX "AnnouncementRead_userId_idx" ON "AnnouncementRead"("userId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "AnnouncementRead_announcementId_userId_key" ON "AnnouncementRead"("announcementId", "userId");
+
 -- AddForeignKey
-ALTER TABLE "AdminSession" ADD CONSTRAINT "AdminSession_adminId_fkey" FOREIGN KEY ("adminId") REFERENCES "SuperAdmin"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "SystemAdmin" ADD CONSTRAINT "SystemAdmin_roleId_fkey" FOREIGN KEY ("roleId") REFERENCES "SystemAdminRole"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "AdminSession" ADD CONSTRAINT "AdminSession_adminId_fkey" FOREIGN KEY ("adminId") REFERENCES "SystemAdmin"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "RolePermission" ADD CONSTRAINT "RolePermission_permissionId_fkey" FOREIGN KEY ("permissionId") REFERENCES "Permission"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "RolePermission" ADD CONSTRAINT "RolePermission_systemAdminRoleId_fkey" FOREIGN KEY ("systemAdminRoleId") REFERENCES "SystemAdminRole"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "User" ADD CONSTRAINT "User_businessId_fkey" FOREIGN KEY ("businessId") REFERENCES "Business"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -1000,13 +1432,25 @@ ALTER TABLE "Subscription" ADD CONSTRAINT "Subscription_businessId_fkey" FOREIGN
 ALTER TABLE "Subscription" ADD CONSTRAINT "Subscription_packageId_fkey" FOREIGN KEY ("packageId") REFERENCES "SubscriptionPackage"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "Subscription" ADD CONSTRAINT "Subscription_couponId_fkey" FOREIGN KEY ("couponId") REFERENCES "Coupon"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "SubscriptionUsage" ADD CONSTRAINT "SubscriptionUsage_businessId_fkey" FOREIGN KEY ("businessId") REFERENCES "Business"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "SubscriptionPayment" ADD CONSTRAINT "SubscriptionPayment_subscriptionId_fkey" FOREIGN KEY ("subscriptionId") REFERENCES "Subscription"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "SubscriptionPayment" ADD CONSTRAINT "SubscriptionPayment_businessId_fkey" FOREIGN KEY ("businessId") REFERENCES "Business"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "SubscriptionPayment" ADD CONSTRAINT "SubscriptionPayment_businessId_fkey" FOREIGN KEY ("businessId") REFERENCES "Business"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SubscriptionHistory" ADD CONSTRAINT "SubscriptionHistory_subscriptionId_fkey" FOREIGN KEY ("subscriptionId") REFERENCES "Subscription"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SubscriptionHistory" ADD CONSTRAINT "SubscriptionHistory_businessId_fkey" FOREIGN KEY ("businessId") REFERENCES "Business"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "CouponUsage" ADD CONSTRAINT "CouponUsage_couponId_fkey" FOREIGN KEY ("couponId") REFERENCES "Coupon"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Contract" ADD CONSTRAINT "Contract_customerId_fkey" FOREIGN KEY ("customerId") REFERENCES "Customer"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -1049,3 +1493,36 @@ ALTER TABLE "BulkNotificationLimit" ADD CONSTRAINT "BulkNotificationLimit_busine
 
 -- AddForeignKey
 ALTER TABLE "SystemError" ADD CONSTRAINT "SystemError_groupId_fkey" FOREIGN KEY ("groupId") REFERENCES "SystemErrorGroup"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ReportExport" ADD CONSTRAINT "ReportExport_requestedBy_fkey" FOREIGN KEY ("requestedBy") REFERENCES "SystemAdmin"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "DataRetentionPolicy" ADD CONSTRAINT "DataRetentionPolicy_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "SystemAdmin"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "PolicyVersion" ADD CONSTRAINT "PolicyVersion_policyId_fkey" FOREIGN KEY ("policyId") REFERENCES "DataRetentionPolicy"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "PolicyVersion" ADD CONSTRAINT "PolicyVersion_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "SystemAdmin"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "DataRequest" ADD CONSTRAINT "DataRequest_requestedById_fkey" FOREIGN KEY ("requestedById") REFERENCES "SystemAdmin"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "DataRequest" ADD CONSTRAINT "DataRequest_approvedById_fkey" FOREIGN KEY ("approvedById") REFERENCES "SystemAdmin"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "PurgeQueue" ADD CONSTRAINT "PurgeQueue_dataRequestId_fkey" FOREIGN KEY ("dataRequestId") REFERENCES "DataRequest"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "AnnouncementCountry" ADD CONSTRAINT "AnnouncementCountry_announcementId_fkey" FOREIGN KEY ("announcementId") REFERENCES "Announcement"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "AnnouncementPackage" ADD CONSTRAINT "AnnouncementPackage_announcementId_fkey" FOREIGN KEY ("announcementId") REFERENCES "Announcement"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "AnnouncementSegment" ADD CONSTRAINT "AnnouncementSegment_announcementId_fkey" FOREIGN KEY ("announcementId") REFERENCES "Announcement"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "AnnouncementRead" ADD CONSTRAINT "AnnouncementRead_announcementId_fkey" FOREIGN KEY ("announcementId") REFERENCES "Announcement"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

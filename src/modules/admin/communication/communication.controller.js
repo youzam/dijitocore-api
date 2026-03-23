@@ -4,62 +4,96 @@ const response = require("../../utils/response");
 
 /*
 |--------------------------------------------------------------------------
-| Announcement Controllers
+| CREATE ANNOUNCEMENT
 |--------------------------------------------------------------------------
 */
-
 exports.createAnnouncement = catchAsync(async (req, res) => {
-  const data = req.body;
-  const adminId = req.user.id;
-
-  const result = await communicationService.createAnnouncement(data, adminId);
+  const data = await communicationService.createAnnouncement(
+    req.body,
+    req.user.id,
+  );
 
   return response.success(
+    req,
     res,
-    req.t("communication.announcement_created"),
-    result,
+    data,
+    201,
+    "communication.announcement_created",
   );
 });
 
+/*
+|--------------------------------------------------------------------------
+| UPDATE ANNOUNCEMENT
+|--------------------------------------------------------------------------
+*/
 exports.updateAnnouncement = catchAsync(async (req, res) => {
-  const { id } = req.params;
-
-  const result = await communicationService.updateAnnouncement(id, req.body);
+  const data = await communicationService.updateAnnouncement(
+    req.params.id,
+    req.body,
+    req.user.id,
+  );
 
   return response.success(
+    req,
     res,
-    req.t("communication.announcement_updated"),
-    result,
+    data,
+    200,
+    "communication.announcement_updated",
   );
 });
 
+/*
+|--------------------------------------------------------------------------
+| DELETE ANNOUNCEMENT
+|--------------------------------------------------------------------------
+*/
 exports.deleteAnnouncement = catchAsync(async (req, res) => {
-  const { id } = req.params;
-
-  await communicationService.deleteAnnouncement(id);
-
-  return response.success(res, req.t("communication.announcement_deleted"));
-});
-
-exports.getAnnouncements = catchAsync(async (req, res) => {
-  const result = await communicationService.getAnnouncements(req.query);
+  const data = await communicationService.deleteAnnouncement(
+    req.params.id,
+    req.user.id,
+  );
 
   return response.success(
+    req,
     res,
-    req.t("communication.announcements_fetched"),
-    result,
+    data,
+    200,
+    "communication.announcement_deleted",
   );
 });
 
-exports.getAnnouncementById = catchAsync(async (req, res) => {
-  const { id } = req.params;
-
-  const result = await communicationService.getAnnouncementById(id);
+/*
+|--------------------------------------------------------------------------
+| GET ALL ANNOUNCEMENTS (ADMIN)
+|--------------------------------------------------------------------------
+*/
+exports.getAnnouncements = catchAsync(async (req, res) => {
+  const data = await communicationService.getAnnouncements(req.query);
 
   return response.success(
+    req,
     res,
-    req.t("communication.announcement_fetched"),
-    result,
+    data,
+    200,
+    "communication.announcement_list",
+  );
+});
+
+/*
+|--------------------------------------------------------------------------
+| GET SINGLE ANNOUNCEMENT
+|--------------------------------------------------------------------------
+*/
+exports.getAnnouncementById = catchAsync(async (req, res) => {
+  const data = await communicationService.getAnnouncementById(req.params.id);
+
+  return response.success(
+    req,
+    res,
+    data,
+    200,
+    "communication.announcement_details",
   );
 });
 
@@ -70,35 +104,31 @@ exports.getAnnouncementById = catchAsync(async (req, res) => {
 */
 
 exports.sendBroadcast = catchAsync(async (req, res) => {
-  const adminId = req.user.id;
+  const data = await communicationService.sendBroadcast(req.body, req.user.id);
 
-  const result = await communicationService.sendBroadcast(req.body, adminId);
-
-  return response.success(res, req.t("communication.broadcast_sent"), result);
+  return response.success(req, res, data, 200, "communication.broadcast_sent");
 });
 
 exports.sendBatch = catchAsync(async (req, res) => {
-  const adminId = req.user.id;
+  const data = await communicationService.sendBatch(req.body, req.user.id);
 
-  const result = await communicationService.sendBatch(req.body, adminId);
-
-  return response.success(res, req.t("communication.batch_sent"), result);
+  return response.success(req, res, data, 200, "communication.batch_sent");
 });
 
 exports.retryFailedMessages = catchAsync(async (req, res) => {
-  const { messageId } = req.params;
+  const data = await communicationService.retryFailedMessages(
+    req.params.messageId,
+  );
 
-  const result = await communicationService.retryFailedMessages(messageId);
-
-  return response.success(res, req.t("communication.retry_success"), result);
+  return response.success(req, res, data, 200, "communication.retry_success");
 });
 
 exports.getMessageStats = catchAsync(async (req, res) => {
-  const { messageId } = req.params;
+  const data = await communicationService.getMessageDeliveryStats(
+    req.params.messageId,
+  );
 
-  const result = await communicationService.getMessageDeliveryStats(messageId);
-
-  return response.success(res, req.t("communication.stats_fetched"), result);
+  return response.success(req, res, data, 200, "communication.stats_fetched");
 });
 
 /*
@@ -108,41 +138,68 @@ exports.getMessageStats = catchAsync(async (req, res) => {
 */
 
 exports.createTemplate = catchAsync(async (req, res) => {
-  const result = await communicationService.createTemplate(req.body);
+  const data = await communicationService.createTemplate(req.body, req.user.id);
 
-  return response.success(res, req.t("communication.template_created"), result);
+  return response.success(
+    req,
+    res,
+    data,
+    201,
+    "communication.template_created",
+  );
 });
 
 exports.updateTemplate = catchAsync(async (req, res) => {
-  const { id } = req.params;
+  const data = await communicationService.updateTemplate(
+    req.params.id,
+    req.body,
+    req.user.id,
+  );
 
-  const result = await communicationService.updateTemplate(id, req.body);
-
-  return response.success(res, req.t("communication.template_updated"), result);
+  return response.success(
+    req,
+    res,
+    data,
+    200,
+    "communication.template_updated",
+  );
 });
 
 exports.deleteTemplate = catchAsync(async (req, res) => {
-  const { id } = req.params;
+  const data = await communicationService.deleteTemplate(
+    req.params.id,
+    req.user.id,
+  );
 
-  await communicationService.deleteTemplate(id);
-
-  return response.success(res, req.t("communication.template_deleted"));
+  return response.success(
+    req,
+    res,
+    data,
+    200,
+    "communication.template_deleted",
+  );
 });
 
 exports.getTemplates = catchAsync(async (req, res) => {
-  const result = await communicationService.getTemplates();
+  const data = await communicationService.getTemplates();
 
   return response.success(
+    req,
     res,
-    req.t("communication.templates_fetched"),
-    result,
+    data,
+    200,
+    "communication.templates_fetched",
   );
 });
 
 exports.getTemplateById = catchAsync(async (req, res) => {
-  const { id } = req.params;
+  const data = await communicationService.getTemplateById(req.params.id);
 
-  const result = await communicationService.getTemplateById(id);
-
-  return response.success(res, req.t("communication.template_fetched"), result);
+  return response.success(
+    req,
+    res,
+    data,
+    200,
+    "communication.template_fetched",
+  );
 });

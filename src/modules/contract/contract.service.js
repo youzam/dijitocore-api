@@ -35,7 +35,6 @@ const generateScheduleDates = ({ startDate, frequency, customDays, total }) => {
 };
 
 /* ================= CREATE ================= */
-
 exports.createContract = async ({ businessId, userId, payload }) => {
   const {
     customerId,
@@ -50,13 +49,9 @@ exports.createContract = async ({ businessId, userId, payload }) => {
     startDate,
   } = payload;
 
-  // 🔒 Enforce active subscription
   await subscriptionAuthority.assertActiveSubscription(businessId);
-
-  // 🔒 Enforce feature access (NEW — correct enforcement)
   await subscriptionAuthority.assertFeature(businessId, "allowContracts");
 
-  // 🔒 Enforce maxActiveContracts limit
   const activeContractsCount = await prisma.contract.count({
     where: {
       businessId,
@@ -72,9 +67,7 @@ exports.createContract = async ({ businessId, userId, payload }) => {
   );
 
   if (downPayment > totalValue) throw new Error("contract.invalid-downpayment");
-
   if (installmentAmount <= 0) throw new Error("contract.invalid-installment");
-
   if (frequency === "CUSTOM" && !customDays)
     throw new Error("contract.custom-days-required");
 
@@ -150,6 +143,18 @@ exports.createContract = async ({ businessId, userId, payload }) => {
     });
 
     return created;
+  });
+
+  await logAudit({
+    businessId,
+    userId,
+    entityType: "CONTRACT",
+    entityId: contract.id,
+    action: "CONTRACT_CREATED",
+    metadata: {
+      contractNumber: contract.contractNumber,
+      totalValue: contract.totalValue,
+    },
   });
 
   await createNotification({
@@ -237,13 +242,23 @@ exports.updateContract = async ({ businessId, id, payload }) => {
     throw new AppError("contract.edit_not_allowed", 400);
   }
 
-  return prisma.contract.update({
+  const updated = await prisma.contract.update({
     where: { id },
     data: {
       title: payload.title,
       description: payload.description,
     },
   });
+
+  await logAudit({
+    businessId,
+    userId: payload?.userId || null,
+    entityType: "CONTRACT",
+    entityId: id,
+    action: "CONTRACT_UPDATED",
+  });
+
+  return updated;
 };
 
 /* === TERMINATE CONTRACT === */
@@ -457,6 +472,14 @@ exports.completeContract = async ({ businessId, id }) => {
     recipient: contract.customerPhone,
   });
 
+  await logAudit({
+    businessId,
+    userId: contract.createdBy || null,
+    entityType: "CONTRACT",
+    entityId: contract.id,
+    action: "CONTRACT_COMPLETED",
+  });
+
   return true;
 };
 
@@ -465,8 +488,7 @@ exports.completeContract = async ({ businessId, id }) => {
 exports.softDeleteContract = async ({ businessId, id }) => {
   const contract = await exports.getContractById({ businessId, id });
 
-  return prisma.$transaction(async (tx) => {
-    // If active contract, adjust aggregates
+  const deleted = await prisma.$transaction(async (tx) => {
     if (contract.status === "ACTIVE") {
       await tx.customer.update({
         where: { id: contract.customerId },
@@ -482,6 +504,16 @@ exports.softDeleteContract = async ({ businessId, id }) => {
       data: { deletedAt: new Date() },
     });
   });
+
+  await logAudit({
+    businessId,
+    userId: contract.createdBy || null,
+    entityType: "CONTRACT",
+    entityId: id,
+    action: "CONTRACT_DELETED",
+  });
+
+  return deleted;
 };
 
 /* ======================================================

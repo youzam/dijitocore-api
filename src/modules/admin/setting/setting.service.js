@@ -46,9 +46,12 @@ exports.updateCurrency = async (currency, adminId) => {
   });
 
   await auditHelper.logAudit({
+    userId: adminId,
+    entityType: "SYSTEM_SETTING",
+    entityId: settings.id,
     action: "UPDATE_CURRENCY",
     module: "SETTINGS",
-    adminId,
+    actorType: "ADMIN",
     metadata: {
       oldValue: settings.currency,
       newValue: currency,
@@ -72,9 +75,12 @@ exports.updateActiveGateway = async (gateway, adminId) => {
   });
 
   await auditHelper.logAudit({
+    userId: adminId,
+    entityType: "SYSTEM_SETTING",
+    entityId: settings.id,
     action: "UPDATE_PAYMENT_GATEWAY",
     module: "SETTINGS",
-    adminId,
+    actorType: "ADMIN",
     metadata: {
       oldValue: settings.activePaymentGateway,
       newValue: gateway,
@@ -101,9 +107,12 @@ exports.updateSecurityConfig = async (data, adminId) => {
   });
 
   await auditHelper.logAudit({
+    userId: adminId,
+    entityType: "SYSTEM_SETTING",
+    entityId: settings.id,
     action: "UPDATE_SECURITY_CONFIG",
     module: "SETTINGS",
-    adminId,
+    actorType: "ADMIN",
     metadata: {
       oldValue: {
         maxLoginAttempts: settings.maxLoginAttempts,
@@ -132,9 +141,12 @@ exports.updateApiConfig = async (data, adminId) => {
   });
 
   await auditHelper.logAudit({
+    userId: adminId,
+    entityType: "SYSTEM_SETTING",
+    entityId: settings.id,
     action: "UPDATE_API_CONFIG",
     module: "SETTINGS",
-    adminId,
+    actorType: "ADMIN",
     metadata: {
       oldValue: settings.apiConfig,
       newValue: data,
@@ -160,9 +172,12 @@ exports.updateNotificationConfig = async (data, adminId) => {
   });
 
   await auditHelper.logAudit({
+    userId: adminId,
+    entityType: "SYSTEM_SETTING",
+    entityId: settings.id,
     action: "UPDATE_NOTIFICATION_CONFIG",
     module: "SETTINGS",
-    adminId,
+    actorType: "ADMIN",
     metadata: {
       oldValue: settings.notificationConfig,
       newValue: data,
@@ -188,9 +203,12 @@ exports.updateBrandingConfig = async (data, adminId) => {
   });
 
   await auditHelper.logAudit({
+    userId: adminId,
+    entityType: "SYSTEM_SETTING",
+    entityId: settings.id,
     action: "UPDATE_BRANDING_CONFIG",
     module: "SETTINGS",
-    adminId,
+    actorType: "ADMIN",
     metadata: {
       oldValue: settings.brandingConfig,
       newValue: data,
@@ -216,9 +234,12 @@ exports.updateMaintenanceConfig = async (data, adminId) => {
   });
 
   await auditHelper.logAudit({
+    userId: adminId,
+    entityType: "SYSTEM_SETTING",
+    entityId: settings.id,
     action: "UPDATE_MAINTENANCE_CONFIG",
     module: "SETTINGS",
-    adminId,
+    actorType: "ADMIN",
     metadata: {
       oldValue: settings.maintenanceConfig,
       newValue: data,

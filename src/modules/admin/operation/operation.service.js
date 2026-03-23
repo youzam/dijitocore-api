@@ -1,7 +1,9 @@
-const prisma = require("../../../config/prisma");
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
+
+const prisma = require("../../../config/prisma");
+const { logAudit } = require("../../../utils/audit.helper");
 
 let storageCache = {
   value: null,
@@ -208,13 +210,27 @@ exports.retryFailedJob = async (jobId) => {
     },
   });
 
+  await logAudit({
+    entityType: "SYSTEM_JOB",
+    entityId: jobId,
+    action: "JOB_RETRIED",
+    metadata: {
+      jobName: job.jobName,
+      previousStatus: "FAILED",
+      newStatus: "SUCCESS",
+      retryCount: job.retryCount + 1,
+    },
+    actorType: "ADMIN",
+    module: "OPERATION",
+  });
+
   return { success: true };
 };
 
 exports.storeApiMetricsSnapshot = async () => {
   const metrics = global.apiMetrics || {};
 
-  return prisma.apiMetric.create({
+  const result = await prisma.apiMetric.create({
     data: {
       totalRequests: metrics.totalRequests || 0,
       successRequests: metrics.successRequests || 0,
@@ -222,6 +238,22 @@ exports.storeApiMetricsSnapshot = async () => {
       avgResponseTime: metrics.avgResponseTime || 0,
     },
   });
+
+  await logAudit({
+    entityType: "API_METRIC",
+    entityId: result.id,
+    action: "API_METRIC_SNAPSHOT_CREATED",
+    metadata: {
+      totalRequests: result.totalRequests,
+      successRequests: result.successRequests,
+      failedRequests: result.failedRequests,
+      avgResponseTime: result.avgResponseTime,
+    },
+    actorType: "SYSTEM",
+    module: "OPERATION",
+  });
+
+  return result;
 };
 
 /*
@@ -272,7 +304,20 @@ exports.enableMaintenance = async () => {
 
   featureFlags.MAINTENANCE_MODE = true;
 
-  return updateSystemSetting({ featureFlags });
+  const result = await updateSystemSetting({ featureFlags });
+
+  await logAudit({
+    entityType: "SYSTEM_SETTING",
+    entityId: 1,
+    action: "MAINTENANCE_MODE_ENABLED",
+    metadata: {
+      MAINTENANCE_MODE: true,
+    },
+    actorType: "ADMIN",
+    module: "OPERATION",
+  });
+
+  return result;
 };
 
 exports.disableMaintenance = async () => {
@@ -282,7 +327,20 @@ exports.disableMaintenance = async () => {
 
   featureFlags.MAINTENANCE_MODE = false;
 
-  return updateSystemSetting({ featureFlags });
+  const updated = await updateSystemSetting({ featureFlags });
+
+  await logAudit({
+    entityType: "SYSTEM_SETTING",
+    entityId: 1,
+    action: "MAINTENANCE_MODE_DISABLED",
+    metadata: {
+      MAINTENANCE_MODE: false,
+    },
+    actorType: "ADMIN",
+    module: "OPERATION",
+  });
+
+  return updated;
 };
 
 /*
@@ -298,7 +356,21 @@ exports.toggleFeatureFlag = async (flag) => {
 
   featureFlags[flag] = !featureFlags[flag];
 
-  return updateSystemSetting({ featureFlags });
+  const result = await updateSystemSetting({ featureFlags });
+
+  await logAudit({
+    entityType: "SYSTEM_SETTING",
+    entityId: 1,
+    action: "FEATURE_FLAG_TOGGLED",
+    metadata: {
+      flag,
+      newValue: featureFlags[flag],
+    },
+    actorType: "ADMIN",
+    module: "OPERATION",
+  });
+
+  return result;
 };
 
 /*
@@ -316,7 +388,22 @@ exports.emergencyShutdown = async () => {
   featureFlags.PAYMENTS_ENABLED = false;
   featureFlags.JOB_PROCESSING_ENABLED = false;
 
-  return updateSystemSetting({ featureFlags });
+  const result = await updateSystemSetting({ featureFlags });
+
+  await logAudit({
+    entityType: "SYSTEM_SETTING",
+    entityId: 1,
+    action: "EMERGENCY_SHUTDOWN_TRIGGERED",
+    metadata: {
+      API_WRITE_ENABLED: false,
+      PAYMENTS_ENABLED: false,
+      JOB_PROCESSING_ENABLED: false,
+    },
+    actorType: "ADMIN",
+    module: "OPERATION",
+  });
+
+  return result;
 };
 
 /*
@@ -326,9 +413,23 @@ exports.emergencyShutdown = async () => {
 */
 
 exports.logJobExecution = async (data) => {
-  return prisma.systemJobLog.create({
+  const result = await prisma.systemJobLog.create({
     data,
   });
+
+  await logAudit({
+    entityType: "SYSTEM_JOB",
+    entityId: result.id,
+    action: "JOB_EXECUTION_LOGGED",
+    metadata: {
+      jobName: data.jobName,
+      status: data.status,
+    },
+    actorType: "SYSTEM",
+    module: "OPERATION",
+  });
+
+  return result;
 };
 
 /*

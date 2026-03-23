@@ -1,4 +1,5 @@
 const prisma = require("../../config/prisma");
+const { logAudit } = require("../../utils/audit.helper");
 
 /*
 |--------------------------------------------------------------------------
@@ -52,13 +53,18 @@ exports.createRetentionPolicy = async (data, adminId) => {
 
     await createPolicyVersion(tx, policy, adminId);
 
-    await tx.auditLog.create({
-      data: {
-        action: "CREATE_RETENTION_POLICY",
-        entity: "DataRetentionPolicy",
-        entityId: policy.id,
-        performedById: adminId,
+    await logAudit({
+      tx,
+      userId: adminId,
+      entityType: "RETENTION_POLICY",
+      entityId: policy.id,
+      action: "RETENTION_POLICY_CREATED",
+      metadata: {
+        resource: policy.resource,
+        retentionDays: policy.retentionDays,
       },
+      module: "COMPLIANCE",
+      actorType: "ADMIN",
     });
 
     return policy;
@@ -84,6 +90,19 @@ exports.updateRetentionPolicy = async (policyId, data, adminId) => {
     });
 
     await createPolicyVersion(tx, updated, adminId);
+
+    await logAudit({
+      tx,
+      userId: adminId,
+      entityType: "RETENTION_POLICY",
+      entityId: policyId,
+      action: "RETENTION_POLICY_UPDATED",
+      metadata: {
+        retentionDays: data.retentionDays,
+      },
+      module: "COMPLIANCE",
+      actorType: "ADMIN",
+    });
 
     return updated;
   });
@@ -111,10 +130,23 @@ exports.listRetentionPolicies = async (query) => {
 };
 
 exports.toggleRetentionPolicy = async (policyId, isActive, adminId) => {
-  return prisma.dataRetentionPolicy.update({
+  const updated = await prisma.dataRetentionPolicy.update({
     where: { id: policyId },
     data: { isActive },
   });
+
+  await logAudit({
+    userId: adminId,
+    entityType: "RETENTION_POLICY",
+    entityId: policyId,
+    action: isActive
+      ? "RETENTION_POLICY_ACTIVATED"
+      : "RETENTION_POLICY_DEACTIVATED",
+    module: "COMPLIANCE",
+    actorType: "ADMIN",
+  });
+
+  return updated;
 };
 
 /*
@@ -162,6 +194,20 @@ exports.createDataRequest = async (data, adminId) => {
     },
   });
 
+  await logAudit({
+    userId: adminId,
+    entityType: "DATA_REQUEST",
+    entityId: request.id,
+    action: "DATA_REQUEST_CREATED",
+    metadata: {
+      type: request.type,
+      targetType: request.targetType,
+      targetId: request.targetId,
+    },
+    module: "COMPLIANCE",
+    actorType: "ADMIN",
+  });
+
   return request;
 };
 
@@ -205,13 +251,17 @@ exports.approveDataRequest = async (requestId, adminId) => {
       await createPurgeQueue(tx, request.id);
     }
 
-    await tx.auditLog.create({
-      data: {
-        action: "APPROVE_DATA_REQUEST",
-        entity: "DataRequest",
-        entityId: request.id,
-        performedById: adminId,
+    await logAudit({
+      tx,
+      userId: adminId,
+      entityType: "DATA_REQUEST",
+      entityId: request.id,
+      action: "DATA_REQUEST_APPROVED",
+      metadata: {
+        type: request.type,
       },
+      module: "COMPLIANCE",
+      actorType: "ADMIN",
     });
 
     return updated;
@@ -219,7 +269,7 @@ exports.approveDataRequest = async (requestId, adminId) => {
 };
 
 exports.rejectDataRequest = async (requestId, adminId) => {
-  return prisma.dataRequest.update({
+  const updated = await prisma.dataRequest.update({
     where: { id: requestId },
     data: {
       status: "REJECTED",
@@ -227,6 +277,17 @@ exports.rejectDataRequest = async (requestId, adminId) => {
       approvedAt: new Date(),
     },
   });
+
+  await logAudit({
+    userId: adminId,
+    entityType: "DATA_REQUEST",
+    entityId: requestId,
+    action: "DATA_REQUEST_REJECTED",
+    module: "COMPLIANCE",
+    actorType: "ADMIN",
+  });
+
+  return updated;
 };
 
 /*
@@ -253,7 +314,7 @@ exports.getPurgeQueueItem = async (queueId) => {
 };
 
 exports.retryPurgeJob = async (queueId) => {
-  return prisma.purgeQueue.update({
+  const updated = await prisma.purgeQueue.update({
     where: { id: queueId },
     data: {
       status: "PENDING",
@@ -261,6 +322,17 @@ exports.retryPurgeJob = async (queueId) => {
       lastError: null,
     },
   });
+
+  await logAudit({
+    userId: null,
+    entityType: "PURGE_QUEUE",
+    entityId: queueId,
+    action: "PURGE_JOB_RETRIED",
+    module: "COMPLIANCE",
+    actorType: "ADMIN",
+  });
+
+  return updated;
 };
 
 /*
