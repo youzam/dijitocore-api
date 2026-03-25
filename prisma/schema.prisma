@@ -1,7 +1,5 @@
 //////////////////////////////////////////////////////
-// DIJITOTRACK — PRISMA SCHEMA
-// Modules: 0 (System) + 1 (Auth) + 2 (Business)
-// Database: PostgreSQL
+// DIJITOPAY — PRISMA SCHEMA 
 //////////////////////////////////////////////////////
 
 generator client {
@@ -14,57 +12,36 @@ datasource db {
 }
 
 //////////////////////////////////////////////////////
-// MODULE 0 — SYSTEM LEVEL
+// ADMIN IMPERSONATION — Admin acting as user
 //////////////////////////////////////////////////////
 
-model SystemAdmin {
-  id       String @id @default(uuid())
-  email    String @unique
-  password String
+model AdminImpersonation {
+  id           String    @id @default(uuid())
+  adminId      String
+  targetUserId String
+  startedAt    DateTime  @default(now())
+  endedAt      DateTime?
 
-  roleId String
-  role   SystemAdminRole @relation(fields: [roleId], references: [id])
+  ip        String?
+  userAgent String?
 
-  status AdminStatus
-
-  loginAttempts Int       @default(0)
-  lockUntil     DateTime?
-
-  forcePasswordChange Boolean @default(false)
-
-  mfaEnabled Boolean @default(false)
-  mfaSecret  String?
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
 
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime @default(now()) @updatedAt
 
-  requestedDataRequests DataRequest[] @relation("RequestedByAdmin")
-  approvedDataRequests  DataRequest[] @relation("ApprovedBy")
-
-  tokenVersion Int @default(0)
-
-  sessions              AdminSession[]
-  reportExports         ReportExport[]
-  dataRetentionPolicies DataRetentionPolicy[]
-  policyVersions        PolicyVersion[]
+  @@index([adminId])
+  @@index([targetUserId])
 }
 
-model SystemAdminRole {
-  id       String    @id @default(uuid())
-  name     AdminRole @unique // controlled by ENUM
-  isActive Boolean   @default(true)
-
-  permissions RolePermission[]
-
-  admins SystemAdmin[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
+//////////////////////////////////////////////////////
+// ADMIN SESSION — Admin login sessions
+//////////////////////////////////////////////////////
 
 model AdminSession {
-  id String @id @default(uuid())
-
+  id      String      @id @default(uuid())
   adminId String
   admin   SystemAdmin @relation(fields: [adminId], references: [id], onDelete: Cascade)
 
@@ -73,187 +50,155 @@ model AdminSession {
   deviceFingerprint String?
 
   refreshToken String?
-  createdAt    DateTime @default(now())
   lastSeen     DateTime
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 
   @@index([adminId])
 }
 
-model SystemSeedLog {
-  id        String    @id @default(uuid())
-  key       String    @unique
-  status    String // PENDING | SUCCESS | FAILED
-  lastRunAt DateTime?
-  error     String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-}
+//////////////////////////////////////////////////////
+// API METRIC — API performance tracking
+//////////////////////////////////////////////////////
 
-model SystemSetting {
-  id                   String   @id @default("SYSTEM")
-  currency             String
-  activePaymentGateway String   @default("SELCOM")
-  isBootstrapped       Boolean  @default(false)
-  maxLoginAttempts     Int      @default(5)
-  lockTimeMinutes      Int      @default(15)
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
-}
+model ApiMetric {
+  id              String @id @default(uuid())
+  totalRequests   Int
+  successRequests Int
+  failedRequests  Int
+  avgResponseTime Float
 
-model Permission {
-  id String @id @default(uuid())
-
-  module String
-  action String
-  scope  String
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
 
   createdAt DateTime @default(now())
-
-  rolePermissions RolePermission[]
-
-  @@unique([module, action, scope])
-}
-
-model RolePermission {
-  id String @id @default(uuid())
-
-  role         AdminRole
-  permissionId String
-
-  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
-
-  createdAt         DateTime         @default(now())
-  systemAdminRole   SystemAdminRole? @relation(fields: [systemAdminRoleId], references: [id])
-  systemAdminRoleId String?
-
-  @@unique([role, permissionId])
+  updatedAt DateTime @default(now()) @updatedAt
 }
 
 //////////////////////////////////////////////////////
-// AUTH & USERS
+// APPROVAL REQUEST — Workflow approvals
 //////////////////////////////////////////////////////
-model User {
-  id           String     @id @default(uuid())
-  name         String?
-  phone        String?
-  createdBy    String?
-  email        String
-  passwordHash String
-  role         UserRole
-  status       UserStatus
-  businessId   String?
-  business     Business?  @relation(fields: [businessId], references: [id])
 
-  passwordResetToken   String?
-  passwordResetExpires DateTime?
-
-  lastLoginAt DateTime?
-
-  // ✅ BRUTE FORCE PROTECTION
-  failedLoginAttempts Int       @default(0)
-  lockUntil           DateTime?
-
-  createdAt            DateTime              @default(now())
-  updatedAt            DateTime              @updatedAt
-  emailVerified        Boolean               @default(false)
-  emailVerifyToken     String?
-  emailVerifyExpires   DateTime?
-  refreshTokens        RefreshToken[]
-  notifications        Notification[]
-  notificationSettings NotificationSetting[]
-  dataRequests         DataRequest[]
-
-  @@unique([email, businessId])
-}
-
-model Customer {
-  id               String         @id @default(uuid())
-  businessId       String
-  fullName         String
-  phone            String
-  altPhone         String?
-  email            String?
-  gender           String?
-  dateOfBirth      DateTime?
-  addressLine      String?
-  ward             String?
-  district         String?
-  region           String?
-  nationalId       String?
-  idType           String?
-  idVerified       Boolean        @default(false)
-  occupation       String?
-  employerName     String?
-  monthlyIncome    Int?
-  guarantorName    String?
-  guarantorPhone   String?
-  relationship     String?
-  status           CustomerStatus
-  totalContracts   Int            @default(0)
-  activeContracts  Int            @default(0)
-  totalPaid        Int            @default(0)
-  totalOutstanding Int            @default(0)
-  lastPaymentAt    DateTime?
-  riskScore        Int?
-  isBlacklisted    Boolean        @default(false)
-  notes            String?
-  pinHash          String?
-  otpHash          String?
-  otpExpiresAt     DateTime?
-  lastLoginAt      DateTime?
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
-  business         Business       @relation(fields: [businessId], references: [id])
-  contracts        Contract[]
-  notifications    Notification[]
-  dataRequests     DataRequest[]
-
-  @@unique([phone, businessId])
-}
-
-model CustomerImportLog {
-  id         String   @id @default(uuid())
+model ApprovalRequest {
+  id         String @id @default(uuid())
   businessId String
-  fileName   String
-  totalRows  Int
-  imported   Int
-  skipped    Int
-  createdAt  DateTime @default(now())
+
+  type       String?
+  entityType String
+  entityId   String
+
+  requestedBy String
+  approvedBy  String?
+
+  status ApprovalStatus @default(PENDING)
+
+  reason       String?
+  decisionNote String?
+
+  resolvedAt DateTime?
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 
   @@index([businessId])
-}
-
-model RefreshToken {
-  id              String    @id @default(uuid())
-  token           String    @unique
-  userId          String?
-  user            User?     @relation(fields: [userId], references: [id])
-  customerId      String? // ← ADD
-  expiresAt       DateTime
-  createdAt       DateTime  @default(now())
-  revokedAt       DateTime?
-  replacedByToken String?
+  @@index([entityType])
+  @@index([entityId])
+  @@index([status])
 }
 
 //////////////////////////////////////////////////////
-// BUSINESS (TENANT)
+// AUDIT LOG — System audit trail
 //////////////////////////////////////////////////////
+
+model AuditLog {
+  id String @id @default(uuid())
+
+  businessId String?
+  userId     String?
+  customerId String?
+
+  entityType String?
+  entityId   String?
+
+  action   String
+  metadata Json?
+
+  ipAddress String?
+  userAgent String?
+
+  actorType String  @default("TENANT")
+  module    String?
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([businessId])
+  @@index([entityType])
+  @@index([entityId])
+  @@index([createdAt])
+  @@index([action])
+  @@index([actorType])
+}
+
+//////////////////////////////////////////////////////
+// BULK NOTIFICATION LIMIT — Weekly limits
+//////////////////////////////////////////////////////
+
+model BulkNotificationLimit {
+  id String @id @default(uuid())
+
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id])
+
+  weekStart DateTime
+  count     Int      @default(0)
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([businessId, weekStart])
+}
+
+//////////////////////////////////////////////////////
+// BUSINESS — Tenant entity
+//////////////////////////////////////////////////////
+
 model Business {
-  id                          String                       @id @default(uuid())
-  name                        String
-  email                       String?
-  phone                       String?
-  country                     String
-  businessCode                String                       @unique
-  status                      BusinessStatus               @default(PENDING)
-  setupCompleted              Boolean                      @default(false)
-  users                       User[]
-  invites                     BusinessInvite[]
-  settings                    BusinessSettings?
+  id String @id @default(uuid())
+
+  name         String
+  email        String?
+  phone        String?
+  country      String
+  businessCode String  @unique
+
+  status         BusinessStatus @default(PENDING)
+  setupCompleted Boolean        @default(false)
+
+  users    User[]
+  invites  BusinessInvite[]
+  settings BusinessSettings?
+
   subscriptions               Subscription[]
   subscriptionPayments        SubscriptionPayment[]
-  createdAt                   DateTime                     @default(now())
-  updatedAt                   DateTime                     @updatedAt
   customers                   Customer[]
   notifications               Notification[]
   notificationSettings        NotificationSetting[]
@@ -261,250 +206,101 @@ model Business {
   notificationEscalationRules NotificationEscalationRule[]
   bulkNotificationLimits      BulkNotificationLimit[]
   subscriptionUsages          SubscriptionUsage[]
-  lastActiveAt                DateTime?
   subscriptionHistories       SubscriptionHistory[]
+
+  lastActiveAt DateTime?
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 
   @@index([country])
 }
 
-model BusinessSettings {
-  id         String   @id @default(uuid())
-  businessId String   @unique
-  currency   String   @default("TZS")
-  timezone   String   @default("Africa/Dar_es_Salaam")
-  business   Business @relation(fields: [businessId], references: [id])
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-}
+//////////////////////////////////////////////////////
+// BUSINESS INVITE — User invitations
+//////////////////////////////////////////////////////
 
 model BusinessInvite {
-  id         String   @id @default(uuid())
-  email      String
-  role       UserRole
-  tokenHash  String
-  expiresAt  DateTime
+  id String @id @default(uuid())
+
+  email     String
+  role      UserRole
+  tokenHash String
+  expiresAt DateTime
+
   businessId String
   business   Business @relation(fields: [businessId], references: [id])
-  createdAt  DateTime @default(now())
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 
   @@index([email])
 }
 
 //////////////////////////////////////////////////////
-// MODULE: SUBSCRIPTION CORE
+// BUSINESS SETTINGS — Tenant config
 //////////////////////////////////////////////////////
-model SubscriptionPackage {
-  id          String  @id @default(uuid())
-  name        String
-  code        String  @unique
-  description String?
 
-  priceMonthly Int
-  priceYearly  Int?
-  setupFee     Int  @default(0)
-  trialDays    Int  @default(0)
-
-  features Json
-  limits   Json?
-  isActive Boolean @default(true)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  subscriptions Subscription[]
-}
-
-model Subscription {
+model BusinessSettings {
   id String @id @default(uuid())
 
-  businessId String
-  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  businessId String @unique
+  currency   String @default("TZS")
+  timezone   String @default("Africa/Dar_es_Salaam")
 
-  packageId String
-  package   SubscriptionPackage @relation(fields: [packageId], references: [id])
+  business Business @relation(fields: [businessId], references: [id])
 
-  billingCycle BillingCycle
-
-  setupFeeSnapshot     Int
-  priceMonthlySnapshot Int
-  priceYearlySnapshot  Int
-
-  featuresSnapshot Json?
-  limitsSnapshot   Json?
-
-  status     SubscriptionStatus
-  startDate  DateTime
-  endDate    DateTime?
-  graceUntil DateTime?
-
-  setupFeePaid Boolean @default(false)
-
-  version       Int @default(1)
-  creditBalance Int @default(0)
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
 
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  couponId       String
-  couponCode     String?
-  couponDiscount Int? // store applied discount snapshot
-  finalAmount    Int? // optional (snapshot for audit)
-
-  coupon               Coupon?               @relation(fields: [couponId], references: [id])
-  subscriptionPayments SubscriptionPayment[]
-
-  isTrial               Boolean               @default(false)
-  trialStartedAt        DateTime?
-  trialEndedAt          DateTime?
-  convertedAt           DateTime?
-  subscriptionHistories SubscriptionHistory[]
-
-  @@index([businessId])
-  @@index([status])
-  @@index([businessId, status])
-  @@index([businessId, createdAt])
+  updatedAt DateTime @default(now()) @updatedAt
 }
 
-model SubscriptionUsage {
+//////////////////////////////////////////////////////
+// CONSENT LOG — Compliance tracking
+//////////////////////////////////////////////////////
+
+model ConsentLog {
   id String @id @default(uuid())
 
-  businessId String
-  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
-
-  metric String
-  period String
-  value  Int    @default(0)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([businessId, metric, period])
-  @@index([businessId])
-  @@index([metric])
-}
-
-model SubscriptionPayment {
-  id String @id @default(uuid())
-
-  subscriptionId String
-
-  couponId String?
-
-  subscription Subscription @relation(fields: [subscriptionId], references: [id])
-
-  amount   Decimal
-  currency String
-
-  status SubscriptionPaymentStatus
-
-  type String // SUBSCRIPTION | SETUP_FEE | RENEWAL | REFUND | MANUAL_ADJUSTMENT
-
-  gateway String? // stripe | flutterwave | etc
-
-  paidAt    DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-
-  invoiceUrl    String? // invoice link
-  webhookStatus String? // RECEIVED | FAILED | PROCESSED
-
-  adminOverride Boolean @default(false)
-
-  // Raw gateway payload (for drilldown)
-  gatewayPayload Json?
-
-  // Retry attempts tracking
-  retryCount Int @default(0)
-
-  // Generic metadata (already exists in some systems, keep if exists)
-  metadata   Json?
-  business   Business? @relation(fields: [businessId], references: [id])
+  userId     String?
   businessId String?
-}
 
-model SubscriptionHistory {
-  id String @id @default(uuid())
+  type   String
+  status String
 
-  subscriptionId String
-  businessId     String
+  source   String?
+  metadata Json?
 
-  oldPackageId String?
-  newPackageId String?
-
-  oldPrice Int?
-  newPrice Int?
-
-  changeType String // UPGRADE | DOWNGRADE | RENEWAL
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 
-  subscription Subscription @relation(fields: [subscriptionId], references: [id])
-  business     Business     @relation(fields: [businessId], references: [id])
-
-  @@index([subscriptionId])
+  @@index([userId])
   @@index([businessId])
-  @@index([changeType])
+  @@index([type])
 }
 
-model FinancialAdjustment {
-  id String @id @default(uuid())
+//////////////////////////////////////////////////////
+// CONTRACT — Customer agreement
+//////////////////////////////////////////////////////
 
-  businessId String
-  amount     Decimal
-
-  type   String // CREDIT | DEBIT
-  reason String?
-
-  createdBy String
-
-  // 🔥 USAGE TRACKING (NEW)
-  isApplied        Boolean   @default(false)
-  appliedPaymentId String?
-  appliedAt        DateTime?
-
-  createdAt DateTime @default(now())
-}
-
-model Coupon {
-  id String @id @default(uuid())
-
-  code String @unique
-
-  type  String // PERCENTAGE | FIXED
-  value Decimal
-
-  maxUsage   Int?
-  usageCount Int  @default(0)
-
-  maxUsagePerBusiness Int? // 🔥 ADD THIS ONLY
-
-  validFrom DateTime?
-  validTo   DateTime?
-
-  isActive Boolean @default(true)
-
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  couponUsages  CouponUsage[]
-  subscriptions Subscription[]
-}
-
-model CouponUsage {
-  id String @id @default(uuid())
-
-  couponId String
-  coupon   Coupon @relation(fields: [couponId], references: [id])
-
-  businessId String
-
-  usedAt DateTime @default(now())
-}
-
-////////////////////////////////////////
-//          CONTRACT
-////////////////////////////////////
 model Contract {
-  id         String @id @default(uuid())
+  id String @id @default(uuid())
+
   businessId String
   customerId String
 
@@ -546,21 +342,532 @@ model Contract {
 
   createdBy String
 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
-
   customer      Customer              @relation(fields: [customerId], references: [id])
   assets        ContractAsset[]
   schedules     InstallmentSchedule[]
   notifications Notification[]
 
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
   @@index([businessId])
   @@index([customerId])
 }
 
+//////////////////////////////////////////////////////
+// CONTRACT ASSET — Items in contract
+//////////////////////////////////////////////////////
+
+model ContractAsset {
+  id String @id @default(uuid())
+
+  contractId String
+
+  name      String
+  quantity  Int
+  unitPrice Int
+
+  contract Contract @relation(fields: [contractId], references: [id])
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([contractId])
+}
+
+//////////////////////////////////////////////////////
+// COUPON — Discount definitions
+//////////////////////////////////////////////////////
+
+model Coupon {
+  id   String @id @default(uuid())
+  code String @unique
+
+  type  String
+  value Decimal
+
+  maxUsage   Int?
+  usageCount Int  @default(0)
+
+  maxUsagePerBusiness Int?
+
+  validFrom DateTime?
+  validTo   DateTime?
+
+  isActive Boolean @default(true)
+
+  couponUsages  CouponUsage[]
+  subscriptions Subscription[]
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+//////////////////////////////////////////////////////
+// COUPON USAGE — Coupon usage per business
+//////////////////////////////////////////////////////
+
+model CouponUsage {
+  id String @id @default(uuid())
+
+  couponId String
+  coupon   Coupon @relation(fields: [couponId], references: [id])
+
+  businessId String
+
+  usedAt DateTime @default(now())
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+//////////////////////////////////////////////////////
+// CUSTOMER — End users under business
+//////////////////////////////////////////////////////
+
+model Customer {
+  id String @id @default(uuid())
+
+  businessId String
+  fullName   String
+  phone      String
+  altPhone   String?
+  email      String?
+
+  gender      String?
+  dateOfBirth DateTime?
+
+  addressLine String?
+  ward        String?
+  district    String?
+  region      String?
+
+  nationalId String?
+  idType     String?
+  idVerified Boolean @default(false)
+
+  occupation    String?
+  employerName  String?
+  monthlyIncome Int?
+
+  guarantorName  String?
+  guarantorPhone String?
+  relationship   String?
+
+  status CustomerStatus
+
+  totalContracts   Int @default(0)
+  activeContracts  Int @default(0)
+  totalPaid        Int @default(0)
+  totalOutstanding Int @default(0)
+
+  lastPaymentAt DateTime?
+
+  riskScore Int?
+
+  isBlacklisted Boolean @default(false)
+
+  notes String?
+
+  pinHash      String?
+  otpHash      String?
+  otpExpiresAt DateTime?
+
+  lastLoginAt DateTime?
+
+  business      Business       @relation(fields: [businessId], references: [id])
+  contracts     Contract[]
+  notifications Notification[]
+  dataRequests  DataRequest[]
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([phone, businessId])
+}
+
+//////////////////////////////////////////////////////
+// CUSTOMER CREDIT — Credit balance per customer
+//////////////////////////////////////////////////////
+
+model CustomerCredit {
+  id String @id @default(uuid())
+
+  businessId String
+  customerId String
+
+  balance Int @default(0)
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([businessId, customerId])
+}
+
+//////////////////////////////////////////////////////
+// CUSTOMER IMPORT LOG — Bulk import tracking
+//////////////////////////////////////////////////////
+
+model CustomerImportLog {
+  id String @id @default(uuid())
+
+  businessId String
+  fileName   String
+
+  totalRows Int
+  imported  Int
+  skipped   Int
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([businessId])
+}
+
+//////////////////////////////////////////////////////
+// DASHBOARD ASSET METRIC — Asset analytics
+//////////////////////////////////////////////////////
+
+model DashboardAssetMetric {
+  id String @id @default(uuid())
+
+  businessId String
+  assetId    String
+
+  soldCount  Int
+  totalValue Int
+  overdue    Int
+
+  snapshotDate DateTime
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([businessId])
+  @@index([assetId])
+}
+
+//////////////////////////////////////////////////////
+// DASHBOARD HEALTH — Business health score
+//////////////////////////////////////////////////////
+
+model DashboardHealth {
+  id String @id @default(uuid())
+
+  businessId String
+
+  collectionRate Float
+  overdueRatio   Float
+  churnRate      Float
+  healthScore    Float
+
+  snapshotDate DateTime
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([businessId, snapshotDate])
+}
+
+//////////////////////////////////////////////////////
+// DASHBOARD INSIGHT — Smart insights
+//////////////////////////////////////////////////////
+
+model DashboardInsight {
+  id String @id @default(uuid())
+
+  businessId String
+
+  type       String
+  messageKey String
+  payload    Json?
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([businessId])
+}
+
+//////////////////////////////////////////////////////
+// DASHBOARD SNAPSHOT — Daily metrics
+//////////////////////////////////////////////////////
+
+model DashboardSnapshot {
+  id String @id @default(uuid())
+
+  businessId   String
+  snapshotDate DateTime
+
+  portfolio   Int
+  collected   Int
+  outstanding Int
+  overdue     Int
+
+  cashflow30 Int
+  cashflow60 Int
+  cashflow90 Int
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([businessId, snapshotDate])
+  @@index([businessId])
+}
+
+//////////////////////////////////////////////////////
+// DASHBOARD STAFF METRIC — Staff performance
+//////////////////////////////////////////////////////
+
+model DashboardStaffMetric {
+  id String @id @default(uuid())
+
+  businessId String
+  staffId    String
+
+  collected  Int
+  overdue    Int
+  efficiency Float
+
+  snapshotDate DateTime
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([businessId])
+  @@index([staffId])
+}
+
+//////////////////////////////////////////////////////
+// DATA EXPORT STORAGE — Export payload storage
+//////////////////////////////////////////////////////
+
+model DataExportStorage {
+  id String @id @default(uuid())
+
+  dataRequestId String
+  payload       Json
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+//////////////////////////////////////////////////////
+// DATA REQUEST — Export / delete requests
+//////////////////////////////////////////////////////
+
+model DataRequest {
+  id String @id @default(uuid())
+
+  type   DataRequestType
+  status DataRequestStatus @default(PENDING)
+
+  requestedByAdminId String?
+  requestedByAdmin   SystemAdmin? @relation("RequestedByAdmin", fields: [requestedByAdminId], references: [id])
+
+  requestedByUserId String?
+  requestedByUser   User?   @relation(fields: [requestedByUserId], references: [id])
+
+  requestedByCustomerId String?
+  requestedByCustomer   Customer? @relation(fields: [requestedByCustomerId], references: [id])
+
+  targetType String
+  targetId   String
+
+  exportFilePath String?
+
+  reason String?
+
+  approvedById String?
+  approvedBy   SystemAdmin? @relation("ApprovedBy", fields: [approvedById], references: [id])
+
+  approvedAt  DateTime?
+  processedAt DateTime?
+
+  purgeQueues PurgeQueue[]
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+//////////////////////////////////////////////////////
+// DATA RETENTION POLICY — Retention rules
+//////////////////////////////////////////////////////
+
+model DataRetentionPolicy {
+  id String @id @default(uuid())
+
+  resource      String
+  retentionDays Int
+  isActive      Boolean @default(true)
+  version       Int     @default(1)
+
+  createdById String
+  createdBy   SystemAdmin @relation(fields: [createdById], references: [id])
+
+  policyVersions PolicyVersion[]
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([resource])
+}
+
+//////////////////////////////////////////////////////
+// DEAD JOB — Failed background jobs
+//////////////////////////////////////////////////////
+
+model DeadJob {
+  id String @id @default(uuid())
+
+  jobName    String
+  instanceId String
+  reason     String
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+//////////////////////////////////////////////////////
+// DEVICE TOKEN — Push notification tokens
+//////////////////////////////////////////////////////
+
+model DeviceToken {
+  id String @id @default(uuid())
+
+  token    String @unique
+  platform String
+
+  userId     String?
+  customerId String?
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([userId])
+  @@index([customerId])
+}
+
+//////////////////////////////////////////////////////
+// FINANCIAL ADJUSTMENT — Credit/Debit adjustments
+//////////////////////////////////////////////////////
+
+model FinancialAdjustment {
+  id String @id @default(uuid())
+
+  businessId String
+  amount     Decimal
+
+  type   String
+  reason String?
+
+  createdBy String
+
+  isApplied        Boolean   @default(false)
+  appliedPaymentId String?
+  appliedAt        DateTime?
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+//////////////////////////////////////////////////////
+// GATEWAY HEALTH — Payment gateway monitoring
+//////////////////////////////////////////////////////
+
+model GatewayHealth {
+  id String @id @default(uuid())
+
+  code      String        @unique
+  status    GatewayStatus @default(UNKNOWN)
+  lastCheck DateTime?
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+//////////////////////////////////////////////////////
+// INSTALLMENT SCHEDULE — Payment schedule
+//////////////////////////////////////////////////////
+
 model InstallmentSchedule {
-  id         String @id @default(uuid())
+  id String @id @default(uuid())
+
   contractId String
 
   dueDate DateTime
@@ -570,201 +877,65 @@ model InstallmentSchedule {
 
   paidAt DateTime?
 
-  createdAt DateTime @default(now())
-
   contract Contract @relation(fields: [contractId], references: [id])
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 
   @@index([contractId])
 }
 
-model ContractAsset {
-  id         String @id @default(uuid())
-  contractId String
+//////////////////////////////////////////////////////
+// JOB LOCK — Distributed job locking
+//////////////////////////////////////////////////////
 
-  name      String
-  quantity  Int
-  unitPrice Int
+model JobLock {
+  id String @id @default(cuid())
 
-  createdAt DateTime @default(now())
+  jobName     String   @unique
+  lockedAt    DateTime
+  lockedUntil DateTime
+  instanceId  String
 
-  contract Contract @relation(fields: [contractId], references: [id])
-
-  @@index([contractId])
-}
-
-////////////////////////////////////////
-//          PAYMENT
-////////////////////////////////////
-model Payment {
-  id         String @id @default(uuid())
-  businessId String
-  contractId String
-  customerId String
-
-  amount         Int
-  channel        String // CASH | MOBILE | BANK
-  source         String // POS | WEB | IMPORT | API
-  reference      String?
-  idempotencyKey String?
-
-  receivedAt DateTime
-
-  balanceBefore Int
-  balanceAfter  Int
-
-  status PaymentStatus @default(POSTED)
-
-  attachments Json?
-
-  recordedBy String
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 
-  reversals PaymentReversal[]
-
-  @@unique([businessId, idempotencyKey])
-  @@index([businessId])
+  @@index([lockedUntil])
 }
 
-model PaymentReversal {
-  id        String @id @default(uuid())
-  paymentId String
-  reason    String
+//////////////////////////////////////////////////////
+// LOGIN ACTIVITY — Login tracking
+//////////////////////////////////////////////////////
 
-  requestedBy String
-  approvedBy  String?
-
-  status ReversalStatus @default(PENDING)
-
-  createdAt  DateTime  @default(now())
-  approvedAt DateTime?
-
-  Payment Payment @relation(fields: [paymentId], references: [id])
-}
-
-model ApprovalRequest {
+model LoginActivity {
   id String @id @default(uuid())
 
-  businessId String
+  userId  String?
+  adminId String?
 
-  type       String?
-  entityType String
-  entityId   String
+  status    String
+  ipAddress String?
 
-  requestedBy String
-  approvedBy  String?
-
-  status ApprovalStatus @default(PENDING)
-
-  reason       String?
-  decisionNote String?
-
-  createdAt  DateTime  @default(now())
-  resolvedAt DateTime?
-
-  @@index([businessId])
-  @@index([entityType])
-  @@index([entityId])
-  @@index([status])
-}
-
-model CustomerCredit {
-  id         String   @id @default(uuid())
-  businessId String
-  customerId String
-  balance    Int      @default(0)
-  updatedAt  DateTime @updatedAt
-
-  @@unique([businessId, customerId])
-}
-
-////////////////////////////////////////
-//          DASHBOARDS
-////////////////////////////////////
-model DashboardSnapshot {
-  id           String   @id @default(uuid())
-  businessId   String
-  snapshotDate DateTime
-
-  portfolio   Int
-  collected   Int
-  outstanding Int
-  overdue     Int
-
-  // Cashflow projections
-  cashflow30 Int
-  cashflow60 Int
-  cashflow90 Int
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
 
   createdAt DateTime @default(now())
-
-  @@unique([businessId, snapshotDate])
-  @@index([businessId])
+  updatedAt DateTime @default(now()) @updatedAt
 }
 
-model DashboardInsight {
-  id         String @id @default(uuid())
-  businessId String
+//////////////////////////////////////////////////////
+// NOTIFICATION — System notifications
+//////////////////////////////////////////////////////
 
-  type       String
-  messageKey String
-  payload    Json?
-
-  createdAt DateTime @default(now())
-
-  @@index([businessId])
-}
-
-model DashboardStaffMetric {
-  id         String @id @default(uuid())
-  businessId String
-  staffId    String
-
-  collected  Int
-  overdue    Int
-  efficiency Float
-
-  snapshotDate DateTime
-  createdAt    DateTime @default(now())
-
-  @@index([businessId])
-  @@index([staffId])
-}
-
-model DashboardAssetMetric {
-  id         String @id @default(uuid())
-  businessId String
-  assetId    String
-
-  soldCount  Int
-  totalValue Int
-  overdue    Int
-
-  snapshotDate DateTime
-  createdAt    DateTime @default(now())
-
-  @@index([businessId])
-  @@index([assetId])
-}
-
-model DashboardHealth {
-  id         String @id @default(uuid())
-  businessId String
-
-  collectionRate Float
-  overdueRatio   Float
-  churnRate      Float
-  healthScore    Float
-
-  snapshotDate DateTime
-  createdAt    DateTime @default(now())
-
-  @@unique([businessId, snapshotDate])
-}
-
-///////////////////////////////////
-// NOTIFICATIONS
-///////////////////////////////////
 model Notification {
   id String @id @default(uuid())
 
@@ -780,25 +951,58 @@ model Notification {
   contractId String?
   contract   Contract? @relation(fields: [contractId], references: [id])
 
-  type    String // UPCOMING | DUE | OVERDUE | ESCALATION | BULK
-  channel String // IN_APP | PUSH | SMS | WHATSAPP | EMAIL
+  type    String
+  channel String
 
   title   String
   message String
 
-  status String // QUEUED | SENT | DELIVERED | READ | FAILED
+  status String
 
   retryCount       Int   @default(0)
   providerResponse Json?
 
-  createdAt DateTime  @default(now())
-  sentAt    DateTime?
-  readAt    DateTime?
+  sentAt DateTime?
+  readAt DateTime?
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 
   @@index([businessId])
   @@index([customerId])
   @@index([userId])
 }
+
+//////////////////////////////////////////////////////
+// NOTIFICATION ESCALATION RULE — Overdue escalation
+//////////////////////////////////////////////////////
+
+model NotificationEscalationRule {
+  id String @id @default(uuid())
+
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id])
+
+  daysOverdue  Int
+  roleToNotify String
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([businessId, daysOverdue])
+}
+
+//////////////////////////////////////////////////////
+// NOTIFICATION SETTING — User preferences
+//////////////////////////////////////////////////////
 
 model NotificationSetting {
   id String @id @default(uuid())
@@ -823,10 +1027,19 @@ model NotificationSetting {
   quietHoursStart String?
   quietHoursEnd   String?
 
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
   createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 
   @@unique([businessId, userId])
 }
+
+//////////////////////////////////////////////////////
+// NOTIFICATION TEMPLATE — Message templates
+//////////////////////////////////////////////////////
 
 model NotificationTemplate {
   id String @id @default(uuid())
@@ -840,326 +1053,110 @@ model NotificationTemplate {
   title String @db.VarChar(120)
   body  String @db.VarChar(500)
 
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
   createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 
   @@unique([businessId, type, locale])
 }
 
-model NotificationEscalationRule {
+//////////////////////////////////////////////////////
+// PAYMENT — Customer payments
+//////////////////////////////////////////////////////
+
+model Payment {
   id String @id @default(uuid())
 
   businessId String
-  business   Business @relation(fields: [businessId], references: [id])
+  contractId String
+  customerId String
 
-  daysOverdue  Int
-  roleToNotify String // MANAGER | BUSINESS_OWNER
+  amount         Int
+  channel        String
+  source         String
+  reference      String?
+  idempotencyKey String?
 
-  createdAt DateTime @default(now())
+  receivedAt DateTime
 
-  @@unique([businessId, daysOverdue])
-}
+  balanceBefore Int
+  balanceAfter  Int
 
-model BulkNotificationLimit {
-  id String @id @default(uuid())
+  status PaymentStatus @default(POSTED)
 
-  businessId String
-  business   Business @relation(fields: [businessId], references: [id])
+  attachments Json?
 
-  weekStart DateTime
-  count     Int      @default(0)
+  recordedBy String
 
-  createdAt DateTime @default(now())
+  reversals PaymentReversal[]
 
-  @@unique([businessId, weekStart])
-}
-
-model DeviceToken {
-  id         String   @id @default(uuid())
-  token      String   @unique
-  platform   String
-  userId     String?
-  customerId String?
-  createdAt  DateTime @default(now())
-
-  @@index([userId])
-  @@index([customerId])
-}
-
-////////////////////////////////////////
-//          AUDIT LOG
-////////////////////////////////////
-model AuditLog {
-  id String @id @default(uuid())
-
-  businessId String?
-  userId     String?
-  customerId String?
-
-  entityType String?
-  entityId   String?
-
-  action   String
-  metadata Json?
-
-  ipAddress String?
-  userAgent String?
-
-  actorType String  @default("TENANT") // "ADMIN" | "TENANT"
-  module    String? // e.g. "AUTH", "PAYMENT", "ADMIN"
-
-  createdAt DateTime @default(now())
-
-  @@index([businessId])
-  @@index([entityType])
-  @@index([entityId])
-  @@index([createdAt])
-  @@index([action])
-  @@index([actorType]) // 🔥 new index
-}
-
-model SuspiciousActivity {
-  id String @id @default(uuid())
-
-  adminId  String?
-  action   String
-  ip       String?
-  endpoint String?
-  meta     Json?
-
-  createdAt DateTime @default(now())
-
-  @@index([adminId])
-  @@index([action])
-}
-
-model AdminImpersonation {
-  id String @id @default(uuid())
-
-  adminId      String
-  targetUserId String
-  startedAt    DateTime  @default(now())
-  endedAt      DateTime?
-
-  ip        String?
-  userAgent String?
-
-  @@index([adminId])
-  @@index([targetUserId])
-}
-
-model SystemJobLog {
-  id           String    @id @default(uuid())
-  jobName      String
-  status       String // success | failed
-  startedAt    DateTime
-  finishedAt   DateTime?
-  durationMs   Int?
-  errorMessage String?
-
-  retryCount    Int       @default(0)
-  lastRetriedAt DateTime?
-
-  createdAt DateTime @default(now())
-
-  @@index([jobName])
-  @@index([status])
-  @@index([createdAt])
-}
-
-model DeadJob {
-  id         String   @id @default(uuid())
-  jobName    String
-  instanceId String
-  reason     String
-  createdAt  DateTime @default(now())
-}
-
-model ApiMetric {
-  id              String   @id @default(uuid())
-  totalRequests   Int
-  successRequests Int
-  failedRequests  Int
-  avgResponseTime Float
-  createdAt       DateTime @default(now())
-}
-
-model SystemErrorGroup {
-  id          String   @id @default(uuid())
-  signature   String   @unique
-  message     String
-  firstSeenAt DateTime @default(now())
-  lastSeenAt  DateTime @updatedAt
-  occurrence  Int      @default(1)
-
-  errors SystemError[]
-}
-
-model SystemError {
-  id          String   @id @default(uuid())
-  groupId     String
-  stack       String?
-  environment String
-  createdAt   DateTime @default(now())
-
-  group SystemErrorGroup @relation(fields: [groupId], references: [id])
-
-  @@index([groupId])
-  @@index([createdAt])
-}
-
-model SystemHealthSnapshot {
-  id              String    @id @default(uuid())
-  dbStatus        String
-  lastJobRunAt    DateTime?
-  failedJobsCount Int       @default(0)
-  errorRate       Float     @default(0)
-  createdAt       DateTime  @default(now())
-
-  @@index([createdAt])
-}
-
-model SecurityIncident {
-  id String @id @default(uuid())
-
-  type        String // FRAUD, SUSPICIOUS_TRANSACTION, LOGIN_ANOMALY, SYSTEM_INTEGRITY
-  title       String
-  description String
-
-  severity String // LOW, MEDIUM, HIGH, CRITICAL
-  status   String // OPEN, IN_PROGRESS, RESOLVED
-
-  source      String // FRAUD_FLAG, PAYMENT, AUTH, SYSTEM
-  referenceId String? // userId, transactionId, etc
-
-  metadata Json?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([type])
-  @@index([status])
-  @@index([severity])
-  @@index([referenceId])
-}
-
-model LoginActivity {
-  id        String   @id @default(uuid())
-  userId    String?
-  adminId   String?
-  status    String // SUCCESS | FAILED
-  ipAddress String?
-  createdAt DateTime @default(now())
-}
-
-model GatewayHealth {
-  id        String        @id @default(uuid())
-  code      String        @unique
-  status    GatewayStatus @default(UNKNOWN)
-  lastCheck DateTime?
-  updatedAt DateTime      @updatedAt
-}
-
-model JobLock {
-  id          String   @id @default(cuid())
-  jobName     String   @unique
-  lockedAt    DateTime
-  lockedUntil DateTime
-  instanceId  String
-
-  @@index([lockedUntil])
-}
-
-model ReportExport {
-  id          String    @id @default(uuid())
-  type        String
-  format      String
-  status      String // PENDING | COMPLETED | FAILED
-  filePath    String?
-  requestedBy String
-  createdAt   DateTime  @default(now())
-  completedAt DateTime?
-
-  admin SystemAdmin @relation(fields: [requestedBy], references: [id])
-}
-
-///////////////////////////////////
-//          SUPORT
-//////////////////////////////////////
-model Ticket {
-  id              String  @id @default(uuid())
-  businessId      String
-  userId          String?
-  assignedAdminId String?
-
-  subject     String
-  description String
-
-  status   String
-  priority String
-
-  slaDeadline DateTime?
-  escalated   Boolean   @default(false)
-
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  isDeleted Boolean   @default(false)
   deletedAt DateTime?
+  deletedBy String?
 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([businessId, idempotencyKey])
   @@index([businessId])
-  @@index([status])
 }
 
-model TicketMessage {
-  id         String @id @default(uuid())
-  ticketId   String
-  senderId   String
-  senderType String
-  message    String
+//////////////////////////////////////////////////////
+// PAYMENT REVERSAL — Reversal operations
+//////////////////////////////////////////////////////
+
+model PaymentReversal {
+  id String @id @default(uuid())
+
+  paymentId String
+  reason    String
+
+  requestedBy String
+  approvedBy  String?
+
+  status ReversalStatus @default(PENDING)
+
+  approvedAt DateTime?
+
+  Payment Payment @relation(fields: [paymentId], references: [id])
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
 
   createdAt DateTime @default(now())
-
-  @@index([ticketId])
+  updatedAt DateTime @default(now()) @updatedAt
 }
 
-model TicketNote {
-  id       String @id @default(uuid())
-  ticketId String
-  adminId  String
-  note     String
+//////////////////////////////////////////////////////
+// PERMISSION — System permissions
+//////////////////////////////////////////////////////
+
+model Permission {
+  id String @id @default(uuid())
+
+  module String
+  action String
+  scope  String
+
+  rolePermissions RolePermission[]
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 
-  @@index([ticketId])
+  @@unique([module, action, scope])
 }
 
-model TicketAttachment {
-  id       String @id @default(uuid())
-  ticketId String
-  fileUrl  String
-
-  createdAt DateTime @default(now())
-
-  @@index([ticketId])
-}
-
-/////////////////////////////////
-//    COMPLIANCE
-///////////////////////////////
-model DataRetentionPolicy {
-  id            String  @id @default(uuid())
-  resource      String
-  retentionDays Int
-  isActive      Boolean @default(true)
-  version       Int     @default(1)
-
-  createdById String
-  createdBy   SystemAdmin @relation(fields: [createdById], references: [id])
-
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  policyVersions PolicyVersion[]
-
-  @@index([resource])
-}
+//////////////////////////////////////////////////////
+// POLICY VERSION — Policy history
+//////////////////////////////////////////////////////
 
 model PolicyVersion {
   id String @id @default(uuid())
@@ -1174,64 +1171,19 @@ model PolicyVersion {
   createdById String
   createdBy   SystemAdmin @relation(fields: [createdById], references: [id])
 
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
   createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 
   @@index([policyId])
 }
 
-model DataRequest {
-  id String @id @default(uuid())
-
-  type   DataRequestType
-  status DataRequestStatus @default(PENDING)
-
-  // 🔥 REQUESTOR (FIXED)
-  requestedByAdminId String?
-  requestedByAdmin   SystemAdmin? @relation("RequestedByAdmin", fields: [requestedByAdminId], references: [id])
-
-  requestedByUserId String?
-  requestedByUser   User?   @relation(fields: [requestedByUserId], references: [id])
-
-  requestedByCustomerId String?
-  requestedByCustomer   Customer? @relation(fields: [requestedByCustomerId], references: [id])
-
-  targetType String
-  targetId   String
-
-  exportFilePath String?
-
-  reason String?
-
-  approvedById String?
-  approvedBy   SystemAdmin? @relation("ApprovedBy", fields: [approvedById], references: [id])
-
-  approvedAt  DateTime?
-  processedAt DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  purgeQueues PurgeQueue[]
-}
-
-model ConsentLog {
-  id String @id @default(uuid())
-
-  userId     String?
-  businessId String?
-
-  type   String
-  status String
-
-  source   String?
-  metadata Json?
-
-  createdAt DateTime @default(now())
-
-  @@index([userId])
-  @@index([businessId])
-  @@index([type])
-}
+//////////////////////////////////////////////////////
+// PURGE QUEUE — Deletion jobs
+//////////////////////////////////////////////////////
 
 model PurgeQueue {
   id String @id @default(uuid())
@@ -1247,171 +1199,699 @@ model PurgeQueue {
   startedAt   DateTime?
   completedAt DateTime?
 
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime @default(now()) @updatedAt
 
   @@index([status])
 }
 
-model DataExportStorage {
+//////////////////////////////////////////////////////
+// REFRESH TOKEN — Auth tokens
+//////////////////////////////////////////////////////
+
+model RefreshToken {
   id String @id @default(uuid())
 
-  dataRequestId String
-  payload       Json
+  token String @unique
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id])
+
+  customerId String?
+
+  expiresAt       DateTime
+  revokedAt       DateTime?
+  replacedByToken String?
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 }
 
-//////////////////////////////////////
-// ANNOUNCEMENTS 
-/////////////////////////////////////
-model Announcement {
+//////////////////////////////////////////////////////
+// REPORT EXPORT — Export tracking
+//////////////////////////////////////////////////////
+
+model ReportExport {
   id String @id @default(uuid())
 
-  title   String
-  message String
+  type   String
+  format String
+  status String
 
-  priority String // LOW | MEDIUM | HIGH | CRITICAL
+  filePath String?
 
-  // UI + Product
-  placement AnnouncementPlacement
-  eventType AnnouncementEventType @default(GENERAL)
+  requestedBy String
+  completedAt DateTime?
 
-  // Scheduling
-  startAt DateTime?
-  endAt   DateTime?
+  admin SystemAdmin @relation(fields: [requestedBy], references: [id])
 
-  // Flags
-  trialOnly   Boolean @default(false)
-  isEmergency Boolean @default(false)
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
 
-  // Notification
-  sendNotification Boolean  @default(false)
-  channels         String[] // ["IN_APP", "SMS"]
-
-  createdBy String
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  countries AnnouncementCountry[]
-  packages  AnnouncementPackage[]
-  segments  AnnouncementSegment[]
-  reads     AnnouncementRead[]
-
-  @@index([priority])
-  @@index([startAt, endAt])
+  updatedAt DateTime @default(now()) @updatedAt
 }
 
-model AnnouncementCountry {
-  id             String @id @default(uuid())
-  announcementId String
-  countryCode    String
+//////////////////////////////////////////////////////
+// ROLE PERMISSION — Role mapping
+//////////////////////////////////////////////////////
 
-  announcement Announcement @relation(fields: [announcementId], references: [id])
-
-  @@index([countryCode])
-}
-
-model AnnouncementPackage {
-  id             String @id @default(uuid())
-  announcementId String
-  packageId      String
-
-  announcement Announcement @relation(fields: [announcementId], references: [id])
-
-  @@index([packageId])
-}
-
-model AnnouncementSegment {
-  id             String @id @default(uuid())
-  announcementId String
-
-  segmentType String
-  rules       Json?
-
-  announcement Announcement @relation(fields: [announcementId], references: [id])
-}
-
-model AnnouncementRead {
+model RolePermission {
   id String @id @default(uuid())
 
-  announcementId String
-  userId         String
+  role         AdminRole
+  permissionId String
 
-  seenAt      DateTime?
-  dismissedAt DateTime?
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
 
-  announcement Announcement @relation(fields: [announcementId], references: [id])
+  systemAdminRoleId String?
+  systemAdminRole   SystemAdminRole? @relation(fields: [systemAdminRoleId], references: [id])
 
-  @@unique([announcementId, userId])
-  @@index([userId])
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([role, permissionId])
 }
 
-///////////////////////////////////
-// ENUMS
-///////////////////////////////////
-enum GatewayStatus {
-  HEALTHY
-  DEGRADED
-  DOWN
-  UNKNOWN
+//////////////////////////////////////////////////////
+// SECURITY INCIDENT — Security tracking
+//////////////////////////////////////////////////////
+
+model SecurityIncident {
+  id String @id @default(uuid())
+
+  type        String
+  title       String
+  description String
+
+  severity String
+  status   String
+
+  source      String
+  referenceId String?
+
+  metadata Json?
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([type])
+  @@index([status])
+  @@index([severity])
+  @@index([referenceId])
 }
+
+//////////////////////////////////////////////////////
+// SUBSCRIPTION — Business subscription
+//////////////////////////////////////////////////////
+
+model Subscription {
+  id String @id @default(uuid())
+
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  packageId String
+  package   SubscriptionPackage @relation(fields: [packageId], references: [id])
+
+  billingCycle BillingCycle
+
+  setupFeeSnapshot     Int
+  priceMonthlySnapshot Int
+  priceYearlySnapshot  Int
+
+  featuresSnapshot Json?
+  limitsSnapshot   Json?
+
+  status SubscriptionStatus
+
+  startDate  DateTime
+  endDate    DateTime?
+  graceUntil DateTime?
+
+  setupFeePaid Boolean @default(false)
+
+  version       Int @default(1)
+  creditBalance Int @default(0)
+
+  couponId       String
+  couponCode     String?
+  couponDiscount Int?
+  finalAmount    Int?
+
+  coupon Coupon? @relation(fields: [couponId], references: [id])
+
+  subscriptionPayments  SubscriptionPayment[]
+  subscriptionHistories SubscriptionHistory[]
+
+  isTrial        Boolean   @default(false)
+  trialStartedAt DateTime?
+  trialEndedAt   DateTime?
+  convertedAt    DateTime?
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([businessId])
+  @@index([status])
+  @@index([businessId, status])
+  @@index([businessId, createdAt])
+}
+
+//////////////////////////////////////////////////////
+// SUBSCRIPTION HISTORY — Changes tracking
+//////////////////////////////////////////////////////
+
+model SubscriptionHistory {
+  id String @id @default(uuid())
+
+  subscriptionId String
+  businessId     String
+
+  oldPackageId String?
+  newPackageId String?
+
+  oldPrice Int?
+  newPrice Int?
+
+  changeType String
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id])
+  business     Business     @relation(fields: [businessId], references: [id])
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([subscriptionId])
+  @@index([businessId])
+  @@index([changeType])
+}
+
+//////////////////////////////////////////////////////
+// SUBSCRIPTION PACKAGE — Plans
+//////////////////////////////////////////////////////
+
+model SubscriptionPackage {
+  id String @id @default(uuid())
+
+  name        String
+  code        String  @unique
+  description String?
+
+  priceMonthly Int
+  priceYearly  Int?
+  setupFee     Int  @default(0)
+  trialDays    Int  @default(0)
+
+  features Json
+  limits   Json?
+
+  isActive Boolean @default(true)
+
+  subscriptions Subscription[]
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+//////////////////////////////////////////////////////
+// SUBSCRIPTION PAYMENT — Payment records
+//////////////////////////////////////////////////////
+
+model SubscriptionPayment {
+  id String @id @default(uuid())
+
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
+
+  couponId String?
+
+  amount   Decimal
+  currency String
+
+  status SubscriptionPaymentStatus
+
+  type    String
+  gateway String?
+
+  paidAt DateTime?
+
+  invoiceUrl    String?
+  webhookStatus String?
+
+  adminOverride Boolean @default(false)
+
+  gatewayPayload Json?
+  retryCount     Int   @default(0)
+  metadata       Json?
+
+  businessId String?
+  business   Business? @relation(fields: [businessId], references: [id])
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+//////////////////////////////////////////////////////
+// SUBSCRIPTION USAGE — Usage tracking
+//////////////////////////////////////////////////////
+
+model SubscriptionUsage {
+  id String @id @default(uuid())
+
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  metric String
+  period String
+  value  Int    @default(0)
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([businessId, metric, period])
+  @@index([businessId])
+  @@index([metric])
+}
+
+//////////////////////////////////////////////////////
+// SUSPICIOUS ACTIVITY — Risk tracking
+//////////////////////////////////////////////////////
+
+model SuspiciousActivity {
+  id String @id @default(uuid())
+
+  adminId  String?
+  action   String
+  ip       String?
+  endpoint String?
+  meta     Json?
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([adminId])
+  @@index([action])
+}
+
+//////////////////////////////////////////////////////
+// SYSTEM ADMIN — Platform admins
+//////////////////////////////////////////////////////
+
+model SystemAdmin {
+  id String @id @default(uuid())
+
+  email    String @unique
+  password String
+
+  roleId String
+  role   SystemAdminRole @relation(fields: [roleId], references: [id])
+
+  status AdminStatus
+
+  loginAttempts Int       @default(0)
+  lockUntil     DateTime?
+
+  forcePasswordChange Boolean @default(false)
+
+  mfaEnabled Boolean @default(false)
+  mfaSecret  String?
+
+  tokenVersion Int @default(0)
+
+  requestedDataRequests DataRequest[] @relation("RequestedByAdmin")
+  approvedDataRequests  DataRequest[] @relation("ApprovedBy")
+
+  sessions              AdminSession[]
+  reportExports         ReportExport[]
+  dataRetentionPolicies DataRetentionPolicy[]
+  policyVersions        PolicyVersion[]
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+//////////////////////////////////////////////////////
+// SYSTEM ADMIN ROLE — Roles
+//////////////////////////////////////////////////////
+
+model SystemAdminRole {
+  id String @id @default(uuid())
+
+  name     AdminRole @unique
+  isActive Boolean   @default(true)
+
+  permissions RolePermission[]
+  admins      SystemAdmin[]
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+//////////////////////////////////////////////////////
+// SYSTEM ERROR — Individual error
+//////////////////////////////////////////////////////
+
+model SystemError {
+  id String @id @default(uuid())
+
+  groupId     String
+  stack       String?
+  environment String
+
+  group SystemErrorGroup @relation(fields: [groupId], references: [id])
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([groupId])
+  @@index([createdAt])
+}
+
+//////////////////////////////////////////////////////
+// SYSTEM ERROR GROUP — Aggregated errors
+//////////////////////////////////////////////////////
+
+model SystemErrorGroup {
+  id String @id @default(uuid())
+
+  signature String @unique
+  message   String
+
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @updatedAt
+  occurrence  Int      @default(1)
+
+  errors SystemError[]
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+//////////////////////////////////////////////////////
+// SYSTEM HEALTH SNAPSHOT — Health metrics
+//////////////////////////////////////////////////////
+
+model SystemHealthSnapshot {
+  id String @id @default(uuid())
+
+  dbStatus        String
+  lastJobRunAt    DateTime?
+  failedJobsCount Int       @default(0)
+  errorRate       Float     @default(0)
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([createdAt])
+}
+
+//////////////////////////////////////////////////////
+// SYSTEM JOB LOG — Job execution logs
+//////////////////////////////////////////////////////
+
+model SystemJobLog {
+  id String @id @default(uuid())
+
+  jobName String
+  status  String
+
+  startedAt    DateTime
+  finishedAt   DateTime?
+  durationMs   Int?
+  errorMessage String?
+
+  retryCount    Int       @default(0)
+  lastRetriedAt DateTime?
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([jobName])
+  @@index([status])
+  @@index([createdAt])
+}
+
+//////////////////////////////////////////////////////
+// SYSTEM SEED LOG — Seed tracking
+//////////////////////////////////////////////////////
+
+model SystemSeedLog {
+  id String @id @default(uuid())
+
+  key       String    @unique
+  status    String
+  lastRunAt DateTime?
+  error     String?
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+//////////////////////////////////////////////////////
+// SYSTEM SETTING — Global config
+//////////////////////////////////////////////////////
+
+model SystemSetting {
+  id String @id @default("SYSTEM")
+
+  currency             String
+  activePaymentGateway String @default("SELCOM")
+
+  isBootstrapped Boolean @default(false)
+
+  maxLoginAttempts Int @default(5)
+  lockTimeMinutes  Int @default(15)
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+//////////////////////////////////////////////////////
+// TICKET — Support tickets
+//////////////////////////////////////////////////////
+
+model Ticket {
+  id String @id @default(uuid())
+
+  businessId      String
+  userId          String?
+  assignedAdminId String?
+
+  subject     String
+  description String
+
+  status   String
+  priority String
+
+  slaDeadline DateTime?
+  escalated   Boolean   @default(false)
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([businessId])
+  @@index([status])
+}
+
+//////////////////////////////////////////////////////
+// TICKET ATTACHMENT — Files
+//////////////////////////////////////////////////////
+
+model TicketAttachment {
+  id String @id @default(uuid())
+
+  ticketId String
+  fileUrl  String
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([ticketId])
+}
+
+//////////////////////////////////////////////////////
+// TICKET MESSAGE — Conversations
+//////////////////////////////////////////////////////
+
+model TicketMessage {
+  id String @id @default(uuid())
+
+  ticketId   String
+  senderId   String
+  senderType String
+  message    String
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([ticketId])
+}
+
+//////////////////////////////////////////////////////
+// TICKET NOTE — Internal notes
+//////////////////////////////////////////////////////
+
+model TicketNote {
+  id String @id @default(uuid())
+
+  ticketId String
+  adminId  String
+  note     String
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([ticketId])
+}
+
+//////////////////////////////////////////////////////
+// USER — Core auth users
+//////////////////////////////////////////////////////
+
+model User {
+  id String @id @default(uuid())
+
+  name      String?
+  phone     String?
+  createdBy String?
+
+  email        String
+  passwordHash String
+
+  role   UserRole
+  status UserStatus
+
+  businessId String?
+  business   Business? @relation(fields: [businessId], references: [id])
+
+  passwordResetToken   String?
+  passwordResetExpires DateTime?
+
+  lastLoginAt DateTime?
+
+  failedLoginAttempts Int       @default(0)
+  lockUntil           DateTime?
+
+  emailVerified      Boolean   @default(false)
+  emailVerifyToken   String?
+  emailVerifyExpires DateTime?
+
+  refreshTokens        RefreshToken[]
+  notifications        Notification[]
+  notificationSettings NotificationSetting[]
+  dataRequests         DataRequest[]
+
+  isDeleted Boolean   @default(false)
+  deletedAt DateTime?
+  deletedBy String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([email, businessId])
+}
+
+//////////////////////////////////////////////////////
+// ENUMS — DIJITOPAY (SORTED A → Z)
+//////////////////////////////////////////////////////
 
 enum AdminRole {
-  SUPER_ADMIN
   FINANCE_ADMIN
-  SECURITY_ADMIN
-  SUPPORT_ADMIN
   OPERATIONS_ADMIN
   READ_ONLY_AUDITOR
-}
-
-enum UserRole {
-  BUSINESS_OWNER
-  MANAGER
-  STAFF
-  CUSTOMER
-}
-
-enum BusinessStatus {
-  PENDING
-  ACTIVE
-  GRACE
-  SUSPENDED
-  TERMINATED
-}
-
-enum SubscriptionPaymentMethod {
-  SELCOM
-  MPESA
-  AIRTEL
-}
-
-enum SubscriptionPaymentStatus {
-  PENDING
-  CONFIRMED
-  FAILED
-  REFUNDED
-}
-
-enum SubscriptionStatus {
-  TRIAL
-  ACTIVE
-  GRACE
-  SUSPENDED
-}
-
-enum UserStatus {
-  ACTIVE
-  INACTIVE
-  SUSPENDED
-  PENDING
-}
-
-enum CustomerStatus {
-  ACTIVE
-  INACTIVE
+  SECURITY_ADMIN
+  SUPER_ADMIN
+  SUPPORT_ADMIN
 }
 
 enum AdminStatus {
@@ -1419,46 +1899,26 @@ enum AdminStatus {
   SUSPENDED
 }
 
-enum ContractStatus {
-  DRAFT
-  ACTIVE
-  COMPLETED
-  TERMINATED
+enum AnnouncementEventType {
+  BILLING
+  GENERAL
+  HOLIDAY
+  PROMOTION
+  SECURITY
+  SYSTEM
 }
 
-enum InstallmentFrequency {
-  DAILY
-  WEEKLY
-  MONTHLY
-  CUSTOM
-}
-
-enum ScheduleStatus {
-  DUE
-  PAID
-}
-
-enum ContractAction {
-  CREATE
-  UPDATE
-  TERMINATE
-  COMPLETE
-}
-
-enum PaymentStatus {
-  POSTED
-  REVERSED
-}
-
-enum ReversalStatus {
-  PENDING
-  APPROVED
-  REJECTED
+enum AnnouncementPlacement {
+  BANNER
+  CENTER_MODAL
+  INLINE
+  SIDEBAR
+  TOP_BAR
 }
 
 enum ApprovalStatus {
-  PENDING
   APPROVED
+  PENDING
   REJECTED
 }
 
@@ -1467,40 +1927,114 @@ enum BillingCycle {
   YEARLY
 }
 
-enum DataRequestType {
-  EXPORT
-  DELETE
+enum BusinessStatus {
+  ACTIVE
+  GRACE
+  PENDING
+  SUSPENDED
+  TERMINATED
+}
+
+enum ContractAction {
+  COMPLETE
+  CREATE
+  TERMINATE
+  UPDATE
+}
+
+enum ContractStatus {
+  ACTIVE
+  COMPLETED
+  DRAFT
+  TERMINATED
+}
+
+enum CustomerStatus {
+  ACTIVE
+  INACTIVE
 }
 
 enum DataRequestStatus {
-  PENDING
   APPROVED
-  REJECTED
-  PROCESSING
   COMPLETED
   FAILED
+  PENDING
+  PROCESSING
+  REJECTED
+}
+
+enum DataRequestType {
+  DELETE
+  EXPORT
+}
+
+enum GatewayStatus {
+  DEGRADED
+  DOWN
+  HEALTHY
+  UNKNOWN
+}
+
+enum InstallmentFrequency {
+  CUSTOM
+  DAILY
+  MONTHLY
+  WEEKLY
+}
+
+enum PaymentStatus {
+  POSTED
+  REVERSED
 }
 
 enum PurgeStatus {
-  PENDING
-  PROCESSING
   COMPLETED
   FAILED
+  PENDING
+  PROCESSING
 }
 
-enum AnnouncementPlacement {
-  TOP_BAR
-  SIDEBAR
-  CENTER_MODAL
-  BANNER
-  INLINE
+enum ReversalStatus {
+  APPROVED
+  PENDING
+  REJECTED
 }
 
-enum AnnouncementEventType {
-  GENERAL
-  HOLIDAY
-  PROMOTION
-  SYSTEM
-  BILLING
-  SECURITY
+enum ScheduleStatus {
+  DUE
+  PAID
+}
+
+enum SubscriptionPaymentMethod {
+  AIRTEL
+  MPESA
+  SELCOM
+}
+
+enum SubscriptionPaymentStatus {
+  CONFIRMED
+  FAILED
+  PENDING
+  REFUNDED
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  GRACE
+  SUSPENDED
+  TRIAL
+}
+
+enum UserRole {
+  BUSINESS_OWNER
+  CUSTOMER
+  MANAGER
+  STAFF
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  PENDING
+  SUSPENDED
 }

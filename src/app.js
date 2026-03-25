@@ -15,6 +15,7 @@ const adminActionRateLimit = require("./middlewares/adminActionRateLimit.middlew
 const suspiciousActivity = require("./middlewares/suspiciousActivity.middleware");
 const bootstrapGuard = require("./middlewares/bootstrap.middleware");
 const prismaMiddleware = require("./middlewares/prisma.middleware");
+const contextMiddleware = require("./middlewares/context.middleware");
 
 const corsConfig = require("./config/cors");
 
@@ -26,7 +27,7 @@ const app = express();
 |--------------------------------------------------------------------------
 | - trust proxy for correct IP detection (important for rate limiting, logs)
 */
-app.set("trust proxy", true);
+app.set("trust proxy", 1);
 
 /*
 |--------------------------------------------------------------------------
@@ -78,6 +79,16 @@ app.use(
 
 /*
 |--------------------------------------------------------------------------
+| REQUEST CONTEXT INITIALIZER
+|--------------------------------------------------------------------------
+| - attaches request-scoped context using AsyncLocalStorage
+| - makes req.user available globally (without passing req)
+| - used by Prisma middleware for access control
+*/
+app.use(contextMiddleware);
+
+/*
+|--------------------------------------------------------------------------
 | SYSTEM LIFECYCLE GUARD
 |--------------------------------------------------------------------------
 | - blocks all requests before system bootstrap
@@ -85,19 +96,6 @@ app.use(
 | - critical for system readiness enforcement
 */
 app.use(bootstrapGuard);
-
-/*
-|--------------------------------------------------------------------------
-| REQUEST-SCOPED PRISMA GUARD
-|--------------------------------------------------------------------------
-| - attaches req.prisma for all incoming requests
-| - applies automatic tenant isolation (businessId)
-| - hides soft-deleted records (isDeleted = false) for tenants
-| - allows full access for admin roles (no filtering)
-| - safely bypasses filtering when req.user is not present (public routes)
-| - ensures consistent data access control across all services
-*/
-app.use(prismaMiddleware);
 
 /*
 |--------------------------------------------------------------------------

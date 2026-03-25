@@ -12,7 +12,7 @@ const ADMIN_ROLES = [
 module.exports = (req, res, next) => {
   const user = req.user || null;
 
-  // 🔴 IMPORTANT: if no user → skip filtering
+  // no user → no filtering
   if (!user) {
     req.prisma = prisma;
     return next();
@@ -24,6 +24,9 @@ module.exports = (req, res, next) => {
   req.prisma = prisma.$extends({
     query: {
       $allModels: {
+        // =========================
+        // 🔍 READ OPERATIONS
+        // =========================
         async findMany({ args, query }) {
           args = args || {};
           args.where = args.where || {};
@@ -68,9 +71,68 @@ module.exports = (req, res, next) => {
 
           return query(args);
         },
+
+        // =========================
+        // ✏️ WRITE PROTECTION
+        // =========================
+        async update({ model, args, query }) {
+          if (!isAdmin) {
+            await enforceOwnership(model, args.where, businessId);
+          }
+          return query(args);
+        },
+
+        async delete({ model, args, query }) {
+          if (!isAdmin) {
+            await enforceOwnership(model, args.where, businessId);
+          }
+          return query(args);
+        },
+
+        async updateMany({ model, args, query }) {
+          if (!isAdmin) {
+            args.where = {
+              ...args.where,
+              isDeleted: false,
+              ...(businessId ? { businessId } : {}),
+            };
+          }
+          return query(args);
+        },
+
+        async deleteMany({ model, args, query }) {
+          if (!isAdmin) {
+            args.where = {
+              ...args.where,
+              isDeleted: false,
+              ...(businessId ? { businessId } : {}),
+            };
+          }
+          return query(args);
+        },
       },
     },
   });
 
   next();
 };
+
+// =========================
+// 🔒 OWNERSHIP CHECK
+// =========================
+async function enforceOwnership(model, where, businessId) {
+  if (!where || !where.id) return;
+
+  const record = await prisma[model].findFirst({
+    where: {
+      id: where.id,
+      isDeleted: false,
+      ...(businessId ? { businessId } : {}),
+    },
+    select: { id: true },
+  });
+
+  if (!record) {
+    throw new Error("Resource not found or access denied");
+  }
+}
