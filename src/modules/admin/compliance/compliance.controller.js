@@ -117,18 +117,6 @@ exports.getPolicyVersionById = catchAsync(async (req, res) => {
 |--------------------------------------------------------------------------
 */
 
-exports.createDataRequest = catchAsync(async (req, res) => {
-  const data = await complianceService.createDataRequest(req.body, req.user.id);
-
-  return response.success(
-    req,
-    res,
-    data,
-    201,
-    "compliance.data_request_created",
-  );
-});
-
 exports.listDataRequests = catchAsync(async (req, res) => {
   const data = await complianceService.listDataRequests(req.query);
 

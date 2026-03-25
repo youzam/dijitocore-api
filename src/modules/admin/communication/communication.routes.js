@@ -105,7 +105,7 @@ router.post(
 );
 
 router.post(
-  "/messages/retry/:messageId",
+  "/messages/retry",
   auth,
   rateLimitCommunication, // 🔥 PROTECTION
   requirePermission({

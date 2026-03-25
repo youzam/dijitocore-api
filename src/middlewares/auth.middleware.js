@@ -24,18 +24,10 @@ const authMiddleware = async (req, res, next) => {
     return next(new AppError("auth.token_invalid", 401));
   }
 
-  /**
-   * =====================================================
-   * STRICT TOKEN REQUIREMENTS
-   * =====================================================
-   */
   if (!payload.identity_type) {
     return next(new AppError("auth.token_invalid", 401));
   }
 
-  /**
-   * Standard auth context
-   */
   req.auth = {
     id: payload.sub,
     identityType: payload.identity_type,
@@ -55,17 +47,19 @@ const authMiddleware = async (req, res, next) => {
       select: {
         id: true,
         status: true,
+        isDeleted: true,
         businessId: true,
         role: true,
         business: {
           select: {
             setupCompleted: true,
+            isDeleted: true,
           },
         },
       },
     });
 
-    if (!user || user.status !== "ACTIVE") {
+    if (!user || user.status !== "ACTIVE" || user.isDeleted) {
       return next(new AppError("auth.unauthorized", 401));
     }
 
@@ -73,13 +67,13 @@ const authMiddleware = async (req, res, next) => {
       return next(new AppError("auth.unauthorized", 401));
     }
 
+    // 🔥 BLOCK DELETED BUSINESS
+    if (user.business && user.business.isDeleted) {
+      return next(new AppError("business.deleted", 403));
+    }
+
     req.user = user;
 
-    /**
-     * -----------------------------------------------------
-     * BLOCK SYSTEM ACCESS UNTIL BUSINESS ONBOARDING COMPLETE
-     * -----------------------------------------------------
-     */
     if (
       user.businessId &&
       user.business &&
@@ -110,16 +104,27 @@ const authMiddleware = async (req, res, next) => {
       select: {
         id: true,
         status: true,
+        isDeleted: true,
         businessId: true,
+        business: {
+          select: {
+            isDeleted: true,
+          },
+        },
       },
     });
 
-    if (!customer || customer.status !== "ACTIVE") {
+    if (!customer || customer.status !== "ACTIVE" || customer.isDeleted) {
       return next(new AppError("auth.unauthorized", 401));
     }
 
     if (customer.businessId !== payload.businessId) {
       return next(new AppError("auth.unauthorized", 401));
+    }
+
+    // 🔥 BLOCK DELETED BUSINESS
+    if (customer.business && customer.business.isDeleted) {
+      return next(new AppError("business.deleted", 403));
     }
 
     req.auth.customer = customer;
@@ -130,7 +135,7 @@ const authMiddleware = async (req, res, next) => {
 
   /**
    * =====================================================
-   * SYSTEM (SUPER ADMIN)
+   * SYSTEM ADMIN
    * =====================================================
    */
   if (payload.identity_type === "system") {
@@ -141,13 +146,10 @@ const authMiddleware = async (req, res, next) => {
       },
     });
 
-    if (!admin || admin.status !== "ACTIVE") {
+    if (!admin || admin.status !== "ACTIVE" || admin.isDeleted) {
       return next(new AppError("auth.unauthorized", 401));
     }
 
-    /**
-     * 🔥 TOKEN VERSION CHECK
-     */
     if (admin.tokenVersion !== payload.tokenVersion) {
       return next(new AppError("auth.session_expired", 401));
     }

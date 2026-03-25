@@ -342,51 +342,87 @@ class CommunicationService {
     const recipientData = [];
 
     for (const user of users) {
-      recipientData.push({
-        messageId: message.id,
-        userId: user.id,
-        status: "PENDING",
-      });
-
       for (const channel of data.channels) {
-        await notificationService.createNotification({
-          businessId: user.businessId,
-          userId: user.id,
-          type: "ADMIN_BROADCAST",
-          channel,
-          titleKey: data.title,
-          messageKey: data.body,
-          locale: "en",
-          recipient: user.email || user.phone,
-        });
+        try {
+          await notificationService.createNotification({
+            businessId: user.businessId,
+            userId: user.id,
+            type: "ADMIN_BROADCAST",
+            channel,
+            titleKey: data.title,
+            messageKey: data.body,
+            locale: "en",
+            recipient: user.email || user.phone,
+          });
+
+          recipientData.push({
+            messageId: message.id,
+            userId: user.id,
+            status: "SENT",
+          });
+        } catch (error) {
+          recipientData.push({
+            messageId: message.id,
+            userId: user.id,
+            status: "FAILED",
+          });
+        }
       }
     }
 
-    // CUSTOM RECIPIENTS
+    // CUSTOM RECIPIENTS (NOW TRACKED)
     if (data.customRecipients) {
       const { emails = [], phones = [] } = data.customRecipients;
 
       for (const email of emails) {
         for (const channel of data.channels) {
-          await notificationService.createNotification({
-            channel,
-            recipient: email,
-            type: "CUSTOM",
-            titleKey: data.title,
-            messageKey: data.body,
-          });
+          try {
+            await notificationService.createNotification({
+              channel,
+              recipient: email,
+              type: "CUSTOM",
+              titleKey: data.title,
+              messageKey: data.body,
+            });
+
+            recipientData.push({
+              messageId: message.id,
+              userId: null,
+              status: "SENT",
+            });
+          } catch (error) {
+            recipientData.push({
+              messageId: message.id,
+              userId: null,
+              status: "FAILED",
+            });
+          }
         }
       }
 
       for (const phone of phones) {
         for (const channel of data.channels) {
-          await notificationService.createNotification({
-            channel,
-            recipient: phone,
-            type: "CUSTOM",
-            titleKey: data.title,
-            messageKey: data.body,
-          });
+          try {
+            await notificationService.createNotification({
+              channel,
+              recipient: phone,
+              type: "CUSTOM",
+              titleKey: data.title,
+              messageKey: data.body,
+            });
+
+            recipientData.push({
+              messageId: message.id,
+              userId: null,
+              status: "SENT",
+            });
+          } catch (error) {
+            recipientData.push({
+              messageId: message.id,
+              userId: null,
+              status: "FAILED",
+            });
+          }
         }
       }
     }
@@ -409,6 +445,7 @@ class CommunicationService {
       module: "COMMUNICATION",
       actorType: "ADMIN",
     });
+
     return {
       messageId: message.id,
       totalUsers: users.length,
@@ -438,22 +475,30 @@ class CommunicationService {
     const recipientData = [];
 
     for (const user of users) {
-      recipientData.push({
-        messageId: message.id,
-        userId: user.id,
-        status: "PENDING",
-      });
+      try {
+        await notificationService.createNotification({
+          businessId: user.businessId,
+          userId: user.id,
+          type: "ADMIN_BATCH",
+          channel: data.channel,
+          titleKey: data.title,
+          messageKey: data.body,
+          locale: "en",
+          recipient: user.email || user.phone,
+        });
 
-      await notificationService.createNotification({
-        businessId: user.businessId,
-        userId: user.id,
-        type: "ADMIN_BATCH",
-        channel: data.channel,
-        titleKey: data.title,
-        messageKey: data.body,
-        locale: "en",
-        recipient: user.email || user.phone,
-      });
+        recipientData.push({
+          messageId: message.id,
+          userId: user.id,
+          status: "SENT",
+        });
+      } catch (error) {
+        recipientData.push({
+          messageId: message.id,
+          userId: user.id,
+          status: "FAILED",
+        });
+      }
     }
 
     if (recipientData.length) {

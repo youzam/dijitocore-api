@@ -62,33 +62,6 @@ router.post(
   controller.resetPassword,
 );
 
-/**
- * =====================================================
- * CUSTOMER AUTH (PUBLIC)
- * =====================================================
- */
-
-router.post(
-  "/customer/identify",
-  authRateLimiter,
-  validate(validation.customerIdentify),
-  controller.customerIdentify,
-);
-
-router.post(
-  "/customer/request-otp",
-  authRateLimiter,
-  validate(validation.customerRequestOtp),
-  controller.customerRequestOtp,
-);
-
-router.post(
-  "/customer/verify-otp",
-  authRateLimiter,
-  validate(validation.customerVerifyOtp),
-  controller.customerVerifyOtp,
-);
-
 router.post(
   "/customer/set-pin",
   validate(validation.setPin),
@@ -100,13 +73,6 @@ router.post(
   authRateLimiter,
   validate(validation.loginWithPin),
   controller.loginWithPin,
-);
-
-router.post(
-  "/customer/forgot-pin",
-  authRateLimiter,
-  validate(validation.customerRequestOtp),
-  controller.customerRequestOtp,
 );
 
 module.exports = router;

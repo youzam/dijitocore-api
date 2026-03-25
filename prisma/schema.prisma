@@ -38,7 +38,7 @@ model SystemAdmin {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  requestedDataRequests DataRequest[] @relation("RequestedBy")
+  requestedDataRequests DataRequest[] @relation("RequestedByAdmin")
   approvedDataRequests  DataRequest[] @relation("ApprovedBy")
 
   tokenVersion Int @default(0)
@@ -161,6 +161,7 @@ model User {
   refreshTokens        RefreshToken[]
   notifications        Notification[]
   notificationSettings NotificationSetting[]
+  dataRequests         DataRequest[]
 
   @@unique([email, businessId])
 }
@@ -205,6 +206,7 @@ model Customer {
   business         Business       @relation(fields: [businessId], references: [id])
   contracts        Contract[]
   notifications    Notification[]
+  dataRequests     DataRequest[]
 
   @@unique([phone, businessId])
 }
@@ -1183,8 +1185,15 @@ model DataRequest {
   type   DataRequestType
   status DataRequestStatus @default(PENDING)
 
-  requestedById String
-  requestedBy   SystemAdmin @relation("RequestedBy", fields: [requestedById], references: [id])
+  // 🔥 REQUESTOR (FIXED)
+  requestedByAdminId String?
+  requestedByAdmin   SystemAdmin? @relation("RequestedByAdmin", fields: [requestedByAdminId], references: [id])
+
+  requestedByUserId String?
+  requestedByUser   User?   @relation(fields: [requestedByUserId], references: [id])
+
+  requestedByCustomerId String?
+  requestedByCustomer   Customer? @relation(fields: [requestedByCustomerId], references: [id])
 
   targetType String
   targetId   String
@@ -1199,12 +1208,10 @@ model DataRequest {
   approvedAt  DateTime?
   processedAt DateTime?
 
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  purgeQueues PurgeQueue[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  @@index([type, status])
-  @@index([targetType, targetId])
+  purgeQueues PurgeQueue[]
 }
 
 model ConsentLog {
@@ -1244,6 +1251,15 @@ model PurgeQueue {
   updatedAt DateTime @updatedAt
 
   @@index([status])
+}
+
+model DataExportStorage {
+  id String @id @default(uuid())
+
+  dataRequestId String
+  payload       Json
+
+  createdAt DateTime @default(now())
 }
 
 //////////////////////////////////////

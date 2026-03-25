@@ -91,17 +91,6 @@ router.get(
 |--------------------------------------------------------------------------
 */
 
-router.post(
-  "/requests",
-  requirePermission({
-    module: "compliance",
-    action: "create",
-    scope: "global",
-  }),
-  validate(validation.createDataRequest),
-  controller.createDataRequest,
-);
-
 router.get(
   "/requests",
   requirePermission({ module: "compliance", action: "read", scope: "global" }),

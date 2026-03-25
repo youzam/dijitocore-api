@@ -1,9 +1,8 @@
 const bcrypt = require("bcryptjs");
 const prisma = require("../../config/prisma");
 const AppError = require("../../utils/AppError");
-const jwtConfig = require("../../config/jwt");
-const { signToken, verifyToken } = require("../../utils/auth.helper");
 const notificationService = require("../../services/notifications/notification.service");
+const coreAuth = require("./core.auth.service");
 
 const generateOtp = () =>
   Math.floor(100000 + Math.random() * 900000).toString();
@@ -66,12 +65,14 @@ exports.requestOtp = async (phone, businessCode) => {
 /**
  * Verify OTP
  */
-exports.verifyOtp = async (phone, businessCode, otp) => {
+exports.verifyOtp = async (phone, businessCode, otp, req) => {
   const business = await prisma.business.findUnique({
     where: { businessCode },
   });
 
-  if (!business) throw new AppError("auth.customer_not_found", 404);
+  if (!business) {
+    throw new AppError("auth.business_not_found", 404);
+  }
 
   const customer = await prisma.customer.findUnique({
     where: {
@@ -82,15 +83,30 @@ exports.verifyOtp = async (phone, businessCode, otp) => {
     },
   });
 
-  if (!customer || !customer.otpHash || !customer.otpExpiresAt)
+  if (!customer || !customer.otpHash || !customer.otpExpiresAt) {
     throw new AppError("auth.invalid_otp", 400);
+  }
 
-  if (customer.otpExpiresAt < new Date())
+  if (customer.otpExpiresAt < new Date()) {
     throw new AppError("auth.invalid_otp", 400);
+  }
+
+  // 🔥 CORE VALIDATION (ADDED)
+  coreAuth.validateCustomerAccess(customer, business);
 
   const isValid = await bcrypt.compare(otp, customer.otpHash);
 
-  if (!isValid) throw new AppError("auth.invalid_otp", 400);
+  if (!isValid) {
+    await logAudit({
+      businessId: business.id,
+      customerId: customer.id,
+      entityType: "AUTH",
+      entityId: customer.id,
+      action: "CUSTOMER_OTP_FAILED",
+    });
+
+    throw new AppError("auth.invalid_otp", 400);
+  }
 
   await prisma.customer.update({
     where: { id: customer.id },
@@ -100,15 +116,47 @@ exports.verifyOtp = async (phone, businessCode, otp) => {
     },
   });
 
-  await logAudit({
-    businessId: business.id,
-    userId: customer.id,
-    entityType: "AUTH",
-    entityId: customer.id,
-    action: "CUSTOMER_LOGIN_SUCCESS",
+  // 🔥 LOGIN ACTIVITY (ADDED FOR CONSISTENCY)
+  await prisma.loginActivity.create({
+    data: {
+      customerId: customer.id,
+      status: "SUCCESS",
+      ipAddress: req?.ip || null,
+    },
   });
 
-  return customer;
+  await securityService.detectLoginAnomaly(customer.id);
+
+  // 🔥 CORE TOKEN
+  const tokens = coreAuth.generateAuthTokens({
+    sub: customer.id,
+    identity_type: "customer",
+    businessId: customer.businessId,
+    role: "CUSTOMER",
+  });
+
+  // 🔥 CORE SESSION
+  await coreAuth.createCustomerSession({
+    customerId: customer.id,
+    refreshToken: tokens.refreshToken,
+  });
+
+  await logAudit({
+    businessId: business.id,
+    customerId: customer.id,
+    entityType: "AUTH",
+    entityId: customer.id,
+    action: "CUSTOMER_OTP_VERIFIED",
+  });
+
+  return {
+    customer: {
+      id: customer.id,
+      phone: customer.phone,
+      businessId: customer.businessId,
+    },
+    tokens,
+  };
 };
 
 /**
@@ -131,7 +179,9 @@ exports.loginWithPin = async (phone, businessCode, pin, req) => {
     where: { businessCode },
   });
 
-  if (!business) throw new AppError("auth.customer_not_found", 404);
+  if (!business) {
+    throw new AppError("auth.business_not_found", 404);
+  }
 
   const customer = await prisma.customer.findUnique({
     where: {
@@ -142,104 +192,64 @@ exports.loginWithPin = async (phone, businessCode, pin, req) => {
     },
   });
 
-  if (!customer || !customer.pinHash)
-    throw new AppError("auth.pin_not_set", 400);
+  if (!customer) {
+    throw new AppError("auth.customer_not_found", 404);
+  }
 
-  const isValid = await bcrypt.compare(pin, customer.pinHash);
+  // 🔥 CORE VALIDATION (ADDED)
+  coreAuth.validateCustomerAccess(customer, business);
 
-  /**
-   * =====================================================
-   * FAILED LOGIN
-   * =====================================================
-   */
-  if (!isValid) {
-    // 🔥 LOGIN ACTIVITY
+  const valid = await bcrypt.compare(pin, customer.pinHash);
+
+  if (!valid) {
     await prisma.loginActivity.create({
       data: {
-        userId: customer.id, // treat customer as user
+        customerId: customer.id,
         status: "FAILED",
         ipAddress: req.ip,
       },
     });
 
-    // 🔥 DETECT ANOMALY
     await securityService.detectLoginAnomaly(customer.id);
+
     await logAudit({
-      businessId: null,
-      userId: null,
+      businessId: business.id,
+      customerId: customer.id,
       entityType: "AUTH",
-      entityId: phone,
+      entityId: customer.id,
       action: "CUSTOMER_LOGIN_FAILED",
     });
-    throw new AppError("auth.invalid_pin", 401);
+
+    throw new AppError("auth.invalid_credentials", 401);
   }
 
-  if (customer.isBlacklisted) {
-    await logAudit({
-      businessId: null,
-      userId: null,
-      entityType: "AUTH",
-      entityId: phone,
-      action: "CUSTOMER_LOGIN_FAILED",
-    });
-    throw new AppError("customer.blacklisted", 403);
-  }
-
-  if (customer.status !== "ACTIVE") {
-    await logAudit({
-      businessId: null,
-      userId: null,
-      entityType: "AUTH",
-      entityId: phone,
-      action: "CUSTOMER_LOGIN_FAILED",
-    });
-    throw new AppError("customer.inactive", 403);
-  }
-
-  await prisma.customer.update({
-    where: { id: customer.id },
-    data: { lastLoginAt: new Date() },
-  });
-
-  /**
-   * =====================================================
-   * SUCCESS LOGIN
-   * =====================================================
-   */
-
-  // 🔥 LOGIN ACTIVITY
   await prisma.loginActivity.create({
     data: {
-      userId: customer.id,
+      customerId: customer.id,
       status: "SUCCESS",
       ipAddress: req.ip,
     },
   });
 
-  // 🔥 DETECT ANOMALY
   await securityService.detectLoginAnomaly(customer.id);
 
-  /**
-   * JWT TOKENS (aligned with auth.middleware)
-   */
-  const tokens = signToken({
+  // 🔥 CORE TOKEN (REPLACED signToken)
+  const tokens = coreAuth.generateAuthTokens({
     sub: customer.id,
     identity_type: "customer",
     businessId: customer.businessId,
     role: "CUSTOMER",
   });
 
-  await prisma.refreshToken.create({
-    data: {
-      token: tokens.refreshToken,
-      customerId: customer.id,
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-    },
+  // 🔥 CORE SESSION (REPLACED manual create)
+  await coreAuth.createCustomerSession({
+    customerId: customer.id,
+    refreshToken: tokens.refreshToken,
   });
 
   await logAudit({
-    businessId: customer.businessId,
-    userId: customer.id,
+    businessId: business.id,
+    customerId: customer.id,
     entityType: "AUTH",
     entityId: customer.id,
     action: "CUSTOMER_LOGIN_SUCCESS",

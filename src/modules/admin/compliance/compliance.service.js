@@ -130,25 +130,46 @@ exports.listRetentionPolicies = async (query) => {
 };
 
 exports.toggleRetentionPolicy = async (policyId, isActive, adminId) => {
-  const updated = await prisma.dataRetentionPolicy.update({
-    where: { id: policyId },
-    data: { isActive },
-  });
+  return prisma.$transaction(async (tx) => {
+    const policy = await tx.dataRetentionPolicy.findUnique({
+      where: { id: policyId },
+    });
 
-  await logAudit({
-    userId: adminId,
-    entityType: "RETENTION_POLICY",
-    entityId: policyId,
-    action: isActive
-      ? "RETENTION_POLICY_ACTIVATED"
-      : "RETENTION_POLICY_DEACTIVATED",
-    module: "COMPLIANCE",
-    actorType: "ADMIN",
-  });
+    if (!policy) {
+      throw new Error("Policy not found");
+    }
 
-  return updated;
+    if (isActive) {
+      const existing = await tx.dataRetentionPolicy.findFirst({
+        where: {
+          resource: policy.resource,
+          isActive: true,
+          id: { not: policyId },
+        },
+      });
+
+      if (existing) {
+        throw new Error("Another active policy exists for this resource");
+      }
+    }
+
+    const updated = await tx.dataRetentionPolicy.update({
+      where: { id: policyId },
+      data: { isActive },
+    });
+
+    await logAudit({
+      userId: adminId,
+      entityType: "RETENTION_POLICY",
+      entityId: policyId,
+      action: isActive ? "POLICY_ACTIVATED" : "POLICY_DEACTIVATED",
+      module: "COMPLIANCE",
+      actorType: "ADMIN",
+    });
+
+    return updated;
+  });
 };
-
 /*
 |--------------------------------------------------------------------------
 | POLICY VERSION
@@ -174,52 +195,30 @@ exports.getPolicyVersionById = async (versionId) => {
 |--------------------------------------------------------------------------
 */
 
-exports.createDataRequest = async (data, adminId) => {
-  const request = await prisma.dataRequest.create({
-    data: {
-      type: data.type,
-      targetType: data.targetType,
-      targetId: data.targetId,
-      reason: data.reason,
-      requestedById: adminId,
-    },
-  });
+exports.listDataRequests = async (query, adminUser) => {
+  if (!adminUser || !adminUser.role) {
+    throw new Error("Unauthorized");
+  }
 
-  await prisma.auditLog.create({
-    data: {
-      action: "CREATE_DATA_REQUEST",
-      entity: "DataRequest",
-      entityId: request.id,
-      performedById: adminId,
-    },
-  });
+  const { type, status, page = 1, limit = 20 } = query;
 
-  await logAudit({
-    userId: adminId,
-    entityType: "DATA_REQUEST",
-    entityId: request.id,
-    action: "DATA_REQUEST_CREATED",
-    metadata: {
-      type: request.type,
-      targetType: request.targetType,
-      targetId: request.targetId,
-    },
-    module: "COMPLIANCE",
-    actorType: "ADMIN",
-  });
-
-  return request;
-};
-
-exports.listDataRequests = async (query) => {
-  const { type, status } = query;
+  const take = Math.min(parseInt(limit, 10) || 20, 100);
+  const skip = (parseInt(page, 10) - 1) * take;
 
   return prisma.dataRequest.findMany({
     where: {
       ...(type && { type }),
       ...(status && { status }),
     },
+    include: {
+      requestedByUser: true,
+      requestedByCustomer: true,
+      requestedByAdmin: true,
+      approvedBy: true,
+    },
     orderBy: { createdAt: "desc" },
+    skip,
+    take,
   });
 };
 
@@ -235,8 +234,13 @@ exports.approveDataRequest = async (requestId, adminId) => {
       where: { id: requestId },
     });
 
-    if (!request) throw new Error("Request not found");
-    if (request.status !== "PENDING") throw new Error("Already processed");
+    if (!request) {
+      throw new Error("Request not found");
+    }
+
+    if (request.status !== "PENDING") {
+      throw new Error("Already processed");
+    }
 
     const updated = await tx.dataRequest.update({
       where: { id: requestId },
@@ -247,18 +251,37 @@ exports.approveDataRequest = async (requestId, adminId) => {
       },
     });
 
+    // DELETE FLOW
     if (request.type === "DELETE") {
-      await createPurgeQueue(tx, request.id);
+      await tx.purgeQueue.create({
+        data: {
+          dataRequestId: request.id,
+          status: "PENDING",
+          attempts: 0,
+        },
+      });
     }
 
-    await logAudit({
-      tx,
+    // EXPORT FLOW
+    if (request.type === "EXPORT") {
+      await tx.dataRequest.update({
+        where: { id: request.id },
+        data: {
+          status: "PROCESSING",
+        },
+      });
+    }
+
+    // ✅ AUDIT LOG (IMPORTANT FIX)
+    await auditHelper.logAudit({
       userId: adminId,
       entityType: "DATA_REQUEST",
       entityId: request.id,
       action: "DATA_REQUEST_APPROVED",
       metadata: {
-        type: request.type,
+        requestType: request.type,
+        targetType: request.targetType,
+        targetId: request.targetId,
       },
       module: "COMPLIANCE",
       actorType: "ADMIN",
@@ -269,6 +292,18 @@ exports.approveDataRequest = async (requestId, adminId) => {
 };
 
 exports.rejectDataRequest = async (requestId, adminId) => {
+  const request = await prisma.dataRequest.findUnique({
+    where: { id: requestId },
+  });
+
+  if (!request) {
+    throw new Error("Request not found");
+  }
+
+  if (request.status !== "PENDING") {
+    throw new Error("Already processed");
+  }
+
   const updated = await prisma.dataRequest.update({
     where: { id: requestId },
     data: {
@@ -313,28 +348,46 @@ exports.getPurgeQueueItem = async (queueId) => {
   });
 };
 
-exports.retryPurgeJob = async (queueId) => {
+exports.retryPurgeJob = async (queueId, adminId) => {
+  const job = await prisma.purgeQueue.findUnique({
+    where: { id: queueId },
+  });
+
+  if (!job) {
+    throw new Error("Purge job not found");
+  }
+
+  if (job.attempts >= 3) {
+    throw new Error("Max retry limit reached");
+  }
+
+  if (job.status !== "FAILED") {
+    throw new Error("Only failed jobs can be retried");
+  }
+
   const updated = await prisma.purgeQueue.update({
     where: { id: queueId },
     data: {
       status: "PENDING",
       attempts: { increment: 1 },
-      lastError: null,
     },
   });
 
-  await logAudit({
-    userId: null,
-    entityType: "PURGE_QUEUE",
+  // ✅ AUDIT LOG
+  await auditHelper.logAudit({
+    userId: adminId,
+    entityType: "PURGE_JOB",
     entityId: queueId,
-    action: "PURGE_JOB_RETRIED",
+    action: "PURGE_RETRY",
+    metadata: {
+      attempts: updated.attempts,
+    },
     module: "COMPLIANCE",
     actorType: "ADMIN",
   });
 
   return updated;
 };
-
 /*
 |--------------------------------------------------------------------------
 | CONSENT LOGS (READ ONLY)

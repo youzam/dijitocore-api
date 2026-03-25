@@ -14,6 +14,7 @@ const metricsMiddleware = require("./middlewares/metrics.middleware");
 const adminActionRateLimit = require("./middlewares/adminActionRateLimit.middleware");
 const suspiciousActivity = require("./middlewares/suspiciousActivity.middleware");
 const bootstrapGuard = require("./middlewares/bootstrap.middleware");
+const prismaMiddleware = require("./middlewares/prisma.middleware");
 
 const corsConfig = require("./config/cors");
 
@@ -84,6 +85,19 @@ app.use(
 | - critical for system readiness enforcement
 */
 app.use(bootstrapGuard);
+
+/*
+|--------------------------------------------------------------------------
+| REQUEST-SCOPED PRISMA GUARD
+|--------------------------------------------------------------------------
+| - attaches req.prisma for all incoming requests
+| - applies automatic tenant isolation (businessId)
+| - hides soft-deleted records (isDeleted = false) for tenants
+| - allows full access for admin roles (no filtering)
+| - safely bypasses filtering when req.user is not present (public routes)
+| - ensures consistent data access control across all services
+*/
+app.use(prismaMiddleware);
 
 /*
 |--------------------------------------------------------------------------

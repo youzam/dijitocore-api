@@ -1,7 +1,8 @@
 const prisma = require("../config/prisma");
-const { Parser } = require("json2csv");
-const fs = require("fs");
-const path = require("path");
+const auditHelper = require("../utils/audit.helper");
+
+const deletionService = require("../services/deletion.service");
+const exportService = require("../services/export.service");
 
 /*
 |--------------------------------------------------------------------------
@@ -11,12 +12,15 @@ const path = require("path");
 
 const processPurgeQueue = async () => {
   const jobs = await prisma.purgeQueue.findMany({
-    where: { status: "PENDING" },
-    take: 10,
+    where: {
+      status: "PENDING",
+      attempts: { lt: 3 },
+    },
   });
 
   for (const job of jobs) {
     try {
+      // 🔒 LOCK JOB
       await prisma.purgeQueue.update({
         where: { id: job.id },
         data: {
@@ -25,15 +29,23 @@ const processPurgeQueue = async () => {
         },
       });
 
-      const request = await prisma.dataRequest.findUnique({
-        where: { id: job.dataRequestId },
-      });
+      const request = job.dataRequestId
+        ? await prisma.dataRequest.findUnique({
+            where: { id: job.dataRequestId },
+          })
+        : null;
 
-      if (!request) continue;
+      // ✅ EXECUTE DELETION ENGINE
+      if (job.dataRequestId) {
+        await deletionService.executeDeletion(job.dataRequestId);
+      } else {
+        await deletionService.executeDeletionByTarget(
+          job.targetType,
+          job.targetId,
+        );
+      }
 
-      // 👉 PLACEHOLDER: Replace with real deletion logic
-      await new Promise((resolve) => setTimeout(resolve, 200));
-
+      // ✅ MARK JOB COMPLETE ONLY
       await prisma.purgeQueue.update({
         where: { id: job.id },
         data: {
@@ -42,15 +54,26 @@ const processPurgeQueue = async () => {
         },
       });
 
-      await prisma.dataRequest.update({
-        where: { id: request.id },
-        data: {
-          status: "COMPLETED",
-          processedAt: new Date(),
-        },
-      });
+      // ❌ DO NOT update dataRequest here (handled in service)
 
-      await sendWebhook("PURGE_COMPLETED", request);
+      if (request) {
+        await sendWebhook("PURGE_COMPLETED", request);
+      }
+
+      // 🧾 AUDIT
+      await auditHelper.logAudit({
+        userId: request?.approvedById || null,
+        entityType: "PURGE_JOB",
+        entityId: job.id,
+        action: "PURGE_EXECUTED",
+        metadata: {
+          dataRequestId: job.dataRequestId,
+          targetType: job.targetType,
+          targetId: job.targetId,
+        },
+        module: "COMPLIANCE",
+        actorType: "SYSTEM",
+      });
     } catch (error) {
       await prisma.purgeQueue.update({
         where: { id: job.id },
@@ -59,6 +82,18 @@ const processPurgeQueue = async () => {
           lastError: error.message,
           attempts: { increment: 1 },
         },
+      });
+
+      await auditHelper.logAudit({
+        userId: null,
+        entityType: "PURGE_JOB",
+        entityId: job.id,
+        action: "PURGE_FAILED",
+        metadata: {
+          error: error.message,
+        },
+        module: "COMPLIANCE",
+        actorType: "SYSTEM",
       });
     }
   }
@@ -77,38 +112,21 @@ const processExportRequests = async () => {
       status: "APPROVED",
     },
     take: 10,
+    orderBy: { createdAt: "asc" },
   });
 
   for (const req of requests) {
     try {
-      const modelName = req.targetType.toLowerCase();
-
-      if (!prisma[modelName]) continue;
-
-      const data = await prisma[modelName].findMany({
-        where: { id: req.targetId },
-      });
-
-      const parser = new Parser();
-      const csv = parser.parse(data);
-
-      const exportDir = path.join(__dirname, "../../exports");
-
-      if (!fs.existsSync(exportDir)) {
-        fs.mkdirSync(exportDir);
-      }
-
-      const filePath = path.join(exportDir, `${req.id}.csv`);
-
-      fs.writeFileSync(filePath, csv);
-
+      // 🔒 LOCK REQUEST
       await prisma.dataRequest.update({
         where: { id: req.id },
         data: {
-          status: "COMPLETED",
-          processedAt: new Date(),
+          status: "PROCESSING",
         },
       });
+
+      // ✅ EXPORT ENGINE (handles S3 + DB internally)
+      await exportService.generateExport(req.id);
 
       await sendWebhook("EXPORT_COMPLETED", req);
     } catch (error) {
@@ -118,6 +136,54 @@ const processExportRequests = async () => {
           status: "FAILED",
         },
       });
+
+      await auditHelper.logAudit({
+        userId: null,
+        entityType: "DATA_REQUEST",
+        entityId: req.id,
+        action: "EXPORT_FAILED",
+        metadata: { error: error.message },
+        module: "COMPLIANCE",
+        actorType: "SYSTEM",
+      });
+    }
+  }
+};
+
+/*
+|--------------------------------------------------------------------------
+| INTERNAL: PROCESS RETENTION POLICIES
+|--------------------------------------------------------------------------
+*/
+
+const processRetentionPolicies = async () => {
+  const policies = await prisma.dataRetentionPolicy.findMany({
+    where: { isActive: true },
+  });
+
+  for (const policy of policies) {
+    const cutoffDate = new Date(
+      Date.now() - policy.retentionDays * 24 * 60 * 60 * 1000,
+    );
+
+    if (policy.resource === "USER") {
+      const users = await prisma.user.findMany({
+        where: {
+          createdAt: { lt: cutoffDate },
+          isDeleted: false,
+        },
+      });
+
+      for (const user of users) {
+        await prisma.purgeQueue.create({
+          data: {
+            targetType: "USER",
+            targetId: user.id,
+            status: "PENDING",
+            attempts: 0,
+          },
+        });
+      }
     }
   }
 };
@@ -129,18 +195,18 @@ const processExportRequests = async () => {
 */
 
 const sendWebhook = async (event, payload) => {
-  // 👉 Integrate with your notification/webhook system
   console.log(`[WEBHOOK] ${event}`, payload.id);
 };
 
 /*
 |--------------------------------------------------------------------------
-| MAIN JOB ENTRY (REQUIRED PATTERN)
+| MAIN JOB ENTRY
 |--------------------------------------------------------------------------
 */
 
 module.exports = {
   run: async () => {
+    await processRetentionPolicies();
     await processPurgeQueue();
     await processExportRequests();
   },

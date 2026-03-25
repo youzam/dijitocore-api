@@ -116,9 +116,7 @@ exports.sendBatch = catchAsync(async (req, res) => {
 });
 
 exports.retryFailedMessages = catchAsync(async (req, res) => {
-  const data = await communicationService.retryFailedMessages(
-    req.params.messageId,
-  );
+  const data = await communicationService.retryFailedMessages();
 
   return response.success(req, res, data, 200, "communication.retry_success");
 });

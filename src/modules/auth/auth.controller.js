@@ -63,30 +63,6 @@ exports.resetPassword = catchAsync(async (req, res) => {
 });
 
 /**
- * =====================================================
- * CUSTOMER AUTH – IDENTIFY + OTP
- * =====================================================
- */
-exports.customerIdentify = catchAsync(async (req, res) => {
-  const result = await authService.customerIdentify(req.body.phone);
-  return response.success(req, res, result);
-});
-
-exports.customerRequestOtp = catchAsync(async (req, res) => {
-  await authService.customerRequestOtp(req.body.phone, req.body.businessId);
-  res.status(200).json({});
-});
-
-exports.customerVerifyOtp = catchAsync(async (req, res) => {
-  const result = await authService.customerVerifyOtp(
-    req.body.phone,
-    req.body.businessId,
-    req.body.otp,
-  );
-  return response.success(req, res, result);
-});
-
-/**
  * Request OTP
  */
 exports.requestOtp = catchAsync(async (req, res) => {

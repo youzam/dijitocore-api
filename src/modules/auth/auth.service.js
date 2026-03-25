@@ -2,11 +2,11 @@ const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 
 const prisma = require("../../config/prisma");
-const jwtConfig = require("../../config/jwt");
 const AppError = require("../../utils/AppError");
-const { signToken, verifyToken } = require("../../utils/auth.helper");
+const { signToken } = require("../../utils/auth.helper");
 const notifications = require("../../services/notifications");
 const { logAudit } = require("../../utils/audit.helper");
+const coreAuth = require("./core.auth.service");
 
 /**
  * OWNER SIGNUP (NO JWT – SEND 6 DIGIT CODE)
@@ -115,6 +115,9 @@ const verifyEmail = async (code) => {
 const login = async ({ email, password }, req) => {
   const user = await prisma.user.findFirst({
     where: { email },
+    include: {
+      business: true,
+    },
   });
 
   if (!user) {
@@ -124,14 +127,15 @@ const login = async ({ email, password }, req) => {
       entityType: "AUTH",
       entityId: email,
       action: "LOGIN_FAILED",
-      metadata: {
-        reason: "INVALID_CREDENTIALS",
-      },
+      metadata: { reason: "INVALID_CREDENTIALS" },
     });
+
     throw new AppError("auth.invalid_credentials", 401);
   }
 
-  // ✅ Load security config from SystemSetting
+  // 🔥 CORE VALIDATION
+  coreAuth.validateUserAccess(user);
+
   const systemSetting = await prisma.systemSetting.findUnique({
     where: { id: "SYSTEM" },
     select: {
@@ -143,22 +147,11 @@ const login = async ({ email, password }, req) => {
   const MAX_ATTEMPTS = systemSetting?.maxLoginAttempts || 5;
   const LOCK_TIME_MS = (systemSetting?.lockTimeMinutes || 15) * 60 * 1000;
 
-  // 🔒 Check if account locked
-  if (user.lockUntil && user.lockUntil > new Date()) {
-    throw new AppError("auth.account_locked", 423);
-  }
-
   const valid = await bcrypt.compare(password, user.passwordHash);
 
-  /**
-   * =====================================================
-   * FAILED LOGIN
-   * =====================================================
-   */
   if (!valid) {
     const attempts = user.failedLoginAttempts + 1;
 
-    // 🔥 LOGIN ACTIVITY
     await prisma.loginActivity.create({
       data: {
         userId: user.id,
@@ -167,7 +160,6 @@ const login = async ({ email, password }, req) => {
       },
     });
 
-    // 🔥 DETECT ANOMALY
     await securityService.detectLoginAnomaly(user.id);
 
     const updateData = {
@@ -189,29 +181,16 @@ const login = async ({ email, password }, req) => {
       entityType: "AUTH",
       entityId: email,
       action: "LOGIN_FAILED",
-      metadata: {
-        reason: "INVALID_CREDENTIALS",
-      },
+      metadata: { reason: "INVALID_CREDENTIALS" },
     });
 
     throw new AppError("auth.invalid_credentials", 401);
   }
 
   if (user.status !== "ACTIVE") {
-    await logAudit({
-      businessId: null,
-      userId: null,
-      entityType: "AUTH",
-      entityId: email,
-      action: "LOGIN_FAILED",
-      metadata: {
-        reason: "INVALID_CREDENTIALS",
-      },
-    });
     throw new AppError("auth.invalid_credentials", 401);
   }
 
-  // ✅ Reset failed attempts after successful login
   await prisma.user.update({
     where: { id: user.id },
     data: {
@@ -221,13 +200,6 @@ const login = async ({ email, password }, req) => {
     },
   });
 
-  /**
-   * =====================================================
-   * SUCCESS LOGIN
-   * =====================================================
-   */
-
-  // 🔥 LOGIN ACTIVITY
   await prisma.loginActivity.create({
     data: {
       userId: user.id,
@@ -236,23 +208,20 @@ const login = async ({ email, password }, req) => {
     },
   });
 
-  // 🔥 DETECT ANOMALY
   await securityService.detectLoginAnomaly(user.id);
 
-  const tokens = signToken({
+  // 🔥 CORE TOKEN
+  const tokens = coreAuth.generateAuthTokens({
     sub: user.id,
     identity_type: "business",
     role: user.role,
     businessId: user.businessId,
   });
 
-  // ✅ Store refresh token
-  await prisma.refreshToken.create({
-    data: {
-      token: tokens.refreshToken,
-      userId: user.id,
-      expiresAt: new Date(Date.now() + jwtConfig.refreshExpiresInMs),
-    },
+  // 🔥 CORE SESSION
+  await coreAuth.createUserSession({
+    userId: user.id,
+    refreshToken: tokens.refreshToken,
   });
 
   await logAudit({
@@ -280,55 +249,17 @@ const login = async ({ email, password }, req) => {
  * =====================================================
  */
 const refresh = async (refreshToken) => {
-  const payload = verifyToken(refreshToken, jwtConfig.refreshSecret);
-
-  const storedToken = await prisma.refreshToken.findUnique({
-    where: { token: refreshToken },
+  // 🔥 CORE handles:
+  // - token verification
+  // - session validation
+  // - user validation (isDeleted, lockUntil, etc.)
+  // - rotation (revoke old + create new)
+  const tokens = await coreAuth.rotateUserSession({
+    refreshToken,
   });
 
-  if (
-    !storedToken ||
-    storedToken.revokedAt ||
-    storedToken.expiresAt < new Date()
-  ) {
-    throw new AppError("auth.session_invalid", 401);
-  }
-
-  const user = await prisma.user.findUnique({
-    where: { id: payload.sub },
-  });
-
-  if (!user || user.status !== "ACTIVE") {
-    throw new AppError("auth.session_invalid", 401);
-  }
-
-  const newTokens = signToken({
-    sub: user.id,
-    identity_type: "business",
-    role: user.role,
-    businessId: user.businessId,
-  });
-
-  await prisma.$transaction([
-    prisma.refreshToken.update({
-      where: { id: storedToken.id },
-      data: {
-        revokedAt: new Date(),
-        replacedByToken: newTokens.refreshToken,
-      },
-    }),
-    prisma.refreshToken.create({
-      data: {
-        token: newTokens.refreshToken,
-        userId: user.id,
-        expiresAt: new Date(Date.now() + jwtConfig.refreshExpiresInMs),
-      },
-    }),
-  ]);
-
-  return newTokens;
+  return tokens;
 };
-
 /**
  * =====================================================
  * LOGOUT
@@ -364,29 +295,38 @@ const logout = async (auth) => {
  * =====================================================
  */
 const requestPasswordReset = async (email) => {
-  const user = await prisma.user.findFirst({ where: { email } });
+  const user = await prisma.user.findFirst({
+    where: { email },
+    include: {
+      business: true,
+    },
+  });
 
-  if (!user || user.status !== "ACTIVE" || !user.emailVerified) return;
+  if (!user) {
+    return;
+  }
+
+  coreAuth.validateUserAccess(user);
 
   const resetToken = crypto.randomBytes(32).toString("hex");
-  const resetHash = crypto
-    .createHash("sha256")
-    .update(resetToken)
-    .digest("hex");
+
+  const hashed = crypto.createHash("sha256").update(resetToken).digest("hex");
 
   await prisma.user.update({
     where: { id: user.id },
     data: {
-      passwordResetToken: resetHash,
+      passwordResetToken: hashed,
       passwordResetExpires: new Date(Date.now() + 15 * 60 * 1000),
     },
   });
 
+  // 🔥 BUILD URL
   const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
 
-  await notifications.sendPasswordReset({
+  // 🔥 REAL FUNCTION FROM YOUR SYSTEM
+  await notificationService.sendPasswordReset({
     to: user.email,
-    locale: user.locale || "en",
+    locale: "en",
     resetUrl,
   });
 
@@ -407,9 +347,17 @@ const resetPassword = async (token, newPassword) => {
       passwordResetToken: hashed,
       passwordResetExpires: { gt: new Date() },
     },
+    include: {
+      business: true,
+    },
   });
 
-  if (!user) throw new AppError("auth.token_invalid", 400);
+  if (!user) {
+    throw new AppError("auth.token_invalid", 400);
+  }
+
+  // 🔥 CORE VALIDATION
+  coreAuth.validateUserAccess(user);
 
   const passwordHash = await bcrypt.hash(newPassword, 12);
 
@@ -421,13 +369,24 @@ const resetPassword = async (token, newPassword) => {
       passwordResetExpires: null,
     },
   });
-  await revokeAllUserSessions(user.id);
 
-  const tokens = signToken({
+  // 🔥 CORE SESSION REVOKE
+  await coreAuth.revokeUserSessions({
+    userId: user.id,
+  });
+
+  // 🔥 CORE TOKEN GENERATION
+  const tokens = coreAuth.generateAuthTokens({
     sub: user.id,
     identity_type: "business",
     role: user.role,
     businessId: user.businessId,
+  });
+
+  // 🔥 CREATE NEW SESSION
+  await coreAuth.createUserSession({
+    userId: user.id,
+    refreshToken: tokens.refreshToken,
   });
 
   await logAudit({
@@ -444,100 +403,6 @@ const resetPassword = async (token, newPassword) => {
       email: user.email,
       role: user.role,
       businessId: user.businessId,
-    },
-    tokens,
-  };
-};
-
-/**
- * =====================================================
- * CUSTOMER AUTH
- * =====================================================
- */
-const customerIdentify = async (phone) => {
-  const customers = await prisma.customer.findMany({
-    where: { phone },
-    select: {
-      businessId: true,
-      business: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
-    },
-  });
-
-  return customers.map((c) => ({
-    businessId: c.business.id,
-    business_name: c.business.name,
-  }));
-};
-
-const customerRequestOtp = async (phone, businessId) => {
-  const customer = await prisma.customer.findFirst({
-    where: {
-      phone,
-      businessId,
-      status: "ACTIVE",
-    },
-  });
-
-  if (!customer) return;
-
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
-
-  await prisma.customer.update({
-    where: { id: customer.id },
-    data: {
-      otpHash,
-      otpExpiresAt: new Date(Date.now() + 5 * 60 * 1000),
-    },
-  });
-
-  await notifications.sendOtp({
-    to: customer.phone,
-    otp,
-  });
-};
-
-const customerVerifyOtp = async (phone, businessId, otp) => {
-  const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
-
-  const customer = await prisma.customer.findFirst({
-    where: {
-      phone,
-      businessId,
-      otpHash,
-      otpExpiresAt: { gt: new Date() },
-      status: "ACTIVE",
-    },
-  });
-
-  if (!customer) throw new AppError("auth.invalid_otp", 401);
-
-  await prisma.customer.update({
-    where: { id: customer.id },
-    data: {
-      otpHash: null,
-      otpExpiresAt: null,
-      lastLoginAt: new Date(),
-    },
-  });
-
-  const tokens = signToken({
-    sub: customer.id,
-    identity_type: "customer",
-    businessId,
-    scope: ["portal.read"],
-  });
-
-  return {
-    customer: {
-      id: customer.id,
-      phone: customer.phone,
-      businessId,
     },
     tokens,
   };
@@ -562,8 +427,6 @@ module.exports = {
   logout,
   requestPasswordReset,
   resetPassword,
-  customerIdentify,
-  customerRequestOtp,
-  customerVerifyOtp,
   verifyEmail,
+  revokeAllUserSessions,
 };

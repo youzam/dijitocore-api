@@ -16,6 +16,8 @@
     "check:locale-unused": "node scripts/check-unused-locale-keys.js"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1015.0",
+    "@aws-sdk/s3-request-presigner": "^3.1015.0",
     "@prisma/client": "^6.x",
     "@sendgrid/mail": "^8.1.6",
     "axios": "^1.13.5",
