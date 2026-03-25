@@ -491,6 +491,8 @@ model Customer {
 
   lastLoginAt DateTime?
 
+  tokenVersion Int @default(0)
+
   business      Business       @relation(fields: [businessId], references: [id])
   contracts     Contract[]
   notifications Notification[]
@@ -736,6 +738,8 @@ model DataRequest {
   processedAt DateTime?
 
   purgeQueues PurgeQueue[]
+
+  attempts Int @default(0)
 
   isDeleted Boolean   @default(false)
   deletedAt DateTime?
@@ -1870,6 +1874,8 @@ model User {
   notifications        Notification[]
   notificationSettings NotificationSetting[]
   dataRequests         DataRequest[]
+
+  tokenVersion Int @default(0)
 
   isDeleted Boolean   @default(false)
   deletedAt DateTime?

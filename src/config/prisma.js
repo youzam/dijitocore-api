@@ -46,7 +46,7 @@ const prismaWithAuditProtection = basePrisma.$extends({
 });
 
 // ======================================================
-// 🔐 CONTEXT-BASED SECURITY LAYER (NEW)
+// 🔐 CONTEXT-BASED SECURITY LAYER
 // ======================================================
 const ADMIN_ROLES = [
   "SUPER_ADMIN",
@@ -72,15 +72,25 @@ const prisma = prismaWithAuditProtection.$extends({
         const isAdmin = ADMIN_ROLES.includes(user.role);
         const businessId = user.businessId;
 
+        args = args || {};
+        args.where = args.where || {};
+
         const READ_ACTIONS = ["findMany", "findFirst", "count"];
 
+        // 🔥 PATCH 1: HANDLE findUnique (SAFE)
+        if (operation === "findUnique" && !isAdmin) {
+          operation = "findFirst";
+          args.where = {
+            ...args.where,
+            isDeleted: false,
+            ...(businessId ? { businessId } : {}),
+          };
+        }
+
         // =========================
-        // 🔍 READ FILTERING
+        // 🔍 READ FILTERING (EXISTING)
         // =========================
         if (READ_ACTIONS.includes(operation)) {
-          args = args || {};
-          args.where = args.where || {};
-
           if (!isAdmin) {
             args.where = {
               ...args.where,
@@ -91,7 +101,7 @@ const prisma = prismaWithAuditProtection.$extends({
         }
 
         // =========================
-        // ✏️ WRITE PROTECTION
+        // ✏️ WRITE PROTECTION (EXISTING)
         // =========================
         if (!isAdmin && ["update", "delete"].includes(operation)) {
           const where = args?.where;
@@ -112,13 +122,20 @@ const prisma = prismaWithAuditProtection.$extends({
           }
         }
 
+        // 🔥 PATCH 2: ADMIN READ-ONLY FOR DELETED
+        if (isAdmin && ["update", "delete"].includes(operation)) {
+          if (args.where?.id) {
+            args.where = {
+              ...args.where,
+              isDeleted: false,
+            };
+          }
+        }
+
         // =========================
-        // BULK OPERATIONS
+        // BULK OPERATIONS (EXISTING)
         // =========================
         if (!isAdmin && ["updateMany", "deleteMany"].includes(operation)) {
-          args = args || {};
-          args.where = args.where || {};
-
           args.where = {
             ...args.where,
             isDeleted: false,

@@ -34,6 +34,7 @@ const authMiddleware = async (req, res, next) => {
     role: payload.role || null,
     businessId: payload.businessId || null,
     scope: payload.scope || [],
+    tokenVersion: payload.tokenVersion ?? 0, // 🔥 PATCH
   };
 
   /**
@@ -50,6 +51,7 @@ const authMiddleware = async (req, res, next) => {
         isDeleted: true,
         businessId: true,
         role: true,
+        tokenVersion: true, // 🔥 PATCH
         business: {
           select: {
             setupCompleted: true,
@@ -63,11 +65,15 @@ const authMiddleware = async (req, res, next) => {
       return next(new AppError("auth.unauthorized", 401));
     }
 
+    // 🔥 PATCH: SESSION INVALIDATION
+    if (user.tokenVersion !== req.auth.tokenVersion) {
+      return next(new AppError("auth.session_expired", 401));
+    }
+
     if (payload.businessId && user.businessId !== payload.businessId) {
       return next(new AppError("auth.unauthorized", 401));
     }
 
-    // 🔥 BLOCK DELETED BUSINESS
     if (user.business && user.business.isDeleted) {
       return next(new AppError("business.deleted", 403));
     }
@@ -106,6 +112,7 @@ const authMiddleware = async (req, res, next) => {
         status: true,
         isDeleted: true,
         businessId: true,
+        tokenVersion: true, // 🔥 PATCH
         business: {
           select: {
             isDeleted: true,
@@ -118,11 +125,15 @@ const authMiddleware = async (req, res, next) => {
       return next(new AppError("auth.unauthorized", 401));
     }
 
+    // 🔥 PATCH
+    if (customer.tokenVersion !== req.auth.tokenVersion) {
+      return next(new AppError("auth.session_expired", 401));
+    }
+
     if (customer.businessId !== payload.businessId) {
       return next(new AppError("auth.unauthorized", 401));
     }
 
-    // 🔥 BLOCK DELETED BUSINESS
     if (customer.business && customer.business.isDeleted) {
       return next(new AppError("business.deleted", 403));
     }

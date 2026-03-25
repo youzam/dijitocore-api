@@ -14,7 +14,6 @@ const metricsMiddleware = require("./middlewares/metrics.middleware");
 const adminActionRateLimit = require("./middlewares/adminActionRateLimit.middleware");
 const suspiciousActivity = require("./middlewares/suspiciousActivity.middleware");
 const bootstrapGuard = require("./middlewares/bootstrap.middleware");
-const prismaMiddleware = require("./middlewares/prisma.middleware");
 const contextMiddleware = require("./middlewares/context.middleware");
 
 const corsConfig = require("./config/cors");

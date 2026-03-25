@@ -11,7 +11,7 @@ exports.logAudit = async ({
   metadata = {},
   ipAddress = null,
   userAgent = null,
-  actorType, // optional
+  actorType, // optional (TENANT||ADMIN)
   module, // optional
 }) => {
   if (!action) {
