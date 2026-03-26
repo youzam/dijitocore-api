@@ -2,7 +2,6 @@ const catchAsync = require("../../../utils/catchAsync");
 const response = require("../../../utils/response");
 
 const governanceService = require("./governance.service");
-const authService = require("../../auth/auth.service");
 
 /*
 |--------------------------------------------------------------------------
@@ -155,14 +154,6 @@ exports.updateUserStatus = catchAsync(async (req, res) => {
   );
 });
 
-exports.resetUserPassword = catchAsync(async (req, res) => {
-  const { password } = req.body;
-
-  const data = await authService.resetPassword(req.params.userId, password);
-
-  return response.success(req, res, data, 200, "governance.password_reset");
-});
-
 exports.forceLogoutUser = catchAsync(async (req, res) => {
   const data = await governanceService.forceLogoutUser(req.params.userId);
 
@@ -246,7 +237,7 @@ exports.resetUserPassword = catchAsync(async (req, res) => {
 
   const result = await governanceService.resetUserPassword(userId, newPassword);
 
-  return response.success(res, result);
+  return response.success(res, res, result);
 });
 
 /*

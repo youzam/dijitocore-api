@@ -3,6 +3,7 @@ const AppError = require("../../../utils/AppError");
 const { logAudit } = require("../../../utils/audit.helper");
 const subscriptionService = require("../../subscription/subscription.service");
 const authService = require("../../auth/auth.service");
+const coreAuth = require("../../auth/core.auth.service");
 
 /*
 |--------------------------------------------------------------------------
@@ -319,6 +320,11 @@ exports.lockUser = async (userId) => {
     data: { lockUntil },
   });
 
+  // 🔒 Invalidate all user sessions
+  await prisma.refreshToken.deleteMany({
+    where: { userId },
+  });
+
   await logAudit({
     userId: null,
     entityType: "USER",
@@ -419,6 +425,16 @@ exports.forceLogoutUser = async (userId) => {
     where: { userId },
   });
 
+  // 🔒 invalidate access tokens via version bump
+  await prisma.user.update({
+    where: { id: userId },
+    data: {
+      tokenVersion: {
+        increment: 1,
+      },
+    },
+  });
+
   await logAudit({
     userId: null,
     entityType: "USER",
@@ -471,16 +487,14 @@ exports.impersonateUser = async (adminId, userId) => {
   | Create impersonation token
   |--------------------------------------------------------------------------
   */
-
-  const tokenPayload = {
+  const tokens = coreAuth.generateAuthTokens({
     sub: user.id,
     identity_type: "user",
     role: user.role,
     businessId: user.businessId,
     impersonatedBy: adminId,
-  };
-
-  const accessToken = authService.signToken(tokenPayload);
+    tokenVersion: user.tokenVersion,
+  });
 
   await logAudit({
     userId: adminId,
@@ -495,7 +509,7 @@ exports.impersonateUser = async (adminId, userId) => {
   });
 
   return {
-    accessToken,
+    tokens,
     user,
   };
 };

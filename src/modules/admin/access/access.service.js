@@ -2,24 +2,13 @@ const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 
 const prisma = require("../../../config/prisma");
-const { signToken } = require("../../../utils/auth.helper");
 const { runSeeders } = require("../../../database/seeders/seedManager");
 const { seedRegistry } = require("../../../database/seeders/seedRegistry");
 const { logAudit } = require("../../../utils/audit.helper");
+const coreAuth = require("../../auth/core.auth.service");
 
 const speakeasy = require("speakeasy");
 const QRCode = require("qrcode");
-
-function generateTokens(admin, permissions) {
-  return signToken({
-    sub: admin.id,
-    identity_type: "system",
-    role: admin.role?.name || admin.role,
-    tokenVersion: admin.tokenVersion,
-    permissions,
-    businessId: null,
-  });
-}
 
 /*
 |--------------------------------------------------------------------------
@@ -259,7 +248,14 @@ exports.adminLogin = async ({ email, password, mfaToken }, req) => {
       `${p.permission.module}_${p.permission.action}_${p.permission.scope}`,
   );
 
-  const tokens = generateTokens(admin, permissions);
+  const tokens = coreAuth.generateAuthTokens({
+    sub: admin.id,
+    identity_type: "system",
+    role: admin.role?.name || admin.role,
+    tokenVersion: admin.tokenVersion,
+    permissions,
+    businessId: null,
+  });
 
   const accessToken = tokens.accessToken;
   const refreshToken = tokens.refreshToken;
@@ -348,7 +344,14 @@ exports.refreshToken = async ({ refreshToken }) => {
       `${p.permission.module}_${p.permission.action}_${p.permission.scope}`,
   );
 
-  const tokens = generateTokens(admin, permissions);
+  const tokens = coreAuth.generateAuthTokens({
+    sub: admin.id,
+    identity_type: "system",
+    role: admin.role?.name || admin.role,
+    tokenVersion: admin.tokenVersion,
+    permissions,
+    businessId: null,
+  });
 
   await prisma.adminSession.update({
     where: { id: session.id },
@@ -439,7 +442,14 @@ exports.changePassword = async (adminId, currentPassword, newPassword) => {
       `${p.permission.module}_${p.permission.action}_${p.permission.scope}`,
   );
 
-  const tokens = generateTokens(updatedAdmin, permissions); // ✅ new tokenVersion
+  const tokens = coreAuth.generateAuthTokens({
+    sub: updatedAdmin.id,
+    identity_type: "system",
+    role: updatedAdmin.role?.name || updatedAdmin.role,
+    tokenVersion: updatedAdmin.tokenVersion,
+    permissions,
+    businessId: null,
+  });
 
   await logAudit({
     userId: adminId,

@@ -130,6 +130,7 @@ const rotateUserSession = async ({ refreshToken, tx }) => {
     identity_type: "business",
     role: user.role,
     businessId: user.businessId,
+    tokenVersion: user.tokenVersion,
   });
 
   await client.$transaction([
@@ -187,6 +188,7 @@ const rotateCustomerSession = async ({ refreshToken, tx }) => {
     identity_type: "customer",
     businessId: customer.businessId,
     role: "CUSTOMER",
+    tokenVersion: customer.tokenVersion || 0,
   });
 
   await client.$transaction([

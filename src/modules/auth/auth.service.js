@@ -3,7 +3,6 @@ const crypto = require("crypto");
 
 const prisma = require("../../config/prisma");
 const AppError = require("../../utils/AppError");
-const { signToken } = require("../../utils/auth.helper");
 const notifications = require("../../services/notifications");
 const { logAudit } = require("../../utils/audit.helper");
 const coreAuth = require("./core.auth.service");
@@ -90,11 +89,13 @@ const verifyEmail = async (code) => {
     action: "EMAIL_VERIFIED",
   });
 
-  const tokens = signToken({
+  // 🔥 CORE TOKEN GENERATION
+  const tokens = coreAuth.generateAuthTokens({
     sub: user.id,
     identity_type: "business",
     role: user.role,
     businessId: null,
+    tokenVersion: user.tokenVersion,
   });
 
   // 🔥 PATCH — CONSENT CHECK
@@ -226,6 +227,7 @@ const login = async ({ email, password }, req) => {
     identity_type: "business",
     role: user.role,
     businessId: user.businessId,
+    tokenVersion: user.tokenVersion,
   });
 
   // 🔥 CORE SESSION
@@ -391,6 +393,7 @@ const resetPassword = async (token, newPassword) => {
     identity_type: "business",
     role: user.role,
     businessId: user.businessId,
+    tokenVersion: user.tokenVersion,
   });
 
   // 🔥 CREATE NEW SESSION

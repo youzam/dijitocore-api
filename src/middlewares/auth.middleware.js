@@ -70,6 +70,10 @@ const authMiddleware = async (req, res, next) => {
       return next(new AppError("auth.session_expired", 401));
     }
 
+    if (user.lockUntil && user.lockUntil > new Date()) {
+      return next(new AppError("auth.accountLocked", 403));
+    }
+
     if (payload.businessId && user.businessId !== payload.businessId) {
       return next(new AppError("auth.unauthorized", 401));
     }
@@ -143,6 +147,9 @@ const authMiddleware = async (req, res, next) => {
       return next(new AppError("auth.session_expired", 401));
     }
 
+    if (customer.lockUntil && customer.lockUntil > new Date()) {
+      return next(new AppError("auth.accountLocked", 403));
+    }
     if (customer.businessId !== payload.businessId) {
       return next(new AppError("auth.unauthorized", 401));
     }

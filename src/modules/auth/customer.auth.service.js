@@ -133,6 +133,7 @@ exports.verifyOtp = async (phone, businessCode, otp, req) => {
     identity_type: "customer",
     businessId: customer.businessId,
     role: "CUSTOMER",
+    tokenVersion: customer.tokenVersion,
   });
 
   // 🔥 CORE SESSION
@@ -239,6 +240,7 @@ exports.loginWithPin = async (phone, businessCode, pin, req) => {
     identity_type: "customer",
     businessId: customer.businessId,
     role: "CUSTOMER",
+    tokenVersion: customer.tokenVersion,
   });
 
   // 🔥 CORE SESSION (REPLACED manual create)

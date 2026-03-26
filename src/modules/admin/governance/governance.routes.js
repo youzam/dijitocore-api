@@ -203,16 +203,6 @@ router.patch(
   governanceController.unblacklistCustomer,
 );
 
-router.patch(
-  "/customers/:customerId/unblacklist",
-  requirePermission({
-    module: "GOVERNANCE",
-    action: "EDIT",
-    scope: "CUSTOMER",
-  }),
-  governanceController.unblacklistCustomer,
-);
-
 router.get(
   "/businesses/:businessId",
   requirePermission({
@@ -221,16 +211,6 @@ router.get(
     scope: "BUSINESS",
   }),
   governanceController.getBusinessProfile,
-);
-
-router.post(
-  "/users/:userId/reset-password",
-  requirePermission({
-    module: "GOVERNANCE",
-    action: "RESET",
-    scope: "USER",
-  }),
-  governanceController.resetUserPassword,
 );
 
 router.get(
