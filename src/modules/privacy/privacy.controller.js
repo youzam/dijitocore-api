@@ -1,6 +1,7 @@
 const catchAsync = require("../../utils/catchAsync");
 const response = require("../../utils/response");
 const privacyService = require("./privacy.service");
+const exportService = require("../../services/export.service");
 
 exports.createDataRequest = catchAsync(async (req, res) => {
   const data = await privacyService.createDataRequest(req.body, req.user);
@@ -38,10 +39,16 @@ exports.getMyConsents = catchAsync(async (req, res) => {
 exports.downloadExport = catchAsync(async (req, res) => {
   const { id } = req.params;
 
-  const result = await privacyService.downloadExport(id, req.user);
+  const result = await exportService.downloadExport(id, req.user);
 
   if (result.type === "url") {
-    return success(req, res, { url: result.value }, 200, "export.ready");
+    return response.success(
+      req,
+      res,
+      { url: result.value },
+      200,
+      "export.ready",
+    );
   }
 
   if (result.type === "stream") {

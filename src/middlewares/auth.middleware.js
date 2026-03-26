@@ -78,8 +78,6 @@ const authMiddleware = async (req, res, next) => {
       return next(new AppError("business.deleted", 403));
     }
 
-    req.user = user;
-
     if (
       user.businessId &&
       user.business &&
@@ -94,6 +92,21 @@ const authMiddleware = async (req, res, next) => {
       if (!isAllowed) {
         return next(new AppError("business.onboardingRequired", 403));
       }
+    }
+
+    req.user = user;
+
+    // 🔥 CONSENT PATCH (BUSINESS USERS ONLY)
+    try {
+      const consent = await prisma.consent.findFirst({
+        where: {
+          userId: user.id,
+        },
+      });
+
+      req.user.hasConsent = !!consent;
+    } catch (err) {
+      req.user.hasConsent = false;
     }
 
     return next();
@@ -140,6 +153,19 @@ const authMiddleware = async (req, res, next) => {
 
     req.auth.customer = customer;
     req.user = customer;
+
+    // 🔥 CONSENT PATCH (CUSTOMERS ONLY)
+    try {
+      const consent = await prisma.consent.findFirst({
+        where: {
+          customerId: customer.id,
+        },
+      });
+
+      req.user.hasConsent = !!consent;
+    } catch (err) {
+      req.user.hasConsent = false;
+    }
 
     return next();
   }

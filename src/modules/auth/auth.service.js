@@ -97,6 +97,15 @@ const verifyEmail = async (code) => {
     businessId: null,
   });
 
+  // 🔥 PATCH — CONSENT CHECK
+  const existingConsent = await prisma.consent.findFirst({
+    where: {
+      userId: user.id,
+    },
+  });
+
+  const forceConsent = !existingConsent;
+
   return {
     user: {
       id: user.id,
@@ -104,6 +113,7 @@ const verifyEmail = async (code) => {
       role: user.role,
     },
     tokens,
+    forceConsent,
   };
 };
 

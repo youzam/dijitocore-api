@@ -147,6 +147,15 @@ exports.acceptInvite = async ({ token, password }) => {
     businessId: user.businessId,
   });
 
+  // 🔥 PATCH — CONSENT CHECK
+  const existingConsent = await prisma.consent.findFirst({
+    where: {
+      userId: user.id,
+    },
+  });
+
+  const forceConsent = !existingConsent;
+
   return {
     user: {
       id: user.id,
@@ -155,6 +164,7 @@ exports.acceptInvite = async ({ token, password }) => {
       businessId: user.businessId,
     },
     tokens,
+    forceConsent,
   };
 };
 

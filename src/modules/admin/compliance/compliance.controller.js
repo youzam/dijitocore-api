@@ -1,7 +1,7 @@
 const catchAsync = require("../../utils/catchAsync");
 const response = require("../../utils/response");
 const complianceService = require("./compliance.service");
-
+const exportService = require("../../../services/export.service");
 /*
 |--------------------------------------------------------------------------
 | DATA RETENTION POLICY
@@ -229,4 +229,25 @@ exports.getConsentLogById = catchAsync(async (req, res) => {
     200,
     "compliance.consent_log_fetched",
   );
+});
+
+exports.downloadExport = catchAsync(async (req, res) => {
+  const { id } = req.params;
+
+  const result = await exportService.downloadExport(id, req.user);
+
+  if (result.type === "url") {
+    return response.success(
+      req,
+      res,
+      { url: result.value },
+      200,
+      "export.ready",
+    );
+  }
+
+  if (result.type === "stream") {
+    res.setHeader("Content-Type", "application/json");
+    return result.value.pipe(res);
+  }
 });

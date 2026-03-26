@@ -255,6 +255,15 @@ exports.loginWithPin = async (phone, businessCode, pin, req) => {
     action: "CUSTOMER_LOGIN_SUCCESS",
   });
 
+  // 🔥 PATCH — CONSENT CHECK
+  const existingConsent = await prisma.consent.findFirst({
+    where: {
+      customerId: customer.id,
+    },
+  });
+
+  const forceConsent = !existingConsent;
+
   return {
     customer: {
       id: customer.id,
@@ -262,5 +271,6 @@ exports.loginWithPin = async (phone, businessCode, pin, req) => {
       businessId: customer.businessId,
     },
     tokens,
+    forceConsent,
   };
 };

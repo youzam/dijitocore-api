@@ -147,8 +147,6 @@ const processExportRequests = async () => {
 
       await exportService.generateExport(req.id);
 
-      await exportService.generateExport(req.id);
-
       // 🔥 ADD THIS EXACTLY HERE
       await auditHelper.logAudit({
         userId: req.requestedByUserId || req.requestedByAdminId || null,

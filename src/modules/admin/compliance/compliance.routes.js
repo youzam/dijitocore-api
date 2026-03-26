@@ -169,4 +169,10 @@ router.get(
   controller.getConsentLogById,
 );
 
+router.get(
+  "/requests/:id/download",
+  requirePermission({ module: "compliance", action: "read", scope: "global" }),
+  controller.downloadExport,
+);
+
 module.exports = router;
