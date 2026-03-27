@@ -227,17 +227,17 @@ exports.downloadExport = catchAsync(async (req, res) => {
 exports.getSupportSummary = catchAsync(async (req, res) => {
   const data = await reportingService.getSupportSummaryReport(req.query);
 
-  return response.success(res, data, "reporting.support_summary");
+  return response.success(req, res, data);
 });
 
 exports.getSupportSLA = catchAsync(async (req, res) => {
   const data = await reportingService.getSupportSLAReport();
 
-  return response.success(res, data, "reporting.support_sla");
+  return response.success(req, res, data);
 });
 
 exports.getTicketsPerBusiness = catchAsync(async (req, res) => {
   const data = await reportingService.getTicketsPerBusinessReport();
 
-  return response.success(res, data, "reporting.support_business");
+  return response.success(req, res, data);
 });

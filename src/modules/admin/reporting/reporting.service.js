@@ -331,8 +331,6 @@ exports.getSupportReport = async (query) => {
   let totalResolutionTime = 0;
   let resolvedCount = 0;
 
-  const now = new Date();
-
   const data = tickets.map((t) => {
     let resolutionTime = null;
 
@@ -389,10 +387,19 @@ exports.getAuditReport = async (query) => {
 // 9. COMPLIANCE
 // =============================
 exports.getComplianceReport = async (query) => {
+  const where = {};
+
+  if (query.startDate && query.endDate) {
+    where.createdAt = {
+      gte: new Date(query.startDate),
+      lte: new Date(query.endDate),
+    };
+  }
+
   return processReport({
     query,
     model: "complianceLog",
-    where: {},
+    where,
   });
 };
 

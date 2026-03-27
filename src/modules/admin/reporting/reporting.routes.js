@@ -1,12 +1,12 @@
 const express = require("express");
 const router = express.Router();
 
-const reportingController = require("./reporting.controller");
+const controller = require("./reporting.controller");
 const validate = require("../../../middlewares/validate.middleware");
 const reportingValidation = require("./reporting.validation");
 
 const auth = require("../../../middlewares/auth.middleware");
-const requirePermission = require("../../../middlewares/requirePermission.middleware");
+const requirePermission = require("../../../middlewares/permission.middleware");
 
 // =============================
 // GLOBAL AUTH
@@ -162,19 +162,19 @@ router.get(
 );
 router.get(
   "/support/summary",
-  requirePermission({ module: "REPORTING", action: "READ" }),
+  requirePermission({ module: "REPORTING", action: "READ", scope: "SUPPORT" }),
   controller.getSupportSummary,
 );
 
 router.get(
   "/support/sla",
-  requirePermission({ module: "REPORTING", action: "READ" }),
+  requirePermission({ module: "REPORTING", action: "READ", scope: "SUPPORT" }),
   controller.getSupportSLA,
 );
 
 router.get(
   "/support/business",
-  requirePermission({ module: "REPORTING", action: "READ" }),
+  requirePermission({ module: "REPORTING", action: "READ", scope: "SUPPORT" }),
   controller.getTicketsPerBusiness,
 );
 
