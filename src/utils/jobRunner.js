@@ -1,5 +1,6 @@
 const prisma = require("../config/prisma");
 const systemJobService = require("../modules/admin/operation/operation.service");
+const { isJobExecutionAllowed } = require("./systemState.helper");
 
 const instanceId = process.env.INSTANCE_ID || `instance-${process.pid}`;
 
@@ -105,6 +106,13 @@ async function releaseLock(jobName) {
 
 async function runSafeJob(jobName, jobFn, ttlSeconds = 900) {
   if (activeJobs.get(jobName)) return;
+
+  // 🚨 GLOBAL JOB SHUTDOWN GUARD (ADDED HERE)
+  const allowed = await isJobExecutionAllowed();
+  if (!allowed) {
+    console.log(`[JOB BLOCKED] ${jobName} skipped due to emergency shutdown`);
+    return;
+  }
 
   const lock = await acquireLock(jobName, ttlSeconds);
   if (!lock) return;

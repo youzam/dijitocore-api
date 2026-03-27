@@ -297,21 +297,21 @@ exports.getGatewayStats = async () => {
 |--------------------------------------------------------------------------
 */
 
-exports.enableMaintenance = async () => {
+exports.setMaintenanceMode = async (enabled) => {
   const setting = await getSystemSetting();
 
   const featureFlags = setting.featureFlags || {};
 
-  featureFlags.MAINTENANCE_MODE = true;
+  featureFlags.MAINTENANCE_MODE = enabled;
 
   const result = await updateSystemSetting({ featureFlags });
 
   await logAudit({
     entityType: "SYSTEM_SETTING",
     entityId: 1,
-    action: "MAINTENANCE_MODE_ENABLED",
+    action: enabled ? "MAINTENANCE_MODE_ENABLED" : "MAINTENANCE_MODE_DISABLED",
     metadata: {
-      MAINTENANCE_MODE: true,
+      MAINTENANCE_MODE: enabled,
     },
     actorType: "ADMIN",
     module: "OPERATION",
@@ -320,51 +320,38 @@ exports.enableMaintenance = async () => {
   return result;
 };
 
-exports.disableMaintenance = async () => {
+exports.setEmergencyShutdown = async (enabled) => {
   const setting = await getSystemSetting();
 
   const featureFlags = setting.featureFlags || {};
 
-  featureFlags.MAINTENANCE_MODE = false;
+  featureFlags.EMERGENCY_SHUTDOWN = enabled;
 
-  const updated = await updateSystemSetting({ featureFlags });
-
-  await logAudit({
-    entityType: "SYSTEM_SETTING",
-    entityId: 1,
-    action: "MAINTENANCE_MODE_DISABLED",
-    metadata: {
-      MAINTENANCE_MODE: false,
-    },
-    actorType: "ADMIN",
-    module: "OPERATION",
-  });
-
-  return updated;
-};
-
-/*
-|--------------------------------------------------------------------------
-| Feature Flags
-|--------------------------------------------------------------------------
-*/
-
-exports.toggleFeatureFlag = async (flag) => {
-  const setting = await getSystemSetting();
-
-  const featureFlags = setting.featureFlags || {};
-
-  featureFlags[flag] = !featureFlags[flag];
+  // enforce system behavior ONLY when enabling
+  if (enabled) {
+    featureFlags.API_WRITE_ENABLED = false;
+    featureFlags.PAYMENT_ENABLED = false;
+    featureFlags.AUTH_ENABLED = false;
+  } else {
+    // restore defaults
+    featureFlags.API_WRITE_ENABLED = true;
+    featureFlags.PAYMENT_ENABLED = true;
+    featureFlags.AUTH_ENABLED = true;
+  }
 
   const result = await updateSystemSetting({ featureFlags });
 
   await logAudit({
     entityType: "SYSTEM_SETTING",
     entityId: 1,
-    action: "FEATURE_FLAG_TOGGLED",
+    action: enabled
+      ? "EMERGENCY_SHUTDOWN_TRIGGERED"
+      : "EMERGENCY_SHUTDOWN_LIFTED",
     metadata: {
-      flag,
-      newValue: featureFlags[flag],
+      EMERGENCY_SHUTDOWN: enabled,
+      API_WRITE_ENABLED: featureFlags.API_WRITE_ENABLED,
+      PAYMENT_ENABLED: featureFlags.PAYMENT_ENABLED,
+      AUTH_ENABLED: featureFlags.AUTH_ENABLED,
     },
     actorType: "ADMIN",
     module: "OPERATION",
@@ -373,31 +360,21 @@ exports.toggleFeatureFlag = async (flag) => {
   return result;
 };
 
-/*
-|--------------------------------------------------------------------------
-| Emergency Shutdown
-|--------------------------------------------------------------------------
-*/
-
-exports.emergencyShutdown = async () => {
+exports.setPaymentEnabled = async (enabled) => {
   const setting = await getSystemSetting();
 
   const featureFlags = setting.featureFlags || {};
 
-  featureFlags.API_WRITE_ENABLED = false;
-  featureFlags.PAYMENTS_ENABLED = false;
-  featureFlags.JOB_PROCESSING_ENABLED = false;
+  featureFlags.PAYMENT_ENABLED = enabled;
 
   const result = await updateSystemSetting({ featureFlags });
 
   await logAudit({
     entityType: "SYSTEM_SETTING",
     entityId: 1,
-    action: "EMERGENCY_SHUTDOWN_TRIGGERED",
+    action: enabled ? "PAYMENT_ENABLED" : "PAYMENT_DISABLED",
     metadata: {
-      API_WRITE_ENABLED: false,
-      PAYMENTS_ENABLED: false,
-      JOB_PROCESSING_ENABLED: false,
+      PAYMENT_ENABLED: enabled,
     },
     actorType: "ADMIN",
     module: "OPERATION",
@@ -406,6 +383,51 @@ exports.emergencyShutdown = async () => {
   return result;
 };
 
+exports.setApiWriteEnabled = async (enabled) => {
+  const setting = await getSystemSetting();
+
+  const featureFlags = setting.featureFlags || {};
+
+  featureFlags.API_WRITE_ENABLED = enabled;
+
+  const result = await updateSystemSetting({ featureFlags });
+
+  await logAudit({
+    entityType: "SYSTEM_SETTING",
+    entityId: 1,
+    action: enabled ? "API_WRITE_ENABLED" : "API_WRITE_DISABLED",
+    metadata: {
+      API_WRITE_ENABLED: enabled,
+    },
+    actorType: "ADMIN",
+    module: "OPERATION",
+  });
+
+  return result;
+};
+
+exports.setAuthEnabled = async (enabled) => {
+  const setting = await getSystemSetting();
+
+  const featureFlags = setting.featureFlags || {};
+
+  featureFlags.AUTH_ENABLED = enabled;
+
+  const result = await updateSystemSetting({ featureFlags });
+
+  await logAudit({
+    entityType: "SYSTEM_SETTING",
+    entityId: 1,
+    action: enabled ? "AUTH_ENABLED" : "AUTH_DISABLED",
+    metadata: {
+      AUTH_ENABLED: enabled,
+    },
+    actorType: "ADMIN",
+    module: "OPERATION",
+  });
+
+  return result;
+};
 /*
 |--------------------------------------------------------------------------
 | Existing (KEEP - DO NOT BREAK)

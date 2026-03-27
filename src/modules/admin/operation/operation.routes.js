@@ -121,42 +121,15 @@ router.get(
 | MAINTENANCE MODE
 |--------------------------------------------------------------------------
 */
-
 router.post(
-  "/maintenance/enable",
+  "//feature/maintenance",
   requirePermission({
     module: "operations",
     action: "manage",
     scope: "global",
   }),
-  controller.enableMaintenance,
-);
-
-router.post(
-  "/maintenance/disable",
-  requirePermission({
-    module: "operations",
-    action: "manage",
-    scope: "global",
-  }),
-  controller.disableMaintenance,
-);
-
-/*
-|--------------------------------------------------------------------------
-| FEATURE FLAGS
-|--------------------------------------------------------------------------
-*/
-
-router.post(
-  "/feature-flags/:flag/toggle",
-  requirePermission({
-    module: "operations",
-    action: "manage",
-    scope: "global",
-  }),
-  validate(validation.toggleFeatureFlag),
-  controller.toggleFeatureFlag,
+  validate(validation.setMaintenanceMode), // optional kama unaongeza validation
+  controller.setMaintenanceMode,
 );
 
 /*
@@ -164,15 +137,50 @@ router.post(
 | EMERGENCY
 |--------------------------------------------------------------------------
 */
-
 router.post(
-  "/shutdown",
+  "//feature/shutdown",
   requirePermission({
     module: "operations",
     action: "manage",
     scope: "global",
   }),
-  controller.emergencyShutdown,
+  validate(validation.setEmergencyShutdown),
+  controller.setEmergencyShutdown,
+);
+
+/*
+|--------------------------------------------------------------------------
+| OTHER FEATURE FLAGS
+|--------------------------------------------------------------------------
+*/
+router.post(
+  "/feature/subscription-payments",
+  requirePermission({
+    module: "operations",
+    action: "manage",
+    scope: "global",
+  }),
+  controller.setPaymentEnabled,
+);
+
+router.post(
+  "//feature/api-write",
+  requirePermission({
+    module: "operations",
+    action: "manage",
+    scope: "global",
+  }),
+  controller.setApiWriteEnabled,
+);
+
+router.post(
+  "/feature/auth",
+  requirePermission({
+    module: "operations",
+    action: "manage",
+    scope: "global",
+  }),
+  controller.setAuthEnabled,
 );
 
 /*

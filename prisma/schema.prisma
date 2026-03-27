@@ -1728,20 +1728,23 @@ model SystemSeedLog {
 model SystemSetting {
   id String @id @default("SYSTEM")
 
+  // 🌍 Core system configuration
   currency             String
   activePaymentGateway String @default("SELCOM")
 
+  // 🧠 System lifecycle
   isBootstrapped Boolean @default(false)
 
+  // 🔐 Security config
   maxLoginAttempts Int @default(5)
   lockTimeMinutes  Int @default(15)
 
-  isDeleted Boolean   @default(false)
-  deletedAt DateTime?
-  deletedBy String?
+  // 🚦 System runtime flags 
+  featureFlags Json @default("{}")
 
+  // ⏱ Timestamps
   createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
+  updatedAt DateTime @updatedAt
 }
 
 //////////////////////////////////////////////////////

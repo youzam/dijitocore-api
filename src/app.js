@@ -15,6 +15,7 @@ const adminActionRateLimit = require("./middlewares/adminActionRateLimit.middlew
 const suspiciousActivity = require("./middlewares/suspiciousActivity.middleware");
 const bootstrapGuard = require("./middlewares/bootstrap.middleware");
 const contextMiddleware = require("./middlewares/context.middleware");
+const systemStateMiddleware = require("./middlewares/systemState.middleware");
 
 const corsConfig = require("./config/cors");
 
@@ -85,6 +86,20 @@ app.use(
 | - used by Prisma middleware for access control
 */
 app.use(contextMiddleware);
+
+/*
+|--------------------------------------------------------------------------
+| SYSTEM STATE ENFORCEMENT (GLOBAL GUARD)
+|--------------------------------------------------------------------------
+| - enforces runtime system flags before any route execution
+| - blocks ALL tenant/public traffic during maintenance mode
+| - blocks ALL non-admin access during emergency shutdown
+| - restricts write operations when API_WRITE is disabled
+| - restricts payment routes when PAYMENTS is disabled
+| - ensures admin (/admin/*) remains accessible for recovery actions
+| - runs at global level (pre-auth, pre-tenant) for full coverage
+*/
+app.use(systemStateMiddleware);
 
 /*
 |--------------------------------------------------------------------------

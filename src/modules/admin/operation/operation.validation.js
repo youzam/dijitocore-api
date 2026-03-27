@@ -2,21 +2,20 @@ const Joi = require("joi");
 
 /*
 |--------------------------------------------------------------------------
-| JOB LOGS (QUERY)
+| JOB LOGS (QUERY) - PRESERVED
 |--------------------------------------------------------------------------
 */
 
 exports.getJobLogs = Joi.object({
   query: Joi.object({
     status: Joi.string().valid("SUCCESS", "FAILED", "PENDING").optional(),
-
     limit: Joi.number().integer().min(1).max(100).optional(),
   }),
 });
 
 /*
 |--------------------------------------------------------------------------
-| RETRY JOB
+| RETRY JOB - PRESERVED
 |--------------------------------------------------------------------------
 */
 
@@ -28,21 +27,31 @@ exports.retryJob = Joi.object({
 
 /*
 |--------------------------------------------------------------------------
-| FEATURE FLAG TOGGLE
+| SYSTEM FLAGS (UNIFIED)
 |--------------------------------------------------------------------------
 */
 
-exports.toggleFeatureFlag = Joi.object({
-  params: Joi.object({
-    flag: Joi.string()
-      .valid(
-        "MAINTENANCE_MODE",
-        "PAYMENTS_ENABLED",
-        "NOTIFICATIONS_ENABLED",
-        "JOB_PROCESSING_ENABLED",
-        "WEBHOOK_PROCESSING_ENABLED",
-        "API_WRITE_ENABLED",
-      )
-      .required(),
-  }),
+// reusable schema
+const enabledSchema = Joi.object({
+  enabled: Joi.boolean().required(),
+});
+
+exports.setMaintenanceMode = Joi.object({
+  body: enabledSchema,
+});
+
+exports.setEmergencyShutdown = Joi.object({
+  body: enabledSchema,
+});
+
+exports.setPaymentEnabled = Joi.object({
+  body: enabledSchema,
+});
+
+exports.setApiWriteEnabled = Joi.object({
+  body: enabledSchema,
+});
+
+exports.setAuthEnabled = Joi.object({
+  body: enabledSchema,
 });

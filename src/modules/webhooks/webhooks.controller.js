@@ -2,6 +2,7 @@ const selcomGateway = require("../../utils/paymentGateway/selcom.gateway");
 const paymentService = require("../subscription/subscription.payment.service");
 const AppError = require("../../utils/AppError");
 const catchAsync = require("../../utils/catchAsync");
+const { isJobExecutionAllowed } = require("../../utils/systemState.helper");
 
 /**
  * =====================================================
@@ -15,6 +16,15 @@ exports.handlePaymentWebhook = catchAsync(async (req, res) => {
 
   if (timestamp && Math.abs(now - timestamp) > 5 * 60 * 1000) {
     throw new AppError("payment.webhook_expired", 403);
+  }
+
+  // 🚨 GLOBAL WEBHOOK SHUTDOWN GUARD
+  const allowed = await isJobExecutionAllowed();
+  if (!allowed) {
+    return res.status(503).json({
+      status: "error",
+      message: "System is under emergency shutdown",
+    });
   }
 
   const provider = req.headers["x-provider"];

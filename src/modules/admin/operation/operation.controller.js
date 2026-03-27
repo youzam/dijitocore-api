@@ -122,59 +122,70 @@ exports.getGatewayStats = catchAsync(async (req, res) => {
 | MAINTENANCE MODE
 |--------------------------------------------------------------------------
 */
+exports.setMaintenanceMode = catchAsync(async (req, res) => {
+  const { enabled } = req.body;
 
-exports.enableMaintenance = catchAsync(async (req, res) => {
-  const data = await operationService.enableMaintenance();
-
-  return response.success(
-    req,
-    res,
-    data,
-    200,
-    "operations.maintenance_enabled",
-  );
-});
-
-exports.disableMaintenance = catchAsync(async (req, res) => {
-  const data = await operationService.disableMaintenance();
+  const data = await operationService.setMaintenanceMode(enabled);
 
   return response.success(
     req,
     res,
     data,
     200,
-    "operations.maintenance_disabled",
+    enabled
+      ? "operations.maintenance_enabled"
+      : "operations.maintenance_disabled",
   );
 });
 
-/*
-|--------------------------------------------------------------------------
-| FEATURE FLAGS
-|--------------------------------------------------------------------------
-*/
+exports.setEmergencyShutdown = catchAsync(async (req, res) => {
+  const { enabled } = req.body;
 
-exports.toggleFeatureFlag = catchAsync(async (req, res) => {
-  const data = await operationService.toggleFeatureFlag(req.params.flag);
+  const data = await operationService.setEmergencyShutdown(enabled);
 
   return response.success(
     req,
     res,
     data,
     200,
-    "operations.feature_flag_toggled",
+    enabled ? "operations.system_shutdown" : "operations.system_restored",
   );
 });
 
-/*
-|--------------------------------------------------------------------------
-| EMERGENCY SHUTDOWN
-|--------------------------------------------------------------------------
-*/
+exports.setPaymentEnabled = catchAsync(async (req, res) => {
+  const { enabled } = req.body;
 
-exports.emergencyShutdown = catchAsync(async (req, res) => {
-  const data = await operationService.emergencyShutdown();
+  const data = await operationService.setPaymentEnabled(enabled);
 
-  return response.success(req, res, data, 200, "operations.system_shutdown");
+  return response.success(
+    req,
+    res,
+    data,
+    200,
+    "operations.payment_flag_updated",
+  );
+});
+
+exports.setApiWriteEnabled = catchAsync(async (req, res) => {
+  const { enabled } = req.body;
+
+  const data = await operationService.setApiWriteEnabled(enabled);
+
+  return response.success(
+    req,
+    res,
+    data,
+    200,
+    "operations.api_write_flag_updated",
+  );
+});
+
+exports.setAuthEnabled = catchAsync(async (req, res) => {
+  const { enabled } = req.body;
+
+  const data = await operationService.setAuthEnabled(enabled);
+
+  return response.success(req, res, data, 200, "operations.auth_flag_updated");
 });
 
 /*
