@@ -1,6 +1,8 @@
 const prisma = require("../../../config/prisma");
 const AppError = require("../../../utils/AppError");
 const { logAudit } = require("../../../utils/audit.helper");
+const { createSupportTicket } = require("../../../utils/supportTicket.helper");
+const { getFileDownload } = require("../../../utils/download.helper");
 
 /*
 |--------------------------------------------------------------------------
@@ -75,7 +77,6 @@ const emitEvent = async (event, payload) => {
 | Ticket CRUD
 |--------------------------------------------------------------------------
 */
-
 exports.createTicket = async (data) => {
   const {
     businessId,
@@ -83,33 +84,29 @@ exports.createTicket = async (data) => {
     subject,
     description,
     priority = "MEDIUM",
+    createdByType = "TENANT",
   } = data;
 
   if (!businessId || !subject || !description) {
     throw new AppError("support.invalid_ticket_data", 400);
   }
 
-  validatePriority(priority);
+  let finalPriority = priority;
 
-  const result = await prisma.ticket.create({
-    data: {
-      businessId,
-      userId,
-      subject,
-      description,
-      priority,
-      status: "OPEN",
-      slaDeadline: calculateSLA(priority),
-    },
-  });
+  if (createdByType === "TENANT") {
+    const allowed = ["LOW", "MEDIUM"];
+    finalPriority = allowed.includes(priority) ? priority : "MEDIUM";
+  }
 
-  await logAudit({
-    userId: userId,
-    entityType: "TICKET",
-    entityId: result.id,
-    action: "TICKET_CREATED",
-    module: "SUPPORT",
-    actorType: "USER",
+  validatePriority(finalPriority);
+
+  const result = await createSupportTicket({
+    businessId,
+    createdByType,
+    createdByUserId: userId,
+    subject,
+    description,
+    priority: finalPriority,
   });
 
   return result;
@@ -121,13 +118,13 @@ exports.getTickets = async (query) => {
   const where = buildFilters(query);
 
   const [data, total] = await Promise.all([
-    prisma.ticket.findMany({
+    prisma.supportTicket.findMany({
       where,
       skip: (page - 1) * limit,
       take: Number(limit),
       orderBy: { createdAt: "desc" },
     }),
-    prisma.ticket.count({ where }),
+    prisma.supportTicket.count({ where }),
   ]);
 
   return {
@@ -141,7 +138,7 @@ exports.getTickets = async (query) => {
 };
 
 exports.getTicketById = async (id) => {
-  const ticket = await prisma.ticket.findUnique({ where: { id } });
+  const ticket = await prisma.supportTicket.findUnique({ where: { id } });
 
   if (!ticket) {
     throw new AppError("support.ticket_not_found", 404);
@@ -151,7 +148,7 @@ exports.getTicketById = async (id) => {
 };
 
 exports.updateTicket = async (id, data) => {
-  const ticket = await prisma.ticket.findUnique({ where: { id } });
+  const ticket = await prisma.supportTicket.findUnique({ where: { id } });
 
   if (!ticket) throw new AppError("support.ticket_not_found", 404);
 
@@ -164,14 +161,14 @@ exports.updateTicket = async (id, data) => {
     validateStatus(data.status);
   }
 
-  const result = await prisma.ticket.update({
+  const result = await prisma.supportTicket.update({
     where: { id },
     data,
   });
 
   await logAudit({
     userId: null,
-    entityType: "TICKET",
+    entityType: "SUPPORT_TICKET",
     entityId: id,
     action: "TICKET_UPDATED",
     module: "SUPPORT",
@@ -182,11 +179,11 @@ exports.updateTicket = async (id, data) => {
 };
 
 exports.deleteTicket = async (id) => {
-  const ticket = await prisma.ticket.findUnique({ where: { id } });
+  const ticket = await prisma.supportTicket.findUnique({ where: { id } });
 
   if (!ticket) throw new AppError("support.ticket_not_found", 404);
 
-  const result = await prisma.ticket.update({
+  const result = await prisma.supportTicket.update({
     where: { id },
     data: {
       deletedAt: new Date(),
@@ -195,7 +192,7 @@ exports.deleteTicket = async (id) => {
 
   await logAudit({
     userId: null,
-    entityType: "TICKET",
+    entityType: "SUPPORT_TICKET",
     entityId: id,
     action: "TICKET_DELETED",
     module: "SUPPORT",
@@ -212,7 +209,9 @@ exports.deleteTicket = async (id) => {
 */
 
 exports.assignTicket = async (ticketId, adminId) => {
-  const ticket = await prisma.ticket.findUnique({ where: { id: ticketId } });
+  const ticket = await prisma.supportTicket.findUnique({
+    where: { id: ticketId },
+  });
 
   if (!ticket || ticket.deletedAt) {
     throw new AppError("support.ticket_not_found", 404);
@@ -226,7 +225,7 @@ exports.assignTicket = async (ticketId, adminId) => {
     throw new AppError("support.admin_not_found", 404);
   }
 
-  const updatedTicket = await prisma.ticket.update({
+  const updatedTicket = await prisma.supportTicket.update({
     where: { id: ticketId },
     data: {
       assignedAdminId: adminId,
@@ -249,15 +248,15 @@ exports.assignTicket = async (ticketId, adminId) => {
 
   await logAudit({
     userId: adminId,
-    entityType: "TICKET",
+    entityType: "SUPPORT_TICKET",
     entityId: ticketId,
     action: "TICKET_ASSIGNED",
     module: "SUPPORT",
     actorType: "ADMIN",
   });
+
   return updatedTicket;
 };
-
 /*
 |--------------------------------------------------------------------------
 | Priority & Status
@@ -267,11 +266,11 @@ exports.assignTicket = async (ticketId, adminId) => {
 exports.changePriority = async (id, priority) => {
   validatePriority(priority);
 
-  const ticket = await prisma.ticket.findUnique({ where: { id } });
+  const ticket = await prisma.supportTicket.findUnique({ where: { id } });
 
   if (!ticket) throw new AppError("support.ticket_not_found", 404);
 
-  const result = await prisma.ticket.update({
+  const result = await prisma.supportTicket.update({
     where: { id },
     data: {
       priority,
@@ -281,7 +280,7 @@ exports.changePriority = async (id, priority) => {
 
   await logAudit({
     userId: null,
-    entityType: "TICKET",
+    entityType: "SUPPORT_TICKET",
     entityId: id,
     action: "TICKET_PRIORITY_CHANGED",
     module: "SUPPORT",
@@ -294,18 +293,18 @@ exports.changePriority = async (id, priority) => {
 exports.changeStatus = async (id, status) => {
   validateStatus(status);
 
-  const ticket = await prisma.ticket.findUnique({ where: { id } });
+  const ticket = await prisma.supportTicket.findUnique({ where: { id } });
 
   if (!ticket) throw new AppError("support.ticket_not_found", 404);
 
-  const result = await prisma.ticket.update({
+  const result = await prisma.supportTicket.update({
     where: { id },
     data: { status },
   });
 
   await logAudit({
     userId: null,
-    entityType: "TICKET",
+    entityType: "SUPPORT_TICKET",
     entityId: id,
     action: "TICKET_STATUS_CHANGED",
     module: "SUPPORT",
@@ -315,23 +314,6 @@ exports.changeStatus = async (id, status) => {
   return result;
 };
 
-exports.deleteTicket = async (id) => {
-  const ticket = await prisma.ticket.findUnique({ where: { id } });
-
-  if (!ticket || ticket.deletedAt) {
-    throw new AppError("support.ticket_not_found", 404);
-  }
-
-  await prisma.ticket.update({
-    where: { id },
-    data: {
-      deletedAt: new Date(),
-    },
-  });
-
-  return true;
-};
-
 /*
 |--------------------------------------------------------------------------
 | SLA & Escalation
@@ -339,7 +321,7 @@ exports.deleteTicket = async (id) => {
 */
 
 exports.getSLABreachedTickets = async () => {
-  return prisma.ticket.findMany({
+  return prisma.supportTicket.findMany({
     where: {
       slaDeadline: { lt: new Date() },
       escalated: false,
@@ -349,7 +331,7 @@ exports.getSLABreachedTickets = async () => {
 };
 
 exports.escalateTicket = async (id) => {
-  const ticket = await prisma.ticket.findUnique({ where: { id } });
+  const ticket = await prisma.supportTicket.findUnique({ where: { id } });
 
   if (!ticket || ticket.deletedAt) {
     throw new AppError("support.ticket_not_found", 404);
@@ -357,7 +339,7 @@ exports.escalateTicket = async (id) => {
 
   if (ticket.escalated) return ticket;
 
-  const updatedTicket = await prisma.ticket.update({
+  const updatedTicket = await prisma.supportTicket.update({
     where: { id },
     data: {
       escalated: true,
@@ -382,7 +364,7 @@ exports.escalateTicket = async (id) => {
 
   await logAudit({
     userId: ticket.assignedAdminId || null,
-    entityType: "TICKET",
+    entityType: "SUPPORT_TICKET",
     entityId: id,
     action: "TICKET_ESCALATED",
     module: "SUPPORT",
@@ -399,7 +381,9 @@ exports.escalateTicket = async (id) => {
 */
 
 exports.addInternalNote = async (ticketId, adminId, note) => {
-  const ticket = await prisma.ticket.findUnique({ where: { id: ticketId } });
+  const ticket = await prisma.supportTicket.findUnique({
+    where: { id: ticketId },
+  });
 
   if (!ticket) throw new AppError("support.ticket_not_found", 404);
 
@@ -433,7 +417,9 @@ exports.getInternalNotes = async (ticketId) => {
 */
 
 exports.addMessage = async (ticketId, senderId, senderType, message) => {
-  const ticket = await prisma.ticket.findUnique({ where: { id: ticketId } });
+  const ticket = await prisma.supportTicket.findUnique({
+    where: { id: ticketId },
+  });
 
   if (!ticket || ticket.deletedAt) {
     throw new AppError("support.ticket_not_found", 404);
@@ -471,6 +457,7 @@ exports.addMessage = async (ticketId, senderId, senderType, message) => {
     module: "SUPPORT",
     actorType: senderType,
   });
+
   return newMessage;
 };
 
@@ -492,7 +479,9 @@ exports.addAttachment = async (ticketId, fileUrl) => {
     throw new AppError("support.invalid_file", 400);
   }
 
-  const ticket = await prisma.ticket.findUnique({ where: { id: ticketId } });
+  const ticket = await prisma.supportTicket.findUnique({
+    where: { id: ticketId },
+  });
 
   if (!ticket) throw new AppError("support.ticket_not_found", 404);
 
@@ -519,6 +508,29 @@ exports.getAttachments = async (ticketId) => {
   });
 };
 
+exports.downloadAttachment = async ({ ticketId, attachmentId }) => {
+  const ticket = await prisma.supportTicket.findUnique({
+    where: { id: ticketId },
+  });
+
+  if (!ticket) {
+    throw new AppError("support.ticket_not_found", 404);
+  }
+
+  const attachment = await prisma.ticketAttachment.findUnique({
+    where: { id: attachmentId },
+  });
+
+  if (!attachment || attachment.ticketId !== ticketId) {
+    throw new AppError("support.attachment_not_found", 404);
+  }
+
+  return getFileDownload({
+    fileKey: attachment.fileKey,
+    provider: attachment.provider,
+  });
+};
+
 /*
 |--------------------------------------------------------------------------
 | Analytics
@@ -528,12 +540,12 @@ exports.getAttachments = async (ticketId) => {
 exports.getTicketAnalytics = async () => {
   const [total, open, inProgress, resolved, escalated, slaBreached] =
     await Promise.all([
-      prisma.ticket.count(),
-      prisma.ticket.count({ where: { status: "OPEN" } }),
-      prisma.ticket.count({ where: { status: "IN_PROGRESS" } }),
-      prisma.ticket.count({ where: { status: "RESOLVED" } }),
-      prisma.ticket.count({ where: { escalated: true } }),
-      prisma.ticket.count({
+      prisma.supportTicket.count(),
+      prisma.supportTicket.count({ where: { status: "OPEN" } }),
+      prisma.supportTicket.count({ where: { status: "IN_PROGRESS" } }),
+      prisma.supportTicket.count({ where: { status: "RESOLVED" } }),
+      prisma.supportTicket.count({ where: { escalated: true } }),
+      prisma.supportTicket.count({
         where: {
           slaDeadline: { lt: new Date() },
           status: { notIn: ["RESOLVED", "CLOSED"] },
@@ -558,7 +570,7 @@ exports.getTicketAnalytics = async () => {
 */
 
 exports.getTicketsByBusiness = async (businessId) => {
-  return prisma.ticket.findMany({
+  return prisma.supportTicket.findMany({
     where: { businessId },
     orderBy: { createdAt: "desc" },
   });

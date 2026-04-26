@@ -1,25 +1,61 @@
 const prisma = require("../config/prisma");
 const AppError = require("./AppError");
+const { logAudit } = require("./audit.helper");
 
 /**
- * 🔒 Lock user account manually
+ * =====================================================
+ * GET LOCK DURATION FROM SETTINGS
+ * =====================================================
+ */
+async function getLockDuration(tx) {
+  const settings = await tx.systemSetting.findFirst({
+    select: { lockTimeMinutes: true },
+  });
+
+  const minutes = settings?.lockTimeMinutes || 30; // fallback
+  return minutes * 60 * 1000;
+}
+
+/**
+ * =====================================================
+ * LOCK USER ACCOUNT (AUDIT-DRIVEN)
+ * =====================================================
  */
 exports.lockUserAccount = async ({
+  tx,
   userId,
-  durationMs,
+  businessId = null,
   reason = "MANUAL_LOCK",
-  actorId = null, // admin performing action
+  actorId = null,
+  context = "SYSTEM",
 }) => {
-  const lockUntil = new Date(Date.now() + durationMs);
+  const duration = await getLockDuration(tx);
+  const lockUntil = new Date(Date.now() + duration);
 
-  const user = await prisma.user.update({
+  const user = await tx.user.update({
     where: { id: userId },
     data: {
       lockUntil,
-      // 🔴 invalidate all existing JWTs
       tokenVersion: {
         increment: 1,
       },
+    },
+  });
+
+  // 🔴 AUDIT LOG
+  await logAudit({
+    tx,
+    businessId,
+    userId: actorId,
+    entityType: "USER",
+    entityId: userId,
+    action: "USER_LOCKED",
+    module: "SECURITY",
+    actorType: "ADMIN",
+    metadata: {
+      reason,
+      context,
+      lockUntil,
     },
   });
 
@@ -32,13 +68,36 @@ exports.lockUserAccount = async ({
 };
 
 /**
- * 🔓 Unlock user account manually
+ * =====================================================
+ * UNLOCK USER ACCOUNT (AUDIT-DRIVEN)
+ * =====================================================
  */
-exports.unlockUserAccount = async ({ userId, actorId = null }) => {
-  const user = await prisma.user.update({
+exports.unlockUserAccount = async ({
+  tx,
+  userId,
+  businessId = null,
+  actorId = null,
+  context = "SYSTEM",
+}) => {
+  const user = await tx.user.update({
     where: { id: userId },
     data: {
       lockUntil: null,
+    },
+  });
+
+  // 🔴 AUDIT LOG
+  await logAudit({
+    tx,
+    businessId,
+    userId: actorId,
+    entityType: "USER",
+    entityId: userId,
+    action: "USER_UNLOCKED",
+    module: "SECURITY",
+    actorType: "ADMIN",
+    metadata: {
+      context,
     },
   });
 
@@ -50,7 +109,9 @@ exports.unlockUserAccount = async ({ userId, actorId = null }) => {
 };
 
 /**
- * 🚫 Check if user is locked
+ * =====================================================
+ * ASSERT USER NOT LOCKED
+ * =====================================================
  */
 exports.assertUserNotLocked = (user) => {
   if (user?.lockUntil && user.lockUntil > new Date()) {
@@ -58,12 +119,13 @@ exports.assertUserNotLocked = (user) => {
   }
 };
 
-// 🔴 SUSPICIOUS TRANSACTION ENGINE (SHARED)
-const { handleSecurityEvent } = require("./incidentEngine");
-
+/**
+ * =====================================================
+ * SUSPICIOUS TRANSACTION ENGINE (AUDIT-DRIVEN)
+ * =====================================================
+ */
 const SUSPICIOUS_LIMIT = 3;
 const WINDOW_MS = 5 * 60 * 1000;
-const LOCK_DURATION_MS = 30 * 60 * 1000;
 
 exports.handleSuspiciousTransaction = async ({
   tx,
@@ -71,19 +133,28 @@ exports.handleSuspiciousTransaction = async ({
   expectedAmount,
   referenceId,
   userId,
+  businessId = null,
   context,
 }) => {
   if (!amount || !expectedAmount) return;
 
   const deviationRatio = amount / expectedAmount;
 
-  // 🔴 DETECTION: LARGE AMOUNT
+  /**
+   * -----------------------------------------------------
+   * DETECTION: LARGE AMOUNT
+   * -----------------------------------------------------
+   */
   if (amount > expectedAmount * 2) {
-    await handleSecurityEvent({
-      type: "SUSPICIOUS_TRANSACTION",
-      title: "Large transaction detected",
-      source: "API",
-      referenceId,
+    await logAudit({
+      tx,
+      businessId,
+      userId,
+      entityType: "SECURITY",
+      entityId: referenceId,
+      action: "SUSPICIOUS_TRANSACTION",
+      module: "SECURITY",
+      actorType: "TENANT",
       metadata: {
         type: "LARGE_AMOUNT",
         amount,
@@ -94,13 +165,21 @@ exports.handleSuspiciousTransaction = async ({
     });
   }
 
-  // 🔴 DETECTION: AMOUNT DEVIATION
+  /**
+   * -----------------------------------------------------
+   * DETECTION: AMOUNT DEVIATION
+   * -----------------------------------------------------
+   */
   if (deviationRatio > 1.5 || deviationRatio < 0.5) {
-    await handleSecurityEvent({
-      type: "SUSPICIOUS_TRANSACTION",
-      title: "Amount deviation detected",
-      source: "API",
-      referenceId,
+    await logAudit({
+      tx,
+      businessId,
+      userId,
+      entityType: "SECURITY",
+      entityId: referenceId,
+      action: "SUSPICIOUS_TRANSACTION",
+      module: "SECURITY",
+      actorType: "TENANT",
       metadata: {
         type: "AMOUNT_DEVIATION",
         amount,
@@ -111,20 +190,29 @@ exports.handleSuspiciousTransaction = async ({
     });
   }
 
-  // 🔴 COUNT RECENT INCIDENTS
-  const recentSuspiciousCount = await tx.securityIncident.count({
+  /**
+   * -----------------------------------------------------
+   * COUNT RECENT INCIDENTS (AUDIT-BASED)
+   * -----------------------------------------------------
+   */
+  const recentSuspiciousCount = await tx.auditLog.count({
     where: {
-      type: "SUSPICIOUS_TRANSACTION",
-      referenceId,
+      action: "SUSPICIOUS_TRANSACTION",
+      entityId: referenceId,
       createdAt: {
         gte: new Date(Date.now() - WINDOW_MS),
       },
     },
   });
 
-  // 🔴 LOCK USER
+  /**
+   * -----------------------------------------------------
+   * LOCK USER IF THRESHOLD REACHED
+   * -----------------------------------------------------
+   */
   if (recentSuspiciousCount >= SUSPICIOUS_LIMIT) {
-    const lockUntil = new Date(Date.now() + LOCK_DURATION_MS);
+    const duration = await getLockDuration(tx);
+    const lockUntil = new Date(Date.now() + duration);
 
     await tx.user.update({
       where: { id: userId },
@@ -136,15 +224,20 @@ exports.handleSuspiciousTransaction = async ({
       },
     });
 
-    await handleSecurityEvent({
-      type: "ACCOUNT_LOCKED",
-      title: "User locked due to suspicious activity",
-      source: "SYSTEM",
-      referenceId: userId,
+    // 🔴 AUDIT LOCK
+    await logAudit({
+      tx,
+      businessId,
+      userId,
+      entityType: "USER",
+      entityId: userId,
+      action: "USER_LOCKED",
+      module: "SECURITY",
+      actorType: "ADMIN",
       metadata: {
         reason: "MULTIPLE_SUSPICIOUS_TRANSACTIONS",
-        lockUntil,
         count: recentSuspiciousCount,
+        lockUntil,
         context,
       },
     });

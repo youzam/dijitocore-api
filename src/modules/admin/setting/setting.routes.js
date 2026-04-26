@@ -46,22 +46,6 @@ router.get(
 
 /*
 |--------------------------------------------------------------------------
-| Update Currency
-|--------------------------------------------------------------------------
-*/
-router.patch(
-  "/currency",
-  requirePermission({
-    module: "SETTINGS",
-    action: "EDIT",
-    scope: "SYSTEM",
-  }),
-  validate(validation.updateCurrency),
-  controller.updateCurrency,
-);
-
-/*
-|--------------------------------------------------------------------------
 | Update Payment Gateway
 |--------------------------------------------------------------------------
 */
@@ -90,70 +74,6 @@ router.patch(
   }),
   validate(validation.updateSecurityConfig),
   controller.updateSecurityConfig,
-);
-
-/*
-|--------------------------------------------------------------------------
-| Update API Config
-|--------------------------------------------------------------------------
-*/
-router.patch(
-  "/api",
-  requirePermission({
-    module: "SETTINGS",
-    action: "EDIT",
-    scope: "SYSTEM",
-  }),
-  validate(validation.updateApiConfig),
-  controller.updateApiConfig,
-);
-
-/*
-|--------------------------------------------------------------------------
-| Update Notification Config
-|--------------------------------------------------------------------------
-*/
-router.patch(
-  "/notification",
-  requirePermission({
-    module: "SETTINGS",
-    action: "EDIT",
-    scope: "SYSTEM",
-  }),
-  validate(validation.updateNotificationConfig),
-  controller.updateNotificationConfig,
-);
-
-/*
-|--------------------------------------------------------------------------
-| Update Branding Config
-|--------------------------------------------------------------------------
-*/
-router.patch(
-  "/branding",
-  requirePermission({
-    module: "SETTINGS",
-    action: "EDIT",
-    scope: "SYSTEM",
-  }),
-  validate(validation.updateBrandingConfig),
-  controller.updateBrandingConfig,
-);
-
-/*
-|--------------------------------------------------------------------------
-| Update Maintenance Config
-|--------------------------------------------------------------------------
-*/
-router.patch(
-  "/maintenance",
-  requirePermission({
-    module: "SETTINGS",
-    action: "EDIT",
-    scope: "SYSTEM",
-  }),
-  validate(validation.updateMaintenanceConfig),
-  controller.updateMaintenanceConfig,
 );
 
 module.exports = router;

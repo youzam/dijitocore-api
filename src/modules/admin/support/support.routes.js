@@ -141,6 +141,12 @@ router.get(
   controller.getAttachments,
 );
 
+router.get(
+  "/tickets/:id/attachments/:attachmentId/download",
+  requirePermission({ module: "SUPPORT", action: "READ" }),
+  controller.downloadAttachment,
+);
+
 /*
 |--------------------------------------------------------------------------
 | Analytics

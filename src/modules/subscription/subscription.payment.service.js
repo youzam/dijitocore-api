@@ -532,6 +532,7 @@ exports.processGatewayWebhook = async (payload, headers = {}) => {
       expectedAmount: plan.price,
       referenceId: tenantId,
       userId,
+      businessId: businessId,
       context: "SUBSCRIPTION",
     });
 

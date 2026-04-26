@@ -161,3 +161,21 @@ exports.getBusinessTickets = catchAsync(async (req, res) => {
 
   return response.success(res, data, "support.business_tickets_fetched");
 });
+
+exports.downloadAttachment = catchAsync(async (req, res) => {
+  const result = await ticketService.downloadAttachment({
+    user: req.user,
+    ticketId: req.params.id,
+    attachmentId: req.params.attachmentId,
+  });
+
+  // 🔥 HANDLE BOTH CASES
+  if (result.type === "url") {
+    return success(req, res, { url: result.value }, 200, "file.download_url");
+  }
+
+  if (result.type === "stream") {
+    res.setHeader("Content-Type", "application/octet-stream");
+    return result.value.pipe(res);
+  }
+});

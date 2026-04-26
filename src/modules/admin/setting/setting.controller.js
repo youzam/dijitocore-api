@@ -26,20 +26,6 @@ exports.getSettingsHistory = catchAsync(async (req, res) => {
 
 /*
 |--------------------------------------------------------------------------
-| Update Currency
-|--------------------------------------------------------------------------
-*/
-exports.updateCurrency = catchAsync(async (req, res) => {
-  const data = await settingService.updateCurrency(
-    req.body.currency,
-    req.admin.id,
-  );
-
-  return success(req, res, data, 200, "settings.updated");
-});
-
-/*
-|--------------------------------------------------------------------------
 | Update Payment Gateway
 |--------------------------------------------------------------------------
 */
@@ -59,59 +45,6 @@ exports.updateActiveGateway = catchAsync(async (req, res) => {
 */
 exports.updateSecurityConfig = catchAsync(async (req, res) => {
   const data = await settingService.updateSecurityConfig(
-    req.body,
-    req.admin.id,
-  );
-
-  return success(req, res, data, 200, "settings.updated");
-});
-
-/*
-|--------------------------------------------------------------------------
-| Update API Config
-|--------------------------------------------------------------------------
-*/
-exports.updateApiConfig = catchAsync(async (req, res) => {
-  const data = await settingService.updateApiConfig(req.body, req.admin.id);
-
-  return success(req, res, data, 200, "settings.updated");
-});
-
-/*
-|--------------------------------------------------------------------------
-| Update Notification Config
-|--------------------------------------------------------------------------
-*/
-exports.updateNotificationConfig = catchAsync(async (req, res) => {
-  const data = await settingService.updateNotificationConfig(
-    req.body,
-    req.admin.id,
-  );
-
-  return success(req, res, data, 200, "settings.updated");
-});
-
-/*
-|--------------------------------------------------------------------------
-| Update Branding Config
-|--------------------------------------------------------------------------
-*/
-exports.updateBrandingConfig = catchAsync(async (req, res) => {
-  const data = await settingService.updateBrandingConfig(
-    req.body,
-    req.admin.id,
-  );
-
-  return success(req, res, data, 200, "settings.updated");
-});
-
-/*
-|--------------------------------------------------------------------------
-| Update Maintenance Config
-|--------------------------------------------------------------------------
-*/
-exports.updateMaintenanceConfig = catchAsync(async (req, res) => {
-  const data = await settingService.updateMaintenanceConfig(
     req.body,
     req.admin.id,
   );

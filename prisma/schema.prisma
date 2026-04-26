@@ -1762,8 +1762,6 @@ model SystemSeedLog {
 model SystemSetting {
   id String @id @default("SYSTEM")
 
-  // 🌍 Core system configuration
-  currency             String
   activePaymentGateway String @default("SELCOM")
 
   // 🧠 System lifecycle
@@ -1785,31 +1783,42 @@ model SystemSetting {
 // TICKET — Support tickets
 //////////////////////////////////////////////////////
 
-model Ticket {
+model SupportTicket {
   id String @id @default(uuid())
 
-  businessId      String
-  userId          String?
+  // 🔗 Ownership & scope
+  businessId String
+
+  createdByType   TicketActorType
+  createdByUserId String
+
   assignedAdminId String?
 
+  // 📝 Content
   subject     String
   description String
 
-  status   String
-  priority String
+  // ⚙️ Workflow
+  status   TicketStatus   @default(OPEN)
+  priority TicketPriority @default(MEDIUM)
 
+  // ⏱ SLA
   slaDeadline DateTime?
   escalated   Boolean   @default(false)
 
+  // 🗑 Soft delete
   isDeleted Boolean   @default(false)
   deletedAt DateTime?
   deletedBy String?
 
+  // 🕒 Timestamps
   createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
+  updatedAt DateTime @updatedAt
 
   @@index([businessId])
   @@index([status])
+  @@index([createdByType])
+  @@index([assignedAdminId])
 }
 
 //////////////////////////////////////////////////////
@@ -2080,6 +2089,25 @@ enum SubscriptionStatus {
   GRACE
   SUSPENDED
   TRIAL
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TicketActorType {
+  TENANT
+  ADMIN
 }
 
 enum UserRole {
