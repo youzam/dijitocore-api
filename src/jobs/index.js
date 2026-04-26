@@ -11,6 +11,7 @@ const subscriptionLifecycleJob = require("./subscription.lifecycle.job");
 const complianceJob = require("./compliance.job");
 const apiMetricsJob = require("./api.metrics.job");
 const deadJobMonitor = require("./dead.job.monitor");
+const userAutoUnlockJob = require("./user.auto.unlock.job");
 
 /*
 |--------------------------------------------------------------------------
@@ -28,6 +29,7 @@ const jobRegistry = {
   compliance: complianceJob,
   api_metrics: apiMetricsJob,
   dead_job_monitor: deadJobMonitor,
+  user_auto_unlock: userAutoUnlockJob,
 };
 
 /*
@@ -102,6 +104,15 @@ function startJobs() {
 
   tasks.push(
     scheduleCronJob("dead_job_monitor", deadJobMonitor.run, "*/5 * * * *", 300),
+  );
+
+  tasks.push(
+    scheduleCronJob(
+      "user_auto_unlock",
+      userAutoUnlockJob.run,
+      "*/5 * * * *",
+      300,
+    ),
   );
 
   /*

@@ -5,6 +5,7 @@ const auditHelper = require("../../utils/audit.helper");
 const gatewayManager = require("../../utils/paymentGateway/gateway.manager");
 const couponService = require("./subscription.coupon.service");
 const { SubscriptionStatus } = require("@prisma/client");
+const { handleSuspiciousTransaction } = require("../../utils/security.helper");
 
 /* ======================================================
    OPTIONAL SIGNATURE VERIFY (NON-BREAKING)
@@ -338,6 +339,10 @@ exports.initiatePayment = async ({
 /* ======================================================
    WEBHOOK PROCESSOR
 ====================================================== */
+const SUSPICIOUS_LIMIT = 3;
+const WINDOW_MS = 5 * 60 * 1000;
+const LOCK_DURATION_MS = 30 * 60 * 1000;
+
 exports.processGatewayWebhook = async (payload, headers = {}) => {
   return prisma.$transaction(async (tx) => {
     // =====================================================
@@ -517,6 +522,18 @@ exports.processGatewayWebhook = async (payload, headers = {}) => {
         },
       });
     }
+
+    // =====================================================
+    // DETECT SUSPICIOUS TRANSACTION
+    // =====================================================
+    await handleSuspiciousTransaction({
+      tx,
+      amount,
+      expectedAmount: plan.price,
+      referenceId: tenantId,
+      userId,
+      context: "SUBSCRIPTION",
+    });
 
     // =====================================================
     // 🔹 13. ACTIVATE SUBSCRIPTION (UNCHANGED)

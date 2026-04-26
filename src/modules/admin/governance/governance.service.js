@@ -4,6 +4,10 @@ const { logAudit } = require("../../../utils/audit.helper");
 const subscriptionService = require("../../subscription/subscription.service");
 const authService = require("../../auth/auth.service");
 const coreAuth = require("../../auth/core.auth.service");
+const {
+  lockUserAccount,
+  unlockUserAccount,
+} = require("../../../utils/security.helper");
 
 /*
 |--------------------------------------------------------------------------
@@ -1016,4 +1020,56 @@ exports.globalSearch = async (query, options = {}) => {
     ...Object.fromEntries(entries),
     pagination,
   };
+};
+
+/*
+|--------------------------------------------------------------------------
+| ADMIN LOCK AND UNLOCK USER
+|--------------------------------------------------------------------------
+*/
+exports.lockUser = async ({ userId, durationMs, actorId }) => {
+  const result = await lockUserAccount({
+    userId,
+    durationMs,
+    reason: "ADMIN_MANUAL_LOCK",
+    actorId,
+  });
+
+  await logAudit({
+    tx,
+    userId: actorId, // admin performing action
+    entityType: "USER",
+    entityId: userId,
+    action: "USER_LOCKED",
+    module: "GOVERNANCE",
+    actorType: "ADMIN",
+    metadata: {
+      lockUntil,
+      durationMs,
+      reason: "MANUAL_LOCK",
+    },
+  });
+
+  return result;
+};
+
+exports.unlockUser = async ({ userId, actorId }) => {
+  const result = await unlockUserAccount({
+    userId,
+    actorId,
+  });
+
+  await logAudit({
+    tx,
+    userId: actorId,
+    entityType: "USER",
+    entityId: userId,
+    action: "USER_UNLOCKED",
+    module: "GOVERNANCE",
+    actorType: "ADMIN",
+    metadata: {
+      reason: "MANUAL_UNLOCK",
+    },
+  });
+  return result;
 };

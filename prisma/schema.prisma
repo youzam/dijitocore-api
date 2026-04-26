@@ -502,8 +502,9 @@ model Customer {
   deletedAt DateTime?
   deletedBy String?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @default(now()) @updatedAt
+  fraudFlags FraudFlag[]
 
   @@unique([phone, businessId])
 }
@@ -847,6 +848,37 @@ model FinancialAdjustment {
 }
 
 //////////////////////////////////////////////////////
+// Flagged items due to fraudi
+//////////////////////////////////////////////////////
+model FraudFlag {
+  id String @id @default(uuid())
+
+  userId     String?
+  adminId    String?
+  customerId String?
+
+  subscriptionPaymentId String?
+
+  entityType FraudEntityType
+
+  reason String
+  status FraudFlagStatus @default(ACTIVE)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user                User?                @relation(fields: [userId], references: [id])
+  admin               SystemAdmin?         @relation(fields: [adminId], references: [id])
+  customer            Customer?            @relation(fields: [customerId], references: [id])
+  subscriptionPayment SubscriptionPayment? @relation(fields: [subscriptionPaymentId], references: [id])
+
+  @@index([userId])
+  @@index([adminId])
+  @@index([customerId])
+  @@index([subscriptionPaymentId])
+}
+
+//////////////////////////////////////////////////////
 // GATEWAY HEALTH — Payment gateway monitoring
 //////////////////////////////////////////////////////
 
@@ -1071,7 +1103,7 @@ model NotificationTemplate {
 // PAYMENT — Customer payments
 //////////////////////////////////////////////////////
 
-model Payment {
+model InstallmentPayment {
   id String @id @default(uuid())
 
   businessId String
@@ -1125,7 +1157,7 @@ model PaymentReversal {
 
   approvedAt DateTime?
 
-  Payment Payment @relation(fields: [paymentId], references: [id])
+  Payment InstallmentPayment @relation(fields: [paymentId], references: [id])
 
   isDeleted Boolean   @default(false)
   deletedAt DateTime?
@@ -1485,8 +1517,9 @@ model SubscriptionPayment {
   deletedAt DateTime?
   deletedBy String?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @default(now()) @updatedAt
+  fraudFlags FraudFlag[]
 }
 
 //////////////////////////////////////////////////////
@@ -1576,8 +1609,9 @@ model SystemAdmin {
   deletedAt DateTime?
   deletedBy String?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @default(now()) @updatedAt
+  fraudFlags FraudFlag[]
 }
 
 //////////////////////////////////////////////////////
@@ -1884,8 +1918,9 @@ model User {
   deletedAt DateTime?
   deletedBy String?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @default(now()) @updatedAt
+  fraudFlags FraudFlag[]
 
   @@unique([email, businessId])
 }
@@ -1961,6 +1996,7 @@ enum ContractStatus {
 enum CustomerStatus {
   ACTIVE
   INACTIVE
+  SUSPENDED
 }
 
 enum DataRequestStatus {
@@ -1975,6 +2011,18 @@ enum DataRequestStatus {
 enum DataRequestType {
   DELETE
   EXPORT
+}
+
+enum FraudFlagStatus {
+  ACTIVE
+  RESOLVED
+}
+
+enum FraudEntityType {
+  USER
+  ADMIN
+  CUSTOMER
+  SUBSCRIPTION_PAYMENT
 }
 
 enum GatewayStatus {

@@ -7,8 +7,8 @@ const role = require("../../middlewares/role.middleware");
 const validate = require("../../middlewares/validate.middleware");
 const subscriptionFeature = require("../../middlewares/subscriptionFeature.middleware");
 
-const controller = require("./payment.controller");
-const validation = require("./payment.validation");
+const controller = require("./installmentPayment.controller");
+const validation = require("./installmentPayment.validation");
 
 router.use(auth);
 router.use(tenant);

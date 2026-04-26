@@ -2,7 +2,7 @@ const catchAsync = require("../../utils/catchAsync");
 const AppError = require("../../utils/AppError");
 const response = require("../../utils/response");
 
-const paymentService = require("./payment.service");
+const paymentService = require("./installmentPayment.service");
 
 /* ===============================
    EXISTING CONTROLLERS (UNCHANGED)

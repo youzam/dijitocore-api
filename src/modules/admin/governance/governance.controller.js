@@ -272,3 +272,31 @@ exports.globalSearch = catchAsync(async (req, res) => {
 
   return response.success(req, res, data, 200, "governance.search_success");
 });
+
+/*
+|--------------------------------------------------------------------------
+| Security Lock and Unlock user
+|--------------------------------------------------------------------------
+*/
+exports.lockUser = catchAsync(async (req, res) => {
+  const { userId, durationMs } = req.body;
+
+  const data = await governanceService.lockUser({
+    userId,
+    durationMs,
+    actorId: req.auth.userId,
+  });
+
+  return success(req, res, data);
+});
+
+exports.unlockUser = catchAsync(async (req, res) => {
+  const { userId } = req.body;
+
+  const data = await governanceService.unlockUser({
+    userId,
+    actorId: req.auth.userId,
+  });
+
+  return success(req, res, data);
+});

@@ -155,19 +155,6 @@ exports.getSuspiciousTransactions = catchAsync(async (req, res) => {
   );
 });
 
-exports.markTransactionAsSafe = catchAsync(async (req, res) => {
-  const result = await securityService.markTransactionAsSafe(
-    req.params.transactionId,
-  );
-  return response.success(
-    req,
-    res,
-    result,
-    200,
-    "security.mark_transaction_safe",
-  );
-});
-
 /**
  * =====================================================
  * INTEGRITY CHECKS
@@ -224,6 +211,12 @@ exports.getSecurityOverview = catchAsync(async (req, res) => {
  * SECURITY INCIDENT MANAGEMENT
  * =====================================================
  */
+
+exports.createSecurityIncident = catchAsync(async (req, res) => {
+  const result = await securityService.createSecurityIncident(req.body);
+
+  return response.success(req, res, result, 200, "security.get_incidents");
+});
 
 exports.getSecurityIncidents = catchAsync(async (req, res) => {
   const result = await securityService.getSecurityIncidents(req.query);

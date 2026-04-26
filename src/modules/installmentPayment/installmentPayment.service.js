@@ -7,6 +7,42 @@ const {
 } = require("../../services/notifications/notification.service");
 const approvalEngine = require("../../services/approval/approval.engine");
 const subscriptionAuthority = require("../subscription/subscription.authority.service");
+const { handleSecurityEvent } = require("../../utils/incidentEngine");
+const AppError = require("../../utils/AppError");
+
+/**
+ * Guard: Payment update allowed only via reversal flow.
+ * @param {Object} params
+ * @param {string} params.flow - expected "REVERSAL"
+ * @param {Object} params.user
+ * @param {string} params.paymentId
+ * @param {Object} params.attemptedChanges
+ */
+async function guardPaymentMutation({
+  flow,
+  user,
+  paymentId,
+  attemptedChanges,
+}) {
+  // ✅ ALLOW ONLY REVERSAL FLOW
+  if (flow === "REVERSAL") return;
+
+  // 🔴 BLOCK ANY OTHER ATTEMPT
+  await handleSecurityEvent({
+    type: "PAYMENT_TAMPERING_ATTEMPT",
+    title: "Unauthorized payment mutation attempt",
+    description: `User ${user?.id} attempted direct payment modification`,
+    source: "API",
+    referenceId: paymentId,
+    metadata: {
+      userId: user?.id,
+      role: user?.role,
+      attemptedChanges,
+    },
+  });
+
+  throw new AppError("payment.update_forbidden", 403);
+}
 
 /**
  * RECORD PAYMENT (HARDENED & SAFE)
@@ -28,12 +64,17 @@ exports.recordPayment = async ({
   await subscriptionAuthority.assertActiveSubscription(businessId);
   await subscriptionAuthority.assertFeature(businessId, "allowPayments");
 
+  const LARGE_TRANSACTION_THRESHOLD = 10000000; // adjust later via config
+  const SUSPICIOUS_LIMIT = 3;
+  const WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+  const LOCK_DURATION_MS = 60 * 60 * 1000; // 60 minutes
+
   const payment = await prisma.$transaction(async (tx) => {
     /* =====================================================
        IDEMPOTENCY CHECK
        ===================================================== */
     if (idempotencyKey) {
-      const existing = await tx.payment.findFirst({
+      const existing = await tx.installmentPayment.findFirst({
         where: { businessId, idempotencyKey },
       });
 
@@ -47,6 +88,33 @@ exports.recordPayment = async ({
         });
 
         return existing;
+      }
+    }
+
+    if (reference) {
+      const duplicate = await tx.payment.findFirst({
+        where: {
+          businessId,
+          contractId,
+          reference,
+          amount,
+        },
+      });
+
+      if (duplicate) {
+        await handleSecurityEvent({
+          type: "DUPLICATE_PAYMENT_ATTEMPT",
+          source: "API",
+          referenceId: contractId,
+          metadata: {
+            reference,
+            amount,
+            contractId,
+            existingPaymentId: duplicate.id,
+          },
+        });
+
+        throw new Error("payment.duplicate_detected");
       }
     }
 
@@ -93,7 +161,23 @@ exports.recordPayment = async ({
     /* =====================================================
        CALCULATE PAYABLE
        ===================================================== */
-    const payable = Math.min(amount, contract.outstandingAmount);
+    /* =====================================================
+   VALIDATE PAYMENT AMOUNT (STRICT)
+   ===================================================== */
+
+    if (amount > contract.outstandingAmount) {
+      throw new Error("payment.exceeds_outstanding_amount");
+    }
+
+    if (amount <= 0) {
+      throw new Error("payment.invalid_amount");
+    }
+
+    /* =====================================================
+   CALCULATE PAYABLE
+   ===================================================== */
+
+    const payable = amount;
     let remaining = payable;
 
     const schedules = contract.schedules
@@ -129,7 +213,7 @@ exports.recordPayment = async ({
     /* =====================================================
        CREATE PAYMENT ENTRY (EXPLICIT STATUS)
        ===================================================== */
-    return tx.payment.create({
+    return tx.installmentPayment.create({
       data: {
         businessId,
         contractId,
@@ -241,7 +325,7 @@ exports.requestReversal = async ({
   await subscriptionAuthority.assertFeature(businessId, "allowApprovals");
 
   return prisma.$transaction(async (tx) => {
-    const payment = await tx.payment.findFirst({
+    const payment = await tx.installmentPayment.findFirst({
       where: { id: paymentId, businessId },
     });
 
@@ -430,6 +514,16 @@ exports.approveReversal = async ({
         completedAt: null,
         status: "ACTIVE",
       },
+    });
+
+    await guardPaymentMutation({
+      flow: "REVERSAL",
+      user: {
+        id: approverId,
+        role: "TENANT", // kama una role halisi tumia hiyo
+      },
+      paymentId: payment.id,
+      attemptedChanges: { status: "REVERSED" },
     });
 
     await trx.payment.create({

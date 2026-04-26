@@ -19,6 +19,29 @@ function buildPermissionKey(module, action, scope) {
   return `${module}_${action}_${scope}`;
 }
 
+async function logPermissionViolation(req, user, module, action, scope) {
+  try {
+    await handleSecurityEvent({
+      type: "PRIVILEGE_ESCALATION_ATTEMPT",
+      title: "Permission violation",
+      description: `User role ${user?.role} attempted unauthorized action`,
+      source: "API",
+      referenceId: user?.id || null,
+      metadata: {
+        module,
+        action,
+        scope,
+        path: req.originalUrl,
+        method: req.method,
+        role: user?.role,
+        ip: req.ip,
+      },
+    });
+  } catch (err) {
+    // usivunje flow kama logging imefail
+    console.error("Incident logging failed:", err.message);
+  }
+}
 /*
 |--------------------------------------------------------------------------
 | Require Permission Middleware
@@ -91,6 +114,7 @@ module.exports = function requirePermission({ module, action, scope }) {
           return next();
         }
 
+        await logPermissionViolation(req, user, module, action, scope);
         return response.error(req, res, null, 403, "auth.forbidden");
       }
 
@@ -158,6 +182,7 @@ module.exports = function requirePermission({ module, action, scope }) {
       permissionCache.set(cacheKey, allowed);
 
       if (!allowed) {
+        await logPermissionViolation(req, user, module, action, scope);
         return response.error(req, res, null, 403, "auth.forbidden");
       }
 

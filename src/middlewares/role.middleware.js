@@ -1,4 +1,5 @@
 const AppError = require("../utils/AppError.js");
+const { handleSecurityEvent } = require("../utils/incidentEngine");
 
 /**
  * =====================================================
@@ -8,7 +9,7 @@ const AppError = require("../utils/AppError.js");
  * =====================================================
  */
 const roleMiddleware = (allowedRoles = []) => {
-  return (req, res, next) => {
+  return async (req, res, next) => {
     if (!req.auth) {
       return next(new AppError("auth.unauthorized", 401));
     }
@@ -18,6 +19,29 @@ const roleMiddleware = (allowedRoles = []) => {
      */
     if (req.auth.identityType === "system") {
       return next();
+    }
+
+    /**
+     * 🔴 CUSTOMER WRITE ATTEMPT PROTECTION (ADDED)
+     */
+    if (req.auth.identityType === "customer" && req.method !== "GET") {
+      await handleSecurityEvent({
+        type: "CUSTOMER_WRITE_ATTEMPT",
+        title: "Customer attempted write operation",
+        description: `Customer ${req.auth.userId} attempted ${req.method} on ${req.originalUrl}`,
+        source: "API",
+        referenceId: req.auth.userId || null,
+        metadata: {
+          path: req.originalUrl,
+          method: req.method,
+          role: req.auth.role,
+          identityType: req.auth.identityType,
+          ip: req.ip,
+          body: req.body,
+        },
+      });
+
+      return next(new AppError("auth.customer_read_only", 403));
     }
 
     /**
@@ -32,6 +56,22 @@ const roleMiddleware = (allowedRoles = []) => {
     }
 
     if (!allowedRoles.includes(req.auth.role)) {
+      await handleSecurityEvent({
+        type: "PRIVILEGE_ESCALATION_ATTEMPT",
+        title: "Privilege escalation attempt",
+        description: `Role ${req.auth.role} attempted restricted access`,
+        source: "API",
+        referenceId: req.auth.userId || null,
+        metadata: {
+          path: req.originalUrl,
+          method: req.method,
+          role: req.auth.role,
+          allowedRoles,
+          identityType: req.auth.identityType,
+          ip: req.ip,
+        },
+      });
+
       return next(new AppError("auth.unauthorized", 403));
     }
 

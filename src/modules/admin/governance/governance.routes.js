@@ -243,4 +243,16 @@ router.get(
   governanceController.globalSearch,
 );
 
+router.post(
+  "/users/lock",
+  requirePermission({ module: "GOVERNANCE", action: "EDIT", scope: "USER" }),
+  governanceController.lockUser,
+);
+
+router.post(
+  "/users/unlock",
+  requirePermission({ module: "GOVERNANCE", action: "EDIT", scope: "USER" }),
+  governanceController.unlockUser,
+);
+
 module.exports = router;
