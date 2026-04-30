@@ -1,5 +1,5 @@
-const prisma = require("../../config/prisma");
-const { logAudit } = require("../../utils/audit.helper");
+const prisma = require("../../../config/prisma");
+const { logAudit } = require("../../../utils/audit.helper");
 
 /*
 |--------------------------------------------------------------------------
@@ -15,14 +15,6 @@ const createPolicyVersion = async (tx, policy, adminId) => {
       retentionDays: policy.retentionDays,
       version: policy.version,
       createdById: adminId,
-    },
-  });
-};
-
-const createPurgeQueue = async (tx, dataRequestId) => {
-  return tx.purgeQueue.create({
-    data: {
-      dataRequestId,
     },
   });
 };

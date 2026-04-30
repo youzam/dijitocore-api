@@ -64,11 +64,6 @@ exports.recordPayment = async ({
   await subscriptionAuthority.assertActiveSubscription(businessId);
   await subscriptionAuthority.assertFeature(businessId, "allowPayments");
 
-  const LARGE_TRANSACTION_THRESHOLD = 10000000; // adjust later via config
-  const SUSPICIOUS_LIMIT = 3;
-  const WINDOW_MS = 5 * 60 * 1000; // 5 minutes
-  const LOCK_DURATION_MS = 60 * 60 * 1000; // 60 minutes
-
   const payment = await prisma.$transaction(async (tx) => {
     /* =====================================================
        IDEMPOTENCY CHECK

@@ -4,7 +4,7 @@ const analyticsController = require("./analytics.controller");
 const analyticsValidation = require("./analytics.validation");
 
 const auth = require("../../../middlewares/auth.middleware");
-const requirePermission = require("../../../middlewares/requirePermission.middleware");
+const requirePermission = require("../../../middlewares/permission.middleware");
 const validate = require("../../../middlewares/validate.middleware");
 
 const router = express.Router();

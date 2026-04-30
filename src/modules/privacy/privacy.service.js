@@ -1,8 +1,16 @@
 const prisma = require("../../config/prisma");
 const auditHelper = require("../../utils/audit.helper");
 
+const createPurgeQueue = async (tx, dataRequestId) => {
+  return tx.purgeQueue.create({
+    data: {
+      dataRequestId,
+      status: "PENDING",
+    },
+  });
+};
+
 exports.createDataRequest = async (data, user) => {
-  // 🔐 DETERMINE REQUESTER TYPE
   let requestedByUserId = null;
   let requestedByCustomerId = null;
 
@@ -12,7 +20,7 @@ exports.createDataRequest = async (data, user) => {
     requestedByUserId = user.id;
   }
 
-  // 🔒 VALIDATE TARGET OWNERSHIP
+  // 🔍 validation
   if (requestedByUserId) {
     const dbUser = await prisma.user.findUnique({
       where: { id: requestedByUserId },
@@ -40,7 +48,7 @@ exports.createDataRequest = async (data, user) => {
     }
   }
 
-  // 🚫 PREVENT DUPLICATE ACTIVE REQUEST
+  // 🔍 prevent duplicate active requests
   const existing = await prisma.dataRequest.findFirst({
     where: {
       type: data.type,
@@ -53,18 +61,24 @@ exports.createDataRequest = async (data, user) => {
     throw new Error("Active request already exists for this type");
   }
 
-  // ✅ CREATE REQUEST (ALIGNED WITH SCHEMA)
-  const request = await prisma.dataRequest.create({
-    data: {
-      type: data.type,
-      targetType: data.targetType,
-      targetId: data.targetId,
-      requestedByUserId,
-      requestedByCustomerId,
-    },
+  // 🔥 TRANSACTION: create request + enqueue purge
+  const request = await prisma.$transaction(async (tx) => {
+    const createdRequest = await tx.dataRequest.create({
+      data: {
+        type: data.type,
+        targetType: data.targetType,
+        targetId: data.targetId,
+        requestedByUserId,
+        requestedByCustomerId,
+      },
+    });
+
+    await createPurgeQueue(tx, createdRequest.id);
+
+    return createdRequest;
   });
 
-  // 🧾 AUDIT
+  // 🧾 audit (outside transaction)
   await auditHelper.logAudit({
     userId: user.id,
     entityType: "DATA_REQUEST",

@@ -1,9 +1,9 @@
 const express = require("express");
 const router = express.Router();
 
-const auth = require("../../middlewares/auth.middleware");
-const requirePermission = require("../../middlewares/permission.middleware");
-const validate = require("../../middlewares/validate.middleware");
+const auth = require("../../../middlewares/auth.middleware");
+const requirePermission = require("../../../middlewares/permission.middleware");
+const validate = require("../../../middlewares/validate.middleware");
 
 const controller = require("./compliance.controller");
 const validation = require("./compliance.validation");

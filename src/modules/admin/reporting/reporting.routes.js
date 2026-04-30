@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-const controller = require("./reporting.controller");
+const reportingController = require("./reporting.controller");
 const validate = require("../../../middlewares/validate.middleware");
 const reportingValidation = require("./reporting.validation");
 
@@ -163,19 +163,19 @@ router.get(
 router.get(
   "/support/summary",
   requirePermission({ module: "REPORTING", action: "READ", scope: "SUPPORT" }),
-  controller.getSupportSummary,
+  reportingController.getSupportSummary,
 );
 
 router.get(
   "/support/sla",
   requirePermission({ module: "REPORTING", action: "READ", scope: "SUPPORT" }),
-  controller.getSupportSLA,
+  reportingController.getSupportSLA,
 );
 
 router.get(
   "/support/business",
   requirePermission({ module: "REPORTING", action: "READ", scope: "SUPPORT" }),
-  controller.getTicketsPerBusiness,
+  reportingController.getTicketsPerBusiness,
 );
 
 module.exports = router;

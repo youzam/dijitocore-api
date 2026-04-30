@@ -17,14 +17,26 @@ const auditRoutes = require("./modules/audit/audit.routes");
 const privacyRoutes = require("./modules/privacy/privacy.routes");
 const ticketRoutes = require("./modules/ticket/ticket.routes");
 
+// =========================
+// ADMIN ROUTES (BACKOFFICE)
+// =========================
 const accessRoutes = require("./modules/admin/access/access.routes");
 const governanceRoutes = require("./modules/admin/governance/governance.routes");
 const commerceRoutes = require("./modules/admin/commerce/commerce.routes");
 const securityRoutes = require("./modules/admin/security/security.routes");
 const operationRoutes = require("./modules/admin/operation/operation.routes");
 const settingRoutes = require("./modules/admin/setting/setting.routes");
+const adminAnalyticsRoutes = require("./modules/admin/analytics/analytics.routes");
+const adminCommunicationRoutes = require("./modules/admin/communication/communication.routes");
+const adminComplianceRoutes = require("./modules/admin/compliance/compliance.routes");
+const adminReportingRoutes = require("./modules/admin/reporting/reporting.routes");
+const adminSupportRoutes = require("./modules/admin/support/support.routes");
 
 const router = express.Router();
+
+// =========================
+// SYSTEM ENDPOINTS
+// =========================
 
 // Server health endpoint
 router.get("/health", (req, res) => {
@@ -35,19 +47,30 @@ router.get("/health", (req, res) => {
   });
 });
 
-// Metrix endpoint
+// Metrics endpoint
 router.get("/metrics", async (req, res) => {
   res.set("Content-Type", client.register.contentType);
   res.end(await client.register.metrics());
 });
 
+// =========================
+// ADMIN ROUTES (INTERNAL / RBAC PROTECTED)
+// =========================
 router.use("/admin/access", accessRoutes);
 router.use("/admin/governance", governanceRoutes);
 router.use("/admin/commerce", commerceRoutes);
 router.use("/admin/security", securityRoutes);
 router.use("/admin/operations", operationRoutes);
 router.use("/admin/settings", settingRoutes);
+router.use("/admin/analytics", adminAnalyticsRoutes);
+router.use("/admin/communication", adminCommunicationRoutes);
+router.use("/admin/compliance", adminComplianceRoutes);
+router.use("/admin/reporting", adminReportingRoutes);
+router.use("/admin/support", adminSupportRoutes);
 
+// =========================
+// TENANT / PUBLIC ROUTES (BUSINESS & USER FACING)
+// =========================
 router.use("/auth", authRoutes);
 router.use("/users", userRoutes);
 router.use("/businesses", businessRoutes);

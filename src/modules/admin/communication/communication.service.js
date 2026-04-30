@@ -1,6 +1,6 @@
-const prisma = require("../../config/prisma");
-const notificationService = require("../../services/notifications/notification.service");
-const { logAudit } = require("../../utils/audit.helper");
+const prisma = require("../../../config/prisma");
+const notificationService = require("../../../services/notifications/notification.service");
+const { logAudit } = require("../../../utils/audit.helper");
 
 class CommunicationService {
   /*

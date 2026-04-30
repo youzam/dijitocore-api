@@ -24,7 +24,7 @@ exports.refundTransaction = async (transactionId, actor) => {
   }
 
   // 🔥 STEP 5: MARK PAYMENT AS REFUNDED
-  const updatedPayment = await prisma.subscriptionPayment.update({
+  await prisma.subscriptionPayment.update({
     where: { id: transactionId },
     data: {
       status: "REFUNDED",

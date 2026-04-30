@@ -339,9 +339,6 @@ exports.initiatePayment = async ({
 /* ======================================================
    WEBHOOK PROCESSOR
 ====================================================== */
-const SUSPICIOUS_LIMIT = 3;
-const WINDOW_MS = 5 * 60 * 1000;
-const LOCK_DURATION_MS = 30 * 60 * 1000;
 
 exports.processGatewayWebhook = async (payload, headers = {}) => {
   return prisma.$transaction(async (tx) => {

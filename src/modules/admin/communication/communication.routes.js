@@ -1,13 +1,13 @@
 const express = require("express");
 const router = express.Router();
 
-const controller = require("../controllers/communication.controller");
-const auth = require("../../middlewares/auth.middleware");
-const requirePermission = require("../../middlewares/permission.middleware");
-const validate = require("../../middlewares/validate.middleware");
-const rateLimitCommunication = require("../../middlewares/rateLimit.communication");
+const controller = require("./communication.controller");
+const auth = require("../../../middlewares/auth.middleware");
+const requirePermission = require("../../../middlewares/permission.middleware");
+const validate = require("../../../middlewares/validate.middleware");
+const rateLimitCommunication = require("../../../middlewares/rateLimit.communication");
 
-const validation = require("../validations/communication.validation");
+const validation = require("./communication.validation");
 
 /*
 |--------------------------------------------------------------------------

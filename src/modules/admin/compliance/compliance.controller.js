@@ -1,5 +1,5 @@
-const catchAsync = require("../../utils/catchAsync");
-const response = require("../../utils/response");
+const catchAsync = require("../../../utils/catchAsync");
+const response = require("../../../utils/response");
 const complianceService = require("./compliance.service");
 const exportService = require("../../../services/export.service");
 /*

@@ -3,7 +3,6 @@ const response = require("../../utils/response");
 
 const dashboardService = require("./dashboard.service");
 const analyticsService = require("./dashboard.analytics.service");
-const subscriptionAuthority = require("../subscription/subscription.authority.service");
 
 /**
  * ===============================

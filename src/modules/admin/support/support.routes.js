@@ -3,7 +3,7 @@ const router = express.Router();
 
 const auth = require("../../../middlewares/auth.middleware");
 const requirePermission = require("../../../middlewares/permission.middleware");
-const validate = require("../../../middlewares/validation.middleware");
+const validate = require("../../../middlewares/validate.middleware");
 
 const controller = require("./support.controller");
 const validation = require("./support.validation");

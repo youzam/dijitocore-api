@@ -1,6 +1,6 @@
-const communicationService = require("../services/communication.service");
-const catchAsync = require("../../utils/catchAsync");
-const response = require("../../utils/response");
+const communicationService = require("./communication.service");
+const catchAsync = require("../../../utils/catchAsync");
+const response = require("../../../utils/response");
 
 /*
 |--------------------------------------------------------------------------
