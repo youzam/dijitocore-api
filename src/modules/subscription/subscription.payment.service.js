@@ -6,6 +6,9 @@ const gatewayManager = require("../../utils/paymentGateway/gateway.manager");
 const couponService = require("./subscription.coupon.service");
 const { SubscriptionStatus } = require("@prisma/client");
 const { handleSuspiciousTransaction } = require("../../utils/security.helper");
+const {
+  SUPPORTED_PAYMENT_GATEWAYS,
+} = require("../../utils/paymentGateway/supportedGateways");
 
 /* ======================================================
    OPTIONAL SIGNATURE VERIFY (NON-BREAKING)
@@ -164,176 +167,352 @@ exports.initiatePayment = async ({
   businessId,
   subscriptionId,
   userId,
-  couponId = null, // 🔥 now comes from frontend (already validated)
-  finalAmount = null, // 🔥 comes from pricing/apply-coupon flow
+  couponId = null,
+  finalAmount = null,
+  paymentMethod, // "MPESA" | "AIRTEL" | "SELCOM"
+  phone, // 🔥 from frontend
 }) => {
-  const subscription = await prisma.subscription.findFirst({
-    where: { id: subscriptionId, businessId },
-  });
-
-  if (!subscription) {
-    throw new AppError("subscription.not_found", 404);
-  }
-
-  if (subscription.status === SubscriptionStatus.SUSPENDED) {
-    throw new AppError("subscription.not_active", 403);
-  }
-
-  const pending = await prisma.subscriptionPayment.findFirst({
-    where: {
-      subscriptionId,
-      status: "PENDING",
-    },
-  });
-
-  if (pending) {
-    throw new AppError("subscription.payment_pending_exists", 400);
-  }
-
-  const isInitial = !subscription.setupFeePaid;
-
-  // 🔹 STEP 1: BASE AMOUNT (UNCHANGED LOGIC)
-  let baseAmount;
-
-  if (isInitial) {
-    baseAmount =
-      subscription.setupFeeSnapshot +
-      (subscription.billingCycle === "YEARLY"
-        ? subscription.priceYearlySnapshot
-        : subscription.priceMonthlySnapshot);
-  } else {
-    baseAmount =
-      subscription.billingCycle === "YEARLY"
-        ? subscription.priceYearlySnapshot
-        : subscription.priceMonthlySnapshot;
-  }
-
-  if (!Number.isInteger(baseAmount) || baseAmount < 0) {
-    throw new AppError("payment.invalid_amount", 500);
-  }
-
-  // =====================================================
-  // 🔹 STEP 2: APPLY ADJUSTMENTS (LOCKED TO PAYMENT)
-  // =====================================================
-  let adjustmentTotal = 0;
-
-  const adjustments = await prisma.financialAdjustment.findMany({
-    where: {
-      businessId: subscription.businessId,
-      isApplied: false,
-    },
-  });
-
-  // 🔥 CAPTURE IDS (IMPORTANT FOR LOCKING)
-  const adjustmentIds = [];
-
-  for (const adj of adjustments) {
-    adjustmentIds.push(adj.id);
-
-    if (adj.type === "CREDIT") {
-      adjustmentTotal -= Number(adj.amount);
-    } else if (adj.type === "DEBIT") {
-      adjustmentTotal += Number(adj.amount);
-    }
-  }
-
-  let calculatedAmount = baseAmount + adjustmentTotal;
-
-  // 🔹 STEP 3: APPLY CREDIT BALANCE (UNCHANGED)
-  if (subscription.creditBalance > 0) {
-    calculatedAmount = Math.max(
-      0,
-      calculatedAmount - subscription.creditBalance,
+  return prisma.$transaction(async (tx) => {
+    // 🔒 LOCK SUBSCRIPTION ROW (PREVENT RACE CONDITION)
+    await tx.$executeRawUnsafe(
+      `SELECT id FROM "Subscription" WHERE id = '${subscriptionId}' FOR UPDATE`,
     );
-  }
 
-  // 🔥 APPLY COUPON
-  let couponDiscount = 0;
-
-  if (couponId) {
-    const coupon = await prisma.coupon.findUnique({
-      where: { id: couponId },
+    const subscription = await tx.subscription.findFirst({
+      where: { id: subscriptionId, businessId },
     });
 
-    if (!coupon) {
-      throw new AppError("coupon.not_found", 404);
+    if (!subscription) {
+      throw new AppError("subscription.not_found", 404);
     }
 
-    const result = await couponService.applyCouponForCheckout({
-      code: coupon.code,
-      businessId: subscription.businessId,
-      amount: calculatedAmount,
+    if (subscription.status === SubscriptionStatus.SUSPENDED) {
+      throw new AppError("subscription.not_active", 403);
+    }
+
+    // 🔥 BLOCK LOCKED USER
+    const user = await tx.user.findUnique({
+      where: { id: userId },
+      select: { lockUntil: true },
     });
 
-    couponDiscount = result.discount;
+    if (user?.lockUntil && user.lockUntil > new Date()) {
+      throw new AppError("auth.accountLocked", 403);
+    }
 
-    calculatedAmount = Math.max(0, calculatedAmount - couponDiscount);
-  }
+    if (!paymentMethod) {
+      throw new AppError("payment.method_required", 400);
+    }
 
-  // 🔥 FINAL AMOUNT (BACKEND TRUSTED ONLY)
-  const amountToCharge = calculatedAmount;
+    if ((paymentMethod === "MPESA" || paymentMethod === "AIRTEL") && !phone) {
+      throw new AppError("payment.phone_required", 400);
+    }
 
-  const safeAmount = Math.max(0, amountToCharge);
-
-  // 🔹 SYSTEM SETTINGS (UNCHANGED)
-  const systemSetting = await prisma.systemSetting.findFirst();
-  if (!systemSetting) {
-    throw new AppError("system.settings_missing", 500);
-  }
-
-  const activeGateway = systemSetting.activePaymentGateway;
-  const supportedGateways = ["SELCOM", "MPESA", "AIRTEL"];
-
-  if (!supportedGateways.includes(activeGateway)) {
-    throw new AppError("payment.invalid_gateway", 500);
-  }
-
-  const healthService = require("../../utils/paymentGateway/gateway.health");
-  const gatewayStatus = await healthService.getStatus(activeGateway);
-
-  if (gatewayStatus === "DOWN") {
-    throw new AppError("payment.provider_down", 503);
-  }
-
-  // 🔥 STEP 4: CREATE PAYMENT (WITH ADJUSTMENT LOCK)
-  const payment = await prisma.subscriptionPayment.create({
-    data: {
-      subscriptionId,
-      businessId,
-      amount: safeAmount,
-      method: activeGateway,
-      status: "PENDING",
-      couponId: couponId || null,
-
-      // 🔥 LOCK ADJUSTMENTS TO THIS PAYMENT
-      metadata: {
-        adjustmentIds,
+    // 🔥 RE-CHECK INSIDE TX (IMPORTANT)
+    const pending = await tx.subscriptionPayment.findFirst({
+      where: {
+        subscriptionId,
+        status: "PENDING",
       },
-    },
-  });
+    });
 
-  const gatewayResponse = await gatewayManager.initiate({
-    provider: activeGateway,
-    amount: safeAmount,
-    reference: payment.id,
-    businessId,
-  });
+    if (pending) {
+      throw new AppError("subscription.payment_pending_exists", 400);
+    }
 
-  await auditHelper.logAudit({
-    businessId,
-    userId,
-    entityType: "SUBSCRIPTION_PAYMENT",
-    entityId: payment.id,
-    action: isInitial ? "INITIAL_PAYMENT" : "RENEWAL_PAYMENT",
-    metadata: {
-      gateway: activeGateway,
-      baseAmount,
-      calculatedAmount,
-      finalAmount: safeAmount,
-    },
-  });
+    // 🔥 RAPID REQUEST PROTECTION (MOVED INSIDE TX)
+    const recentAttempts = await tx.subscriptionPayment.count({
+      where: {
+        businessId,
+        createdAt: {
+          gte: new Date(Date.now() - 60 * 1000),
+        },
+      },
+    });
 
-  return gatewayResponse;
+    if (recentAttempts >= 3) {
+      throw new AppError("payment.too_many_requests", 429);
+    }
+
+    const isInitial = !subscription.setupFeePaid;
+
+    let baseAmount;
+
+    if (isInitial) {
+      baseAmount =
+        subscription.setupFeeSnapshot +
+        (subscription.billingCycle === "YEARLY"
+          ? subscription.priceYearlySnapshot
+          : subscription.priceMonthlySnapshot);
+    } else {
+      baseAmount =
+        subscription.billingCycle === "YEARLY"
+          ? subscription.priceYearlySnapshot
+          : subscription.priceMonthlySnapshot;
+    }
+
+    if (!Number.isInteger(baseAmount) || baseAmount < 0) {
+      throw new AppError("payment.invalid_amount", 500);
+    }
+
+    // 🔹 APPLY ADJUSTMENTS
+    let adjustmentTotal = 0;
+
+    const adjustments = await tx.financialAdjustment.findMany({
+      where: {
+        businessId: subscription.businessId,
+        isApplied: false,
+      },
+    });
+
+    const adjustmentIds = [];
+
+    for (const adj of adjustments) {
+      adjustmentIds.push(adj.id);
+
+      if (adj.type === "CREDIT") {
+        adjustmentTotal -= Number(adj.amount);
+      } else if (adj.type === "DEBIT") {
+        adjustmentTotal += Number(adj.amount);
+      }
+    }
+
+    let calculatedAmount = baseAmount + adjustmentTotal;
+
+    // 🔹 APPLY CREDIT
+    if (subscription.creditBalance > 0) {
+      calculatedAmount = Math.max(
+        0,
+        calculatedAmount - subscription.creditBalance,
+      );
+    }
+
+    // 🔹 APPLY COUPON
+    let couponDiscount = 0;
+
+    if (couponId) {
+      const coupon = await tx.coupon.findUnique({
+        where: { id: couponId },
+      });
+
+      if (!coupon) {
+        throw new AppError("coupon.not_found", 404);
+      }
+
+      const result = await couponService.applyCouponForCheckout({
+        code: coupon.code,
+        businessId: subscription.businessId,
+        amount: calculatedAmount,
+      });
+
+      couponDiscount = result.discount;
+
+      calculatedAmount = Math.max(0, calculatedAmount - couponDiscount);
+    }
+
+    const safeAmount = Math.max(0, calculatedAmount);
+
+    // 🔥 DUPLICATE AMOUNT PROTECTION (INSIDE TX)
+    const recentSameAmount = await tx.subscriptionPayment.findFirst({
+      where: {
+        businessId,
+        amount: safeAmount,
+        createdAt: {
+          gte: new Date(Date.now() - 2 * 60 * 1000),
+        },
+      },
+    });
+
+    if (recentSameAmount) {
+      throw new AppError("payment.duplicate_attempt", 400);
+    }
+
+    // 🔹 SYSTEM SETTINGS
+    const systemSetting = await tx.systemSetting.findFirst();
+
+    if (!systemSetting) {
+      throw new AppError("system.settings_missing", 500);
+    }
+
+    // 🔥 SUPPORTED GATEWAYS
+    const supportedGateways = SUPPORTED_PAYMENT_GATEWAYS;
+
+    // 🔥 validate frontend selection
+    if (!paymentMethod || !supportedGateways.includes(paymentMethod)) {
+      throw new AppError("payment.invalid_gateway", 400);
+    }
+
+    // 🔥 RE-VALIDATE AGAINST ACTIVE AVAILABLE GATEWAYS (CRITICAL)
+    const paymentGatewayService = require("../paymentGateway/paymentGateway.service");
+
+    const availableGateways =
+      await paymentGatewayService.getActivePaymentGateways();
+
+    if (!availableGateways.includes(paymentMethod)) {
+      throw new AppError("payment.gateway_not_available", 400);
+    }
+
+    // 🔥 NORMALIZE PHONE
+    const normalizePhone = (phone) => {
+      if (!phone) return null;
+
+      let normalized = phone.replace(/\s+/g, "");
+
+      if (normalized.startsWith("+255")) {
+        normalized = "0" + normalized.slice(4);
+      } else if (normalized.startsWith("255")) {
+        normalized = "0" + normalized.slice(3);
+      }
+
+      return normalized;
+    };
+
+    const cleanPhone = normalizePhone(phone);
+
+    // 🔥 VALIDATE PHONE NETWORK (STK ONLY)
+    const {
+      detectNetwork,
+    } = require("../../utils/paymentGateway/phoneNetwork.helper");
+
+    if (paymentMethod === "MPESA" || paymentMethod === "AIRTEL") {
+      if (!cleanPhone || !/^0\d{9}$/.test(cleanPhone)) {
+        throw new AppError("payment.invalid_phone_format", 400);
+      }
+
+      const detectedNetwork = detectNetwork(cleanPhone);
+
+      if (!detectedNetwork || detectedNetwork === "UNKNOWN") {
+        throw new AppError("payment.invalid_phone_network", 400);
+      }
+
+      if (paymentMethod !== detectedNetwork) {
+        throw new AppError("payment.phone_network_mismatch", 400);
+      }
+    }
+
+    // 🔥 system allowed gateways (ARRAY)
+    const systemGateways = systemSetting.activePaymentGateways || [];
+
+    if (systemGateways.length === 0) {
+      throw new AppError("payment.no_gateways_available", 503);
+    }
+
+    if (!systemGateways.includes(paymentMethod)) {
+      throw new AppError("payment.gateway_not_allowed", 403);
+    }
+
+    // 🔥 final gateway (NO FALLBACK)
+    const finalGateway = paymentMethod;
+
+    // 🔥 HEALTH CHECK (STRICT)
+    const healthService = require("../../utils/paymentGateway/gateway.health");
+
+    const gatewayStatus = await healthService.getStatus(finalGateway);
+
+    if (gatewayStatus !== "UP") {
+      throw new AppError("payment.provider_down", 503);
+    }
+
+    // 🔥 FAILED ATTEMPTS PROTECTION
+    const failedAttempts = await tx.subscriptionPayment.count({
+      where: {
+        businessId,
+        status: "FAILED",
+        createdAt: {
+          gte: new Date(Date.now() - 10 * 60 * 1000),
+        },
+      },
+    });
+
+    if (failedAttempts >= 5) {
+      throw new AppError("payment.too_many_failures", 429);
+    }
+
+    // 🔥 ZERO BALANCE FLOW
+    if (safeAmount === 0) {
+      const payment = await tx.subscriptionPayment.create({
+        data: {
+          subscriptionId,
+          businessId,
+          amount: 0,
+          method: "SYSTEM",
+          status: "CONFIRMED",
+          paidAt: new Date(),
+          metadata: {
+            adjustmentIds,
+            baseAmount,
+            calculatedAmount,
+            expectedAmount: calculatedAmount,
+            reason: "ZERO_BALANCE",
+          },
+        },
+      });
+
+      await activateSubscriptionEngine(tx, subscription, payment, isInitial);
+
+      if (adjustmentIds.length > 0) {
+        await tx.financialAdjustment.updateMany({
+          where: {
+            id: { in: adjustmentIds },
+            isApplied: false,
+          },
+          data: {
+            isApplied: true,
+            appliedPaymentId: payment.id,
+            appliedAt: new Date(),
+          },
+        });
+      }
+
+      return {
+        success: true,
+        skippedGateway: true,
+        paymentId: payment.id,
+      };
+    }
+
+    // 🔥 NORMAL FLOW
+    const payment = await tx.subscriptionPayment.create({
+      data: {
+        subscriptionId,
+        businessId,
+        amount: safeAmount,
+        method: activeGateway,
+        status: "PENDING",
+        couponId: couponId || null,
+        metadata: {
+          adjustmentIds,
+          baseAmount,
+          calculatedAmount,
+          expectedAmount: calculatedAmount,
+        },
+      },
+    });
+
+    const gatewayResponse = await gatewayManager.initiate({
+      provider: activeGateway,
+      amount: safeAmount,
+      reference: payment.id,
+      businessId,
+      phone: user.phone,
+    });
+
+    await auditHelper.logAudit({
+      businessId,
+      userId,
+      entityType: "SUBSCRIPTION_PAYMENT",
+      entityId: payment.id,
+      action: isInitial ? "INITIAL_PAYMENT" : "RENEWAL_PAYMENT",
+      metadata: {
+        gateway: activeGateway,
+        baseAmount,
+        calculatedAmount,
+        finalAmount: safeAmount,
+      },
+    });
+
+    return gatewayResponse;
+  });
 };
 
 /* ======================================================
@@ -525,11 +704,11 @@ exports.processGatewayWebhook = async (payload, headers = {}) => {
     // =====================================================
     await handleSuspiciousTransaction({
       tx,
-      amount,
-      expectedAmount: plan.price,
-      referenceId: tenantId,
-      userId,
-      businessId: businessId,
+      amount: payment.amount,
+      expectedAmount: payment.metadata?.expectedAmount || payment.amount,
+      referenceId: payment.id,
+      userId: null,
+      businessId: payment.businessId,
       context: "SUBSCRIPTION",
     });
 

@@ -9,6 +9,9 @@ const coreAuth = require("../../auth/core.auth.service");
 
 const speakeasy = require("speakeasy");
 const QRCode = require("qrcode");
+const {
+  SUPPORTED_PAYMENT_GATEWAYS,
+} = require("../../../utils/paymentGateway/supportedGateways");
 
 /*
 |--------------------------------------------------------------------------
@@ -29,7 +32,7 @@ exports.bootstrapSystemService = async ({ email, password, currency }) => {
     const settings = await tx.systemSetting.create({
       data: {
         currency,
-        activePaymentGateway: "SELCOM",
+        activePaymentGateways: SUPPORTED_PAYMENT_GATEWAYS,
         isBootstrapped: true,
         maxLoginAttempts: 5,
         lockTimeMinutes: 30,
@@ -927,6 +930,15 @@ exports.disableAdminMFA = async (actor) => {
 };
 
 exports.getMyProfile = async (actor) => {
+  const admin = await prisma.systemAdmin.findUnique({
+    where: { id: actor.id },
+    include: { role: true },
+  });
+
+  return admin;
+};
+
+exports.updateMyProfile = async (actor, data) => {
   const updated = await prisma.systemAdmin.update({
     where: { id: actor.id },
     data,
@@ -937,26 +949,6 @@ exports.getMyProfile = async (actor) => {
     entityType: "ADMIN",
     entityId: actor.id,
     action: "ADMIN_PROFILE_UPDATED",
-    module: "ACCESS",
-    actorType: "ADMIN",
-  });
-
-  return updated;
-};
-
-exports.updateMyProfile = async (actor, data) => {
-  const updated = await prisma.adminSession.update({
-    where: { id: sessionId },
-    data: {
-      isActive: false,
-    },
-  });
-
-  await logAudit({
-    userId: actor.id,
-    entityType: "SESSION",
-    entityId: sessionId,
-    action: "ADMIN_SESSION_REVOKED",
     module: "ACCESS",
     actorType: "ADMIN",
   });

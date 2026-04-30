@@ -1,6 +1,9 @@
 const prisma = require("../../../config/prisma");
 const AppError = require("../../../utils/AppError");
 const auditHelper = require("../../../utils/audit.helper");
+const {
+  SUPPORTED_PAYMENT_GATEWAYS,
+} = require("../../../utils/paymentGateway/supportedGateways");
 
 /*
 |--------------------------------------------------------------------------
@@ -37,24 +40,39 @@ const getSettingsRow = async () => {
 | Update Payment Gateway
 |--------------------------------------------------------------------------
 */
-exports.updateActiveGateway = async (gateway, adminId) => {
+exports.updateActiveGateways = async (gateways, adminId) => {
   const settings = await getSettingsRow();
+
+  const supportedGateways = SUPPORTED_PAYMENT_GATEWAYS;
+
+  // 🔥 validate array
+  if (!Array.isArray(gateways) || gateways.length === 0) {
+    throw new AppError("settings.invalid_gateways", 400);
+  }
+
+  for (const g of gateways) {
+    if (!supportedGateways.includes(g)) {
+      throw new AppError("settings.invalid_gateway", 400);
+    }
+  }
 
   const updated = await prisma.systemSetting.update({
     where: { id: settings.id },
-    data: { activePaymentGateway: gateway },
+    data: {
+      activePaymentGateways: gateways, // 🔥 ARRAY NOW
+    },
   });
 
   await auditHelper.logAudit({
     userId: adminId,
     entityType: "SYSTEM_SETTING",
     entityId: settings.id,
-    action: "UPDATE_PAYMENT_GATEWAY",
+    action: "UPDATE_PAYMENT_GATEWAYS",
     module: "SETTINGS",
     actorType: "ADMIN",
     metadata: {
-      oldValue: settings.activePaymentGateway,
-      newValue: gateway,
+      oldValue: settings.activePaymentGateways,
+      newValue: gateways,
     },
   });
 

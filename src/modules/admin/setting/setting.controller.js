@@ -29,9 +29,16 @@ exports.getSettingsHistory = catchAsync(async (req, res) => {
 | Update Payment Gateway
 |--------------------------------------------------------------------------
 */
-exports.updateActiveGateway = catchAsync(async (req, res) => {
-  const data = await settingService.updateActiveGateway(
-    req.body.gateway,
+exports.updateActiveGateways = catchAsync(async (req, res) => {
+  const { gateways } = req.body;
+
+  // 🔥 basic validation (light — service does heavy validation)
+  if (!Array.isArray(gateways) || gateways.length === 0) {
+    throw new Error("Invalid gateways payload");
+  }
+
+  const data = await settingService.updateActiveGateways(
+    gateways,
     req.admin.id,
   );
 

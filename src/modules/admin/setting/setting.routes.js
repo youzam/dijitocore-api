@@ -50,14 +50,14 @@ router.get(
 |--------------------------------------------------------------------------
 */
 router.patch(
-  "/gateway",
+  "/gateways",
   requirePermission({
     module: "SETTINGS",
     action: "EDIT",
     scope: "SYSTEM",
   }),
   validate(validation.updateGateway),
-  controller.updateActiveGateway,
+  controller.updateActiveGateways,
 );
 
 /*

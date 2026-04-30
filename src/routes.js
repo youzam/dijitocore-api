@@ -5,7 +5,7 @@ const authRoutes = require("./modules/auth/auth.routes");
 const businessRoutes = require("./modules/business/business.routes");
 const customerRoutes = require("./modules/customer/customer.routes");
 const contractRoutes = require("./modules/contract/contract.routes");
-const paymentRoutes = require("./modules/installmentPayment/installmentPayment.routes");
+const installmentPaymentRoutes = require("./modules/installmentPayment/installmentPayment.routes");
 const dashboardRoutes = require("./modules/dashboard/dashboard.routes");
 const notificationRoutes = require("./modules/notification/notification.routes");
 const deviceRoutes = require("./modules/device/device.routes");
@@ -16,6 +16,7 @@ const webhookRoutes = require("./modules/webhooks/webhooks.routes");
 const auditRoutes = require("./modules/audit/audit.routes");
 const privacyRoutes = require("./modules/privacy/privacy.routes");
 const ticketRoutes = require("./modules/ticket/ticket.routes");
+const paymentGatewayRoutes = require("./modules/paymentGateway/gateway.routes");
 
 // =========================
 // ADMIN ROUTES (BACKOFFICE)
@@ -76,7 +77,7 @@ router.use("/users", userRoutes);
 router.use("/businesses", businessRoutes);
 router.use("/customers", customerRoutes);
 router.use("/contracts", contractRoutes);
-router.use("/payments", paymentRoutes);
+router.use("/installment-payments", installmentPaymentRoutes);
 router.use("/dashboards", dashboardRoutes);
 router.use("/notifications", notificationRoutes);
 router.use("/devices", deviceRoutes);
@@ -86,5 +87,6 @@ router.use("/webhooks", webhookRoutes);
 router.use("/audit", auditRoutes);
 router.use("/privacy", privacyRoutes);
 router.use("/tickets", ticketRoutes);
+router.use("/payment-gateways", paymentGatewayRoutes);
 
 module.exports = router;

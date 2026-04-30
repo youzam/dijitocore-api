@@ -59,7 +59,7 @@ const getAccessToken = async () => {
 /**
  * Initiate Airtel Payment
  */
-exports.initiate = async ({ amount, reference, businessId }) => {
+exports.initiate = async ({ amount, reference, businessId, phone }) => {
   validateConfig();
 
   try {
@@ -70,7 +70,7 @@ exports.initiate = async ({ amount, reference, businessId }) => {
       subscriber: {
         country: "TZ",
         currency: "TZS",
-        msisdn: AIRTEL_MERCHANT_ID,
+        msisdn: phone,
       },
       transaction: {
         amount,
@@ -96,11 +96,9 @@ exports.initiate = async ({ amount, reference, businessId }) => {
     await health.markHealthy("AIRTEL");
 
     return {
+      type: "STK_PUSH",
       provider: "AIRTEL",
-      message: "Airtel payment initiated",
-      reference,
-      amount,
-      raw: response.data,
+      message: "Check your phone",
     };
   } catch (error) {
     await health.markDown("AIRTEL");

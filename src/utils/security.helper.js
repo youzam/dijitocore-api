@@ -136,15 +136,44 @@ exports.handleSuspiciousTransaction = async ({
   businessId = null,
   context,
 }) => {
-  if (!amount || !expectedAmount) return;
+  // 🔒 SAFE GUARD
+  if (!amount || !expectedAmount || !userId) return;
 
   const deviationRatio = amount / expectedAmount;
 
   /**
-   * -----------------------------------------------------
-   * DETECTION: LARGE AMOUNT
-   * -----------------------------------------------------
+   * =====================================================
+   * 🔥 ADVANCED DETECTION LAYER (NEW)
+   * =====================================================
    */
+
+  // 1. High deviation
+  const isHighDeviation = deviationRatio > 1.5 || deviationRatio < 0.5;
+
+  // 2. Extreme underpay (bypass attempt)
+  const isExtremeUnderpay = amount < expectedAmount * 0.2;
+
+  // 3. Rapid-fire transactions (spam)
+  const recentPayments = await tx.subscriptionPayment.count({
+    where: {
+      businessId,
+      createdAt: {
+        gte: new Date(Date.now() - 2 * 60 * 1000), // last 2 min
+      },
+    },
+  });
+
+  const isRapidFire = recentPayments >= 5;
+
+  // 4. Zero abuse (free activation exploit)
+  const isZeroAbuse = amount === 0 && expectedAmount > 0;
+
+  /**
+   * =====================================================
+   * 🔹 ORIGINAL DETECTION (KEPT)
+   * =====================================================
+   */
+
   if (amount > expectedAmount * 2) {
     await logAudit({
       tx,
@@ -165,11 +194,6 @@ exports.handleSuspiciousTransaction = async ({
     });
   }
 
-  /**
-   * -----------------------------------------------------
-   * DETECTION: AMOUNT DEVIATION
-   * -----------------------------------------------------
-   */
   if (deviationRatio > 1.5 || deviationRatio < 0.5) {
     await logAudit({
       tx,
@@ -191,9 +215,38 @@ exports.handleSuspiciousTransaction = async ({
   }
 
   /**
-   * -----------------------------------------------------
-   * COUNT RECENT INCIDENTS (AUDIT-BASED)
-   * -----------------------------------------------------
+   * =====================================================
+   * 🔥 NEW COMBINED DETECTION
+   * =====================================================
+   */
+  if (isHighDeviation || isExtremeUnderpay || isRapidFire || isZeroAbuse) {
+    await logAudit({
+      tx,
+      businessId,
+      userId,
+      entityType: "SECURITY",
+      entityId: referenceId,
+      action: "SUSPICIOUS_TRANSACTION",
+      module: "SECURITY",
+      actorType: "TENANT",
+      metadata: {
+        type: "ADVANCED_DETECTION",
+        amount,
+        expectedAmount,
+        deviationRatio,
+        isHighDeviation,
+        isExtremeUnderpay,
+        isRapidFire,
+        isZeroAbuse,
+        context,
+      },
+    });
+  }
+
+  /**
+   * =====================================================
+   * 🔹 COUNT RECENT INCIDENTS (UNCHANGED)
+   * =====================================================
    */
   const recentSuspiciousCount = await tx.auditLog.count({
     where: {
@@ -206,11 +259,11 @@ exports.handleSuspiciousTransaction = async ({
   });
 
   /**
-   * -----------------------------------------------------
-   * LOCK USER IF THRESHOLD REACHED
-   * -----------------------------------------------------
+   * =====================================================
+   * 🔥 LOCK USER (ENHANCED)
+   * =====================================================
    */
-  if (recentSuspiciousCount >= SUSPICIOUS_LIMIT) {
+  if (recentSuspiciousCount >= SUSPICIOUS_LIMIT || isRapidFire) {
     const duration = await getLockDuration(tx);
     const lockUntil = new Date(Date.now() + duration);
 
@@ -224,7 +277,6 @@ exports.handleSuspiciousTransaction = async ({
       },
     });
 
-    // 🔴 AUDIT LOCK
     await logAudit({
       tx,
       businessId,
@@ -235,7 +287,7 @@ exports.handleSuspiciousTransaction = async ({
       module: "SECURITY",
       actorType: "ADMIN",
       metadata: {
-        reason: "MULTIPLE_SUSPICIOUS_TRANSACTIONS",
+        reason: "SUSPICIOUS_ACTIVITY",
         count: recentSuspiciousCount,
         lockUntil,
         context,

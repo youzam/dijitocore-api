@@ -89,7 +89,7 @@ const generatePassword = (timestamp) => {
 /**
  * Initiate STK Push
  */
-exports.initiate = async ({ amount, reference, businessId }) => {
+exports.initiate = async ({ amount, reference, businessId, phone }) => {
   validateConfig();
 
   try {
@@ -104,9 +104,9 @@ exports.initiate = async ({ amount, reference, businessId }) => {
       Timestamp: timestamp,
       TransactionType: "CustomerPayBillOnline",
       Amount: amount,
-      PartyA: MPESA_SHORTCODE,
+      PartyA: phone,
       PartyB: MPESA_SHORTCODE,
-      PhoneNumber: MPESA_SHORTCODE,
+      PhoneNumber: phone,
       CallBackURL: MPESA_CALLBACK_URL,
       AccountReference: reference,
       TransactionDesc: `Subscription-${businessId}`,
@@ -126,11 +126,9 @@ exports.initiate = async ({ amount, reference, businessId }) => {
     await health.markHealthy("MPESA");
 
     return {
+      type: "STK_PUSH",
       provider: "MPESA",
-      message: "STK Push initiated",
-      reference,
-      amount,
-      raw: response.data,
+      message: "Check your phone",
     };
   } catch (error) {
     await health.markDown("MPESA");
