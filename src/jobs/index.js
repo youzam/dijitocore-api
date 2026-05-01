@@ -12,6 +12,7 @@ const complianceJob = require("./compliance.job");
 const apiMetricsJob = require("./api.metrics.job");
 const deadJobMonitor = require("./dead.job.monitor");
 const userAutoUnlockJob = require("./user.auto.unlock.job");
+const cleanupJob = require("./cleanup.job");
 
 /*
 |--------------------------------------------------------------------------
@@ -30,6 +31,7 @@ const jobRegistry = {
   api_metrics: apiMetricsJob,
   dead_job_monitor: deadJobMonitor,
   user_auto_unlock: userAutoUnlockJob,
+  export_cleanup: cleanupJob,
 };
 
 /*
@@ -80,6 +82,10 @@ function startJobs() {
   // 🟡 MEDIUM JOBS (1 hour)
   tasks.push(
     scheduleCronJob("device_cleanup", deviceCleanupJob.run, "0 * * * *", 900),
+  );
+
+  tasks.push(
+    scheduleCronJob("export_cleanup", cleanupJob.run, "0 * * * *", 900),
   );
 
   tasks.push(scheduleCronJob("reminder", reminderJob.run, "0 * * * *", 900));

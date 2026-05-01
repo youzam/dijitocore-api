@@ -1762,7 +1762,7 @@ model SystemSeedLog {
 model SystemSetting {
   id String @id @default("SYSTEM")
 
-  activePaymentGateways   String[] @default(["SELCOM"])
+  activePaymentGateways String[] @default(["SELCOM"])
 
   // 🧠 System lifecycle
   isBootstrapped Boolean @default(false)

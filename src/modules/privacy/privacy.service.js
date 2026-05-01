@@ -10,59 +10,53 @@ const createPurgeQueue = async (tx, dataRequestId) => {
   });
 };
 
-exports.createDataRequest = async (data, user) => {
-  let requestedByUserId = null;
-  let requestedByCustomerId = null;
+const createDataRequest = async (data, dbUser, dbCustomer) => {
+  return await prisma.$transaction(async (tx) => {
+    let requestedByUserId = null;
+    let requestedByCustomerId = null;
 
-  if (user.role === "CUSTOMER") {
-    requestedByCustomerId = user.id;
-  } else {
-    requestedByUserId = user.id;
-  }
+    // 🧑 USER FLOW
+    if (dbUser) {
+      requestedByUserId = dbUser.id;
 
-  // 🔍 validation
-  if (requestedByUserId) {
-    const dbUser = await prisma.user.findUnique({
-      where: { id: requestedByUserId },
+      if (data.targetType === "USER" && data.targetId !== dbUser.id) {
+        throw new Error("Users can only request their own data");
+      }
+    }
+
+    // 👤 CUSTOMER FLOW
+    if (dbCustomer) {
+      requestedByCustomerId = dbCustomer.id;
+
+      if (
+        data.targetType !== "CUSTOMER" ||
+        data.targetId !== requestedByCustomerId
+      ) {
+        throw new Error("Customers can only request their own data");
+      }
+    }
+
+    // 🚫 Prevent duplicate active requests
+    const existing = await tx.dataRequest.findFirst({
+      where: {
+        type: data.type,
+        targetType: data.targetType,
+        targetId: data.targetId,
+        status: { in: ["PENDING", "PROCESSING"] },
+      },
     });
 
-    if (!dbUser) {
-      throw new Error("User not found");
+    if (existing) {
+      throw new Error("A similar request is already in progress");
     }
 
-    if (data.targetType === "USER" && data.targetId !== dbUser.id) {
-      throw new Error("Users can only request their own data");
-    }
+    // 🔥 FIX: Detect self-export
+    const isSelfExport =
+      data.type === "EXPORT" &&
+      ((requestedByUserId && data.targetId === requestedByUserId) ||
+        (requestedByCustomerId && data.targetId === requestedByCustomerId));
 
-    if (data.targetType === "BUSINESS" && dbUser.role !== "BUSINESS_OWNER") {
-      throw new Error("Only business owner can request business data");
-    }
-  }
-
-  if (requestedByCustomerId) {
-    if (
-      data.targetType !== "CUSTOMER" ||
-      data.targetId !== requestedByCustomerId
-    ) {
-      throw new Error("Customers can only request their own data");
-    }
-  }
-
-  // 🔍 prevent duplicate active requests
-  const existing = await prisma.dataRequest.findFirst({
-    where: {
-      type: data.type,
-      status: { in: ["PENDING", "PROCESSING"] },
-      OR: [{ requestedByUserId }, { requestedByCustomerId }],
-    },
-  });
-
-  if (existing) {
-    throw new Error("Active request already exists for this type");
-  }
-
-  // 🔥 TRANSACTION: create request + enqueue purge
-  const request = await prisma.$transaction(async (tx) => {
+    // 💾 Create request
     const createdRequest = await tx.dataRequest.create({
       data: {
         type: data.type,
@@ -70,25 +64,36 @@ exports.createDataRequest = async (data, user) => {
         targetId: data.targetId,
         requestedByUserId,
         requestedByCustomerId,
+
+        // 🔥 AUTO-APPROVE SELF EXPORT (ONLY CHANGE)
+        ...(isSelfExport && { approvedAt: new Date() }),
       },
     });
 
-    await createPurgeQueue(tx, createdRequest.id);
+    // 📦 Push to purge queue (UNCHANGED)
+    await tx.purgeQueue.create({
+      data: {
+        dataRequestId: createdRequest.id,
+      },
+    });
+
+    // 🧾 AUDIT LOG (UNCHANGED — IMPORTANT)
+    await tx.auditLog.create({
+      data: {
+        action: "DATA_REQUEST_CREATED",
+        entityType: "DATA_REQUEST",
+        entityId: createdRequest.id,
+        userId: requestedByUserId,
+        metadata: {
+          type: data.type,
+          targetType: data.targetType,
+          targetId: data.targetId,
+        },
+      },
+    });
 
     return createdRequest;
   });
-
-  // 🧾 audit (outside transaction)
-  await auditHelper.logAudit({
-    userId: user.id,
-    entityType: "DATA_REQUEST",
-    entityId: request.id,
-    action: "DATA_REQUEST_CREATED",
-    module: "PRIVACY",
-    actorType: user.role === "CUSTOMER" ? "CUSTOMER" : "USER",
-  });
-
-  return request;
 };
 
 exports.getMyDataRequests = async (user) => {

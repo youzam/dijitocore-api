@@ -3,6 +3,7 @@ require("dotenv").config();
 const app = require("./app");
 const prisma = require("./config/prisma");
 const { startJobs } = require("./jobs");
+const { validateGraphCoverage } = require("./utils/graph-validator");
 
 const PORT = process.env.PORT || 4000;
 
@@ -18,6 +19,10 @@ async function startServer() {
     // ✅ Explicit DB connection
     await prisma.$connect();
     console.log("✅ Database connected successfully");
+
+    // 🔥 STRICT MODE VALIDATION (CRITICAL)
+    // Validate missing models in data-graph.js
+    validateGraphCoverage();
 
     server = app.listen(PORT, () => {
       console.log(`🚀 API running on port ${PORT}`);

@@ -1,8 +1,8 @@
 const prisma = require("../config/prisma");
 const auditHelper = require("../utils/audit.helper");
 
-const deletionService = require("../services/deletion.service");
-const exportService = require("../services/export.service");
+const { executeFullDeletion } = require("../services/deletion.service");
+const { executeExport } = require("../services/export.service");
 
 /*
 |--------------------------------------------------------------------------
@@ -20,7 +20,7 @@ const processPurgeQueue = async () => {
 
   for (const job of jobs) {
     try {
-      // 🔥 PATCH: ATOMIC LOCK (prevent double processing)
+      // 🔒 ATOMIC LOCK
       const lock = await prisma.purgeQueue.updateMany({
         where: {
           id: job.id,
@@ -40,28 +40,70 @@ const processPurgeQueue = async () => {
           })
         : null;
 
-      // 🔥 PATCH: IDEMPOTENCY GUARD
-      if (job.targetType && job.targetId) {
-        if (job.targetType === "USER") {
-          const user = await prisma.user.findUnique({
-            where: { id: job.targetId },
-            select: { isDeleted: true },
-          });
-          if (!user || user.isDeleted) continue;
+      // 🛑 IDEMPOTENCY GUARD
+      if (request?.processedAt) {
+        continue; // already processed
+      }
+
+      // 🔴 APPROVAL CHECK
+      if (request?.type === "DELETE" && !request.approvedAt) {
+        throw new Error("Deletion request not approved");
+      }
+
+      let result;
+
+      // 🔥 DELETE FLOW (NEW ENGINE)
+      if (request?.type === "DELETE") {
+        result = await executeFullDeletion({
+          rootModel: request.targetType,
+          rootId: request.targetId,
+        });
+
+        await prisma.dataRequest.update({
+          where: { id: request.id },
+          data: {
+            processedAt: new Date(),
+          },
+        });
+      }
+
+      // 🔥 EXPORT FLOW (FINAL CLEAN)
+      if (request?.type === "EXPORT") {
+        // 🛑 Already processed / exported
+        if (request.processedAt || request.exportFilePath) {
+          continue;
         }
+
+        // 🔴 Approval required
+        if (!request.approvedAt) {
+          throw new Error("Export request not approved");
+        }
+
+        const exportResult = await executeExport({
+          rootModel: request.targetType,
+          rootId: request.targetId,
+        });
+
+        await prisma.dataRequest.update({
+          where: { id: request.id },
+          data: {
+            exportFilePath: exportResult.s3Key,
+            processedAt: new Date(),
+          },
+        });
+
+        result = exportResult;
       }
 
-      // ✅ EXECUTE DELETION ENGINE
-      if (job.dataRequestId) {
-        await deletionService.executeDeletion(job.dataRequestId);
-      } else {
-        await deletionService.executeDeletionByTarget(
-          job.targetType,
-          job.targetId,
-        );
+      // 🔁 FALLBACK (legacy support)
+      if (!request && job.targetType && job.targetId) {
+        result = await executeFullDeletion({
+          rootModel: job.targetType.toLowerCase(),
+          rootId: job.targetId,
+        });
       }
 
-      // ✅ MARK JOB COMPLETE ONLY
+      // ✅ MARK COMPLETE
       await prisma.purgeQueue.update({
         where: { id: job.id },
         data: {
@@ -71,10 +113,10 @@ const processPurgeQueue = async () => {
       });
 
       if (request) {
-        await sendWebhook("PURGE_COMPLETED", request);
+        await sendWebhook(`${request.type}_COMPLETED`, request);
       }
 
-      // 🧾 AUDIT (UNCHANGED)
+      // 🧾 AUDIT
       await auditHelper.logAudit({
         userId: request?.approvedById || null,
         entityType: "PURGE_JOB",
@@ -124,7 +166,7 @@ const processExportRequests = async () => {
     where: {
       type: "EXPORT",
       status: "APPROVED",
-      attempts: { lt: 3 }, // 🔥 PATCH: retry control
+      attempts: { lt: 3 },
     },
     take: 10,
     orderBy: { createdAt: "asc" },
@@ -132,7 +174,7 @@ const processExportRequests = async () => {
 
   for (const req of requests) {
     try {
-      // 🔥 PATCH: atomic lock
+      // 🔒 ATOMIC LOCK
       const lock = await prisma.dataRequest.updateMany({
         where: {
           id: req.id,
@@ -145,9 +187,20 @@ const processExportRequests = async () => {
 
       if (lock.count === 0) continue;
 
-      await exportService.generateExport(req.id);
+      // 🔥 NEW EXPORT ENGINE
+      const exportResult = await executeExport({
+        rootModel: req.targetType,
+        rootId: req.targetId,
+      });
 
-      // 🔥 ADD THIS EXACTLY HERE
+      await prisma.dataRequest.update({
+        where: { id: req.id },
+        data: {
+          exportFilePath: exportResult.files.zipPath,
+          processedAt: new Date(),
+        },
+      });
+
       await auditHelper.logAudit({
         userId: req.requestedByUserId || req.requestedByAdminId || null,
         entityType: "DATA_REQUEST",
@@ -168,8 +221,8 @@ const processExportRequests = async () => {
         where: { id: req.id },
         data: {
           status: "FAILED",
-          attempts: { increment: 1 }, // 🔥 PATCH
-          lastError: error.message, // 🔥 add this
+          attempts: { increment: 1 },
+          lastError: error.message,
         },
       });
 
@@ -212,7 +265,6 @@ const processRetentionPolicies = async () => {
       });
 
       for (const user of users) {
-        // 🔥 PATCH: prevent duplicate purge jobs
         const exists = await prisma.purgeQueue.findFirst({
           where: {
             targetType: "USER",
