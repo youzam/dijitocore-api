@@ -2,6 +2,8 @@ const catchAsync = require("../../../utils/catchAsync");
 const response = require("../../../utils/response");
 const complianceService = require("./compliance.service");
 const exportService = require("../../../services/export.service");
+const handlerFactory = require("../../../utils/handlerFactory");
+
 /*
 |--------------------------------------------------------------------------
 | DATA RETENTION POLICY
@@ -53,17 +55,7 @@ exports.getRetentionPolicyByResource = catchAsync(async (req, res) => {
   );
 });
 
-exports.listRetentionPolicies = catchAsync(async (req, res) => {
-  const data = await complianceService.listRetentionPolicies(req.query);
-
-  return response.success(
-    req,
-    res,
-    data,
-    200,
-    "compliance.retention_policies_listed",
-  );
-});
+exports.listRetentionPolicies = handlerFactory.getAll("dataRetentionPolicy");
 
 exports.toggleRetentionPolicy = catchAsync(async (req, res) => {
   const data = await complianceService.toggleRetentionPolicy(
@@ -177,11 +169,7 @@ exports.rejectDataRequest = catchAsync(async (req, res) => {
 |--------------------------------------------------------------------------
 */
 
-exports.listPurgeQueue = catchAsync(async (req, res) => {
-  const data = await complianceService.listPurgeQueue(req.query);
-
-  return response.success(req, res, data, 200, "compliance.purge_queue_listed");
-});
+exports.listPurgeQueue = handlerFactory.getAll("purgeQueue");
 
 exports.getPurgeQueueItem = catchAsync(async (req, res) => {
   const data = await complianceService.getPurgeQueueItem(req.params.id);
@@ -207,17 +195,7 @@ exports.retryPurgeJob = catchAsync(async (req, res) => {
 |--------------------------------------------------------------------------
 */
 
-exports.listConsentLogs = catchAsync(async (req, res) => {
-  const data = await complianceService.listConsentLogs(req.query);
-
-  return response.success(
-    req,
-    res,
-    data,
-    200,
-    "compliance.consent_logs_listed",
-  );
-});
+exports.listConsentLogs = handlerFactory.getAll("consentLog");
 
 exports.getConsentLogById = catchAsync(async (req, res) => {
   const data = await complianceService.getConsentLogById(req.params.id);

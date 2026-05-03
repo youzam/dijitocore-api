@@ -527,15 +527,6 @@ exports.createAdmin = async ({ email, password, roleId }, actor) => {
   return created;
 };
 
-exports.listAdmins = async () => {
-  return prisma.systemAdmin.findMany({
-    include: {
-      role: true,
-    },
-    orderBy: { createdAt: "desc" },
-  });
-};
-
 exports.getAdmin = async (id) => {
   const admin = await prisma.systemAdmin.findUnique({
     where: { id },

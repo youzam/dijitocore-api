@@ -1,65 +1,31 @@
 const prisma = require("../config/prisma");
+const catchAsync = require("./catchAsync");
+const { buildQuery } = require("./apiQueryBuilder");
+const response = require("./response");
 
-/**
- * Generic LIST handler (pagination + search + filter + sort)
- */
+exports.getAll = (model) =>
+  catchAsync(async (req, res) => {
+    const { skip, take, where, orderBy, select, include, page, limit } =
+      buildQuery(model, req.query);
 
-exports.list = async ({
-  model,
-  query = {},
-  businessFilter = {},
-  searchableFields = [],
-  filterableFields = [],
-  defaultSort = "createdAt",
-}) => {
-  // HARD TENANT GUARD (P0.1 FIX)
-  if (!businessFilter || !businessFilter.businessId) {
-    throw new Error("Missing businessId in businessFilter");
-  }
+    const [data, total] = await Promise.all([
+      prisma[model].findMany({
+        where,
+        orderBy,
+        skip,
+        take,
+        ...(select && { select }),
+        ...(include && { include }),
+      }),
+      prisma[model].count({ where }),
+    ]);
 
-  const page = parseInt(query.page, 10) || 1;
-  const limit = parseInt(query.limit, 10) || 20;
-  const skip = (page - 1) * limit;
+    const totalPages = Math.ceil(total / limit);
 
-  const sortBy = query.sortBy || defaultSort;
-  const sortOrder = query.sortOrder === "asc" ? "asc" : "desc";
-
-  const where = {
-    ...businessFilter,
-  };
-
-  // filters
-  filterableFields.forEach((field) => {
-    if (query[field]) where[field] = query[field];
-  });
-
-  // search
-  if (query.search && searchableFields.length) {
-    where.OR = searchableFields.map((field) => ({
-      [field]: {
-        contains: query.search,
-        mode: "insensitive",
-      },
-    }));
-  }
-
-  const [items, total] = await prisma.$transaction([
-    model.findMany({
-      where,
-      skip,
-      take: limit,
-      orderBy: { [sortBy]: sortOrder },
-    }),
-    model.count({ where }),
-  ]);
-
-  return {
-    items,
-    pagination: {
+    return response.successPaginated(req, res, data, {
       page,
       limit,
       total,
-      pages: Math.ceil(total / limit),
-    },
-  };
-};
+      totalPages,
+    });
+  });

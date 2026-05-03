@@ -213,12 +213,30 @@ exports.createContract = async ({ businessId, userId, payload }) => {
 
 /* ================= READ ================= */
 
-exports.getContracts = async ({ businessId }) => {
-  return prisma.contract.findMany({
-    where: { businessId, deletedAt: null },
-    include: { assets: true, schedules: true },
-    orderBy: { createdAt: "desc" },
-  });
+exports.getContracts = async ({ businessId, query = {} }) => {
+  const { page = 1, limit = 10 } = query;
+
+  const where = { businessId, deletedAt: null };
+
+  const [data, total] = await Promise.all([
+    prisma.contract.findMany({
+      where,
+      skip: (page - 1) * limit,
+      take: Number(limit),
+      include: { assets: true, schedules: true },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.contract.count({ where }),
+  ]);
+
+  return {
+    data,
+    meta: {
+      total,
+      page,
+      limit,
+    },
+  };
 };
 
 exports.getContractById = async ({ businessId, id }) => {

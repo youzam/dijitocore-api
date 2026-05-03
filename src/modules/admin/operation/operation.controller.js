@@ -1,6 +1,6 @@
 const catchAsync = require("../../../utils/catchAsync");
 const response = require("../../../utils/response");
-
+const handlerFactory = require("../../../utils/handlerFactory");
 const operationService = require("./operation.service");
 
 /*
@@ -69,11 +69,7 @@ exports.getApiMetrics = catchAsync(async (req, res) => {
 |--------------------------------------------------------------------------
 */
 
-exports.getJobLogs = catchAsync(async (req, res) => {
-  const data = await operationService.getJobLogs(req.query);
-
-  return response.success(req, res, data, 200, "operations.job_logs_fetched");
-});
+exports.getJobLogs = handlerFactory.getAll("systemJobLog");
 
 exports.retryFailedJob = catchAsync(async (req, res) => {
   const data = await operationService.retryFailedJob(Number(req.params.jobId));
@@ -206,14 +202,6 @@ exports.getJobPerformance = catchAsync(async (req, res) => {
   return response.success(req, res, data, 200, "operations.job_performance");
 });
 
-exports.getRecentJobs = catchAsync(async (req, res) => {
-  const data = await operationService.getRecentJobs();
+exports.getRecentJobs = handlerFactory.getAll("systemJobLog");
 
-  return response.success(req, res, data, 200, "operations.recent_jobs");
-});
-
-exports.getDeadJobs = catchAsync(async (req, res) => {
-  const data = await operationService.getDeadJobs();
-
-  return response.success(req, res, data, 200, "operations.dead_jobs");
-});
+exports.getDeadJobs = handlerFactory.getAll("deadJob");

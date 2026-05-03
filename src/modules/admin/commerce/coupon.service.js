@@ -58,30 +58,6 @@ exports.createCoupon = async (data, actor) => {
 };
 
 /**
- * Get Coupons (with filters)
- */
-exports.getCoupons = async (query) => {
-  const { isActive, code } = query;
-
-  return prisma.coupon.findMany({
-    where: {
-      ...(typeof isActive !== "undefined" && {
-        isActive: isActive === "true",
-      }),
-      ...(code && {
-        code: {
-          contains: code,
-          mode: "insensitive",
-        },
-      }),
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
-};
-
-/**
  * Update Coupon
  */
 exports.updateCoupon = async (id, data, actor) => {

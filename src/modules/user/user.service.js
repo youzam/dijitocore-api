@@ -171,22 +171,36 @@ exports.acceptInvite = async ({ token, password }) => {
 // =====================================================
 // 🔹 INVITES MANAGEMENT
 // =====================================================
-exports.listInvites = async (owner) => {
+exports.listInvites = async (owner, query = {}) => {
   if (owner.role !== "BUSINESS_OWNER") {
     throw new AppError("auth.forbidden", 403);
   }
 
-  return prisma.businessInvite.findMany({
-    where: { businessId: owner.businessId },
-    select: {
-      id: true,
-      email: true,
-      role: true,
-      expiresAt: true,
-      createdAt: true,
-    },
-    orderBy: { createdAt: "desc" },
-  });
+  const { page = 1, limit = 10 } = query;
+
+  const where = { businessId: owner.businessId };
+
+  const [data, total] = await Promise.all([
+    prisma.businessInvite.findMany({
+      where,
+      skip: (page - 1) * limit,
+      take: Number(limit),
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        expiresAt: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.businessInvite.count({ where }),
+  ]);
+
+  return {
+    data,
+    meta: { total, page: Number(page), limit: Number(limit) },
+  };
 };
 
 exports.revokeInvite = async (owner, inviteId) => {
@@ -227,21 +241,36 @@ exports.revokeInvite = async (owner, inviteId) => {
 // =====================================================
 // 🔹 USERS MANAGEMENT
 // =====================================================
-exports.listUsers = async (owner) => {
+exports.listUsers = async (owner, query = {}) => {
   if (owner.role !== "BUSINESS_OWNER") {
     throw new AppError("auth.forbidden", 403);
   }
 
-  return prisma.user.findMany({
-    where: { businessId: owner.businessId },
-    select: {
-      id: true,
-      email: true,
-      role: true,
-      status: true,
-      createdAt: true,
-    },
-  });
+  const { page = 1, limit = 10 } = query;
+
+  const where = { businessId: owner.businessId };
+
+  const [data, total] = await Promise.all([
+    prisma.user.findMany({
+      where,
+      skip: (page - 1) * limit,
+      take: Number(limit),
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        status: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.user.count({ where }),
+  ]);
+
+  return {
+    data,
+    meta: { total, page: Number(page), limit: Number(limit) },
+  };
 };
 
 exports.updateUser = async (owner, userId, payload) => {

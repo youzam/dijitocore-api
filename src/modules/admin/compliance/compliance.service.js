@@ -109,18 +109,6 @@ exports.getRetentionPolicyByResource = async (resource) => {
   });
 };
 
-exports.listRetentionPolicies = async (query) => {
-  const { resource, isActive } = query;
-
-  return prisma.dataRetentionPolicy.findMany({
-    where: {
-      ...(resource && { resource }),
-      ...(isActive !== undefined && { isActive }),
-    },
-    orderBy: { createdAt: "desc" },
-  });
-};
-
 exports.toggleRetentionPolicy = async (policyId, isActive, adminId) => {
   return prisma.$transaction(async (tx) => {
     const policy = await tx.dataRetentionPolicy.findUnique({
@@ -160,18 +148,6 @@ exports.toggleRetentionPolicy = async (policyId, isActive, adminId) => {
     });
 
     return updated;
-  });
-};
-/*
-|--------------------------------------------------------------------------
-| POLICY VERSION
-|--------------------------------------------------------------------------
-*/
-
-exports.listPolicyVersions = async (policyId) => {
-  return prisma.policyVersion.findMany({
-    where: { policyId },
-    orderBy: { version: "desc" },
   });
 };
 
@@ -317,23 +293,6 @@ exports.rejectDataRequest = async (requestId, adminId) => {
   return updated;
 };
 
-/*
-|--------------------------------------------------------------------------
-| PURGE QUEUE
-|--------------------------------------------------------------------------
-*/
-
-exports.listPurgeQueue = async (query) => {
-  const { status } = query;
-
-  return prisma.purgeQueue.findMany({
-    where: {
-      ...(status && { status }),
-    },
-    orderBy: { createdAt: "desc" },
-  });
-};
-
 exports.getPurgeQueueItem = async (queueId) => {
   return prisma.purgeQueue.findUnique({
     where: { id: queueId },
@@ -379,24 +338,6 @@ exports.retryPurgeJob = async (queueId, adminId) => {
   });
 
   return updated;
-};
-/*
-|--------------------------------------------------------------------------
-| CONSENT LOGS (READ ONLY)
-|--------------------------------------------------------------------------
-*/
-
-exports.listConsentLogs = async (query) => {
-  const { userId, businessId, type } = query;
-
-  return prisma.consentLog.findMany({
-    where: {
-      ...(userId && { userId }),
-      ...(businessId && { businessId }),
-      ...(type && { type }),
-    },
-    orderBy: { createdAt: "desc" },
-  });
 };
 
 exports.getConsentLogById = async (logId) => {

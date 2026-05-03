@@ -170,16 +170,6 @@ exports.getApiMetrics = async () => {
 |--------------------------------------------------------------------------
 */
 
-exports.getJobLogs = async (query) => {
-  const { status, limit = 50 } = query;
-
-  return prisma.systemJobLog.findMany({
-    where: status ? { status } : {},
-    orderBy: { createdAt: "desc" },
-    take: Number(limit),
-  });
-};
-
 exports.retryFailedJob = async (jobId) => {
   const job = await prisma.systemJobLog.findUnique({
     where: { id: jobId },
@@ -502,30 +492,4 @@ exports.getJobPerformance = async () => {
   });
 
   return jobs;
-};
-
-/*
-|--------------------------------------------------------------------------
-| RECENT JOB LOGS
-|--------------------------------------------------------------------------
-*/
-
-exports.getRecentJobs = async () => {
-  return prisma.systemJobLog.findMany({
-    orderBy: { createdAt: "desc" },
-    take: 20,
-  });
-};
-
-/*
-|--------------------------------------------------------------------------
-| DEAD JOBS
-|--------------------------------------------------------------------------
-*/
-
-exports.getDeadJobs = async () => {
-  return prisma.deadJob.findMany({
-    orderBy: { createdAt: "desc" },
-    take: 20,
-  });
 };

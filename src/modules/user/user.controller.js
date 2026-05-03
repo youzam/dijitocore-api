@@ -16,7 +16,8 @@ exports.acceptInvite = catchAsync(async (req, res) => {
 
 // INVITES
 exports.listInvites = catchAsync(async (req, res) => {
-  const result = await service.listInvites(req.user);
+  const result = await service.listInvites(req.user, req.query);
+
   return response.success(req, res, result);
 });
 
@@ -27,7 +28,8 @@ exports.revokeInvite = catchAsync(async (req, res) => {
 
 // USERS
 exports.listUsers = catchAsync(async (req, res) => {
-  const result = await service.listUsers(req.user);
+  const result = await service.listUsers(req.user, req.query);
+
   return response.success(req, res, result);
 });
 

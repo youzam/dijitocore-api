@@ -2,6 +2,7 @@ const catchAsync = require("../../../utils/catchAsync");
 const response = require("../../../utils/response");
 
 const accessService = require("./access.service");
+const handlerFactory = require("../../../utils/handlerFactory");
 
 /*
 |--------------------------------------------------------------------------
@@ -77,11 +78,7 @@ exports.createAdmin = catchAsync(async (req, res) => {
   return response.success(req, res, data, 201, "access.admin_created");
 });
 
-exports.listAdmins = catchAsync(async (req, res) => {
-  const data = await accessService.listAdmins(req.query);
-
-  return response.success(req, res, data);
-});
+exports.listAdmins = handlerFactory.getAll("systemAdmin");
 
 exports.getAdmin = catchAsync(async (req, res) => {
   const data = await accessService.getAdmin(req.params.id);

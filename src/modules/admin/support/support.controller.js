@@ -1,6 +1,6 @@
 const catchAsync = require("../../../utils/catchAsync");
 const response = require("../../../utils/response");
-
+const handlerFactory = require("../../../utils/handlerFactory");
 const supportService = require("./support.service");
 
 /*
@@ -12,25 +12,21 @@ const supportService = require("./support.service");
 exports.createTicket = catchAsync(async (req, res) => {
   const data = await supportService.createTicket(req.body);
 
-  return response.success(res, data, "support.ticket_created");
+  return response.success(req, res, data, "support.ticket_created");
 });
 
-exports.getTickets = catchAsync(async (req, res) => {
-  const data = await supportService.getTickets(req.query);
-
-  return response.success(res, data, "support.tickets_fetched");
-});
+exports.getTickets = handlerFactory.getAll("supportTicket");
 
 exports.getTicket = catchAsync(async (req, res) => {
   const data = await supportService.getTicketById(req.params.id);
 
-  return response.success(res, data, "support.ticket_fetched");
+  return response.success(req, res, data, "support.ticket_fetched");
 });
 
 exports.updateTicket = catchAsync(async (req, res) => {
   const data = await supportService.updateTicket(req.params.id, req.body);
 
-  return response.success(res, data, "support.ticket_updated");
+  return response.success(req, res, data, "support.ticket_updated");
 });
 
 exports.deleteTicket = catchAsync(async (req, res) => {
@@ -51,7 +47,7 @@ exports.assignTicket = catchAsync(async (req, res) => {
     req.body.adminId,
   );
 
-  return response.success(res, data, "support.ticket_assigned");
+  return response.success(req, res, data, "support.ticket_assigned");
 });
 
 exports.changePriority = catchAsync(async (req, res) => {
@@ -60,7 +56,7 @@ exports.changePriority = catchAsync(async (req, res) => {
     req.body.priority,
   );
 
-  return response.success(res, data, "support.priority_updated");
+  return response.success(req, res, data, "support.priority_updated");
 });
 
 exports.changeStatus = catchAsync(async (req, res) => {
@@ -69,7 +65,7 @@ exports.changeStatus = catchAsync(async (req, res) => {
     req.body.status,
   );
 
-  return response.success(res, data, "support.status_updated");
+  return response.success(req, res, data, "support.status_updated");
 });
 
 /*
@@ -85,13 +81,13 @@ exports.addInternalNote = catchAsync(async (req, res) => {
     req.body.note,
   );
 
-  return response.success(res, data, "support.note_added");
+  return response.success(req, res, data, "support.note_added");
 });
 
 exports.getInternalNotes = catchAsync(async (req, res) => {
-  const data = await supportService.getInternalNotes(req.params.id);
+  const data = await supportService.getInternalNotes(req.params.id, req.query);
 
-  return response.success(res, data, "support.notes_fetched");
+  return response.success(req, res, data, "support.notes_fetched");
 });
 
 /*
@@ -108,13 +104,13 @@ exports.addMessage = catchAsync(async (req, res) => {
     req.body.message,
   );
 
-  return response.success(res, data, "support.message_sent");
+  return response.success(req, res, data, "support.message_sent");
 });
 
 exports.getMessages = catchAsync(async (req, res) => {
-  const data = await supportService.getMessages(req.params.id);
+  const data = await supportService.getMessages(req.params.id, req.query);
 
-  return response.success(res, data, "support.messages_fetched");
+  return response.success(req, res, data, "support.messages_fetched");
 });
 
 /*
@@ -129,13 +125,13 @@ exports.addAttachment = catchAsync(async (req, res) => {
     req.body.fileUrl,
   );
 
-  return response.success(res, data, "support.attachment_added");
+  return response.success(req, res, data, "support.attachment_added");
 });
 
 exports.getAttachments = catchAsync(async (req, res) => {
-  const data = await supportService.getAttachments(req.params.id);
+  const data = await supportService.getAttachments(req.params.id, req.query);
 
-  return response.success(res, data, "support.attachments_fetched");
+  return response.success(req, res, data, "support.attachments_fetched");
 });
 
 /*
@@ -147,7 +143,7 @@ exports.getAttachments = catchAsync(async (req, res) => {
 exports.getAnalytics = catchAsync(async (req, res) => {
   const data = await supportService.getTicketAnalytics();
 
-  return response.success(res, data, "support.analytics_fetched");
+  return response.success(req, res, data, "support.analytics_fetched");
 });
 
 /*
@@ -157,9 +153,12 @@ exports.getAnalytics = catchAsync(async (req, res) => {
 */
 
 exports.getBusinessTickets = catchAsync(async (req, res) => {
-  const data = await supportService.getTicketsByBusiness(req.params.businessId);
+  const data = await supportService.getTicketsByBusiness(
+    req.params.businessId,
+    req.query,
+  );
 
-  return response.success(res, data, "support.business_tickets_fetched");
+  return response.success(req, res, data, "support.business_tickets_fetched");
 });
 
 exports.downloadAttachment = catchAsync(async (req, res) => {

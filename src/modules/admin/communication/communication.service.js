@@ -596,12 +596,6 @@ class CommunicationService {
     return deleted;
   }
 
-  async getTemplates() {
-    return prisma.messageTemplate.findMany({
-      orderBy: { createdAt: "desc" },
-    });
-  }
-
   async getTemplateById(id) {
     return prisma.messageTemplate.findUnique({
       where: { id },

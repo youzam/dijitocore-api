@@ -112,31 +112,6 @@ exports.createTicket = async (data) => {
   return result;
 };
 
-exports.getTickets = async (query) => {
-  const { page = 1, limit = 10 } = query;
-
-  const where = buildFilters(query);
-
-  const [data, total] = await Promise.all([
-    prisma.supportTicket.findMany({
-      where,
-      skip: (page - 1) * limit,
-      take: Number(limit),
-      orderBy: { createdAt: "desc" },
-    }),
-    prisma.supportTicket.count({ where }),
-  ]);
-
-  return {
-    data,
-    meta: {
-      total,
-      page: Number(page),
-      limit: Number(limit),
-    },
-  };
-};
-
 exports.getTicketById = async (id) => {
   const ticket = await prisma.supportTicket.findUnique({ where: { id } });
 
@@ -320,13 +295,20 @@ exports.changeStatus = async (id, status) => {
 |--------------------------------------------------------------------------
 */
 
-exports.getSLABreachedTickets = async () => {
+exports.getSLABreachedTickets = async (query = {}) => {
+  const { page = 1, limit = 10 } = query;
+
+  const where = {
+    slaDeadline: { lt: new Date() },
+    escalated: false,
+    status: { notIn: ["RESOLVED", "CLOSED"] },
+  };
+
   return prisma.supportTicket.findMany({
-    where: {
-      slaDeadline: { lt: new Date() },
-      escalated: false,
-      status: { notIn: ["RESOLVED", "CLOSED"] },
-    },
+    where,
+    skip: (page - 1) * limit,
+    take: Number(limit),
+    orderBy: { createdAt: "desc" },
   });
 };
 
@@ -403,11 +385,29 @@ exports.addInternalNote = async (ticketId, adminId, note) => {
   return result;
 };
 
-exports.getInternalNotes = async (ticketId) => {
-  return prisma.ticketNote.findMany({
-    where: { ticketId },
-    orderBy: { createdAt: "desc" },
-  });
+exports.getInternalNotes = async (ticketId, query = {}) => {
+  const { page = 1, limit = 10 } = query;
+
+  const where = { ticketId };
+
+  const [data, total] = await Promise.all([
+    prisma.ticketNote.findMany({
+      where,
+      skip: (page - 1) * limit,
+      take: Number(limit),
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.ticketNote.count({ where }),
+  ]);
+
+  return {
+    data,
+    meta: {
+      total,
+      page: Number(page),
+      limit: Number(limit),
+    },
+  };
 };
 
 /*
@@ -461,11 +461,29 @@ exports.addMessage = async (ticketId, senderId, senderType, message) => {
   return newMessage;
 };
 
-exports.getMessages = async (ticketId) => {
-  return prisma.ticketMessage.findMany({
-    where: { ticketId },
-    orderBy: { createdAt: "asc" },
-  });
+exports.getMessages = async (ticketId, query = {}) => {
+  const { page = 1, limit = 10 } = query;
+
+  const where = { ticketId };
+
+  const [data, total] = await Promise.all([
+    prisma.ticketMessage.findMany({
+      where,
+      skip: (page - 1) * limit,
+      take: Number(limit),
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.ticketMessage.count({ where }),
+  ]);
+
+  return {
+    data,
+    meta: {
+      total,
+      page: Number(page),
+      limit: Number(limit),
+    },
+  };
 };
 
 /*
@@ -501,13 +519,30 @@ exports.addAttachment = async (ticketId, fileUrl) => {
   return result;
 };
 
-exports.getAttachments = async (ticketId) => {
-  return prisma.ticketAttachment.findMany({
-    where: { ticketId },
-    orderBy: { createdAt: "desc" },
-  });
-};
+exports.getAttachments = async (ticketId, query = {}) => {
+  const { page = 1, limit = 10 } = query;
 
+  const where = { ticketId };
+
+  const [data, total] = await Promise.all([
+    prisma.ticketAttachment.findMany({
+      where,
+      skip: (page - 1) * limit,
+      take: Number(limit),
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.ticketAttachment.count({ where }),
+  ]);
+
+  return {
+    data,
+    meta: {
+      total,
+      page: Number(page),
+      limit: Number(limit),
+    },
+  };
+};
 exports.downloadAttachment = async ({ ticketId, attachmentId }) => {
   const ticket = await prisma.supportTicket.findUnique({
     where: { id: ticketId },
@@ -569,9 +604,27 @@ exports.getTicketAnalytics = async () => {
 |--------------------------------------------------------------------------
 */
 
-exports.getTicketsByBusiness = async (businessId) => {
-  return prisma.supportTicket.findMany({
-    where: { businessId },
-    orderBy: { createdAt: "desc" },
-  });
+exports.getTicketsByBusiness = async (businessId, query = {}) => {
+  const { page = 1, limit = 10 } = query;
+
+  const where = { businessId };
+
+  const [data, total] = await Promise.all([
+    prisma.supportTicket.findMany({
+      where,
+      skip: (page - 1) * limit,
+      take: Number(limit),
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.supportTicket.count({ where }),
+  ]);
+
+  return {
+    data,
+    meta: {
+      total,
+      page: Number(page),
+      limit: Number(limit),
+    },
+  };
 };

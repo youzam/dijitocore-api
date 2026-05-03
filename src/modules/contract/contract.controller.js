@@ -16,7 +16,10 @@ exports.createContract = catchAsync(async (req, res) => {
 });
 
 exports.getContracts = catchAsync(async (req, res) => {
-  const result = await contractService.getContracts(req);
+  const result = await contractService.getContracts({
+    businessId: req.user.businessId,
+  });
+
   return response.success(req, res, result, 200, "contract.fetch.success");
 });
 

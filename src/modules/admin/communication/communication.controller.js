@@ -1,6 +1,7 @@
 const communicationService = require("./communication.service");
 const catchAsync = require("../../../utils/catchAsync");
 const response = require("../../../utils/response");
+const handlerFactory = require("../../../utils/handlerFactory");
 
 /*
 |--------------------------------------------------------------------------
@@ -178,17 +179,7 @@ exports.deleteTemplate = catchAsync(async (req, res) => {
   );
 });
 
-exports.getTemplates = catchAsync(async (req, res) => {
-  const data = await communicationService.getTemplates();
-
-  return response.success(
-    req,
-    res,
-    data,
-    200,
-    "communication.templates_fetched",
-  );
-});
+exports.getTemplates = handlerFactory.getAll("messageTemplate");
 
 exports.getTemplateById = catchAsync(async (req, res) => {
   const data = await communicationService.getTemplateById(req.params.id);

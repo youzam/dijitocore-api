@@ -275,15 +275,6 @@ exports.deactivatePackage = async (id, req) => {
 };
 
 /**
- * Get all packages
- */
-exports.getPackages = async () => {
-  return prisma.subscriptionPackage.findMany({
-    orderBy: { createdAt: "desc" },
-  });
-};
-
-/**
  * Get single package
  */
 exports.getPackageById = async (id) => {

@@ -1,6 +1,7 @@
 const catchAsync = require("../../../utils/catchAsync");
 const response = require("../../../utils/response");
 const { logAudit } = require("../../../utils/audit.helper");
+const handlerFactory = require("../../../utils/handlerFactory");
 
 // Services
 const ledgerService = require("./ledger.service");
@@ -81,11 +82,7 @@ exports.createCoupon = catchAsync(async (req, res) => {
   return response.success(req, res, data, 201, "commerce.coupon_created");
 });
 
-exports.getCoupons = catchAsync(async (req, res) => {
-  const data = await couponService.getCoupons(req.query);
-
-  return response.success(req, res, data, 200, "commerce.coupons_fetched");
-});
+exports.getCoupons = handlerFactory.getAll("coupon");
 
 exports.updateCoupon = catchAsync(async (req, res) => {
   const data = await couponService.updateCoupon(
@@ -143,11 +140,7 @@ exports.deactivatePackage = catchAsync(async (req, res) => {
   );
 });
 
-exports.getPackages = catchAsync(async (req, res) => {
-  const data = await packageService.getPackages();
-
-  return response.success(req, res, data, 200, "subscription.packages_fetched");
-});
+exports.getPackages = handlerFactory.getAll("subscriptionPackage");
 
 exports.getPackage = catchAsync(async (req, res) => {
   const data = await packageService.getPackageById(req.params.id);

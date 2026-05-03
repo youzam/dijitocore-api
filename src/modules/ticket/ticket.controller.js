@@ -24,12 +24,12 @@ exports.createTicket = catchAsync(async (req, res) => {
 |--------------------------------------------------------------------------
 */
 exports.getMyTickets = catchAsync(async (req, res) => {
-  const result = await ticketService.getMyTickets({
+  const result = await service.getMyTickets({
     user: req.user,
     query: req.query,
   });
 
-  return success(req, res, result, 200, "support.tickets_fetched");
+  return response.success(req, res, result);
 });
 
 /*
