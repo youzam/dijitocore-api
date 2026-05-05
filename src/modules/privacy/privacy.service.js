@@ -1,16 +1,7 @@
-const prisma = require("../../config/prisma");
-const auditHelper = require("../../utils/audit.helper");
+const prisma = require('../../config/prisma');
+const auditHelper = require('../../utils/audit.helper');
 
-const createPurgeQueue = async (tx, dataRequestId) => {
-  return tx.purgeQueue.create({
-    data: {
-      dataRequestId,
-      status: "PENDING",
-    },
-  });
-};
-
-const createDataRequest = async (data, dbUser, dbCustomer) => {
+exports.createDataRequest = async (data, dbUser, dbCustomer) => {
   return await prisma.$transaction(async (tx) => {
     let requestedByUserId = null;
     let requestedByCustomerId = null;
@@ -19,8 +10,8 @@ const createDataRequest = async (data, dbUser, dbCustomer) => {
     if (dbUser) {
       requestedByUserId = dbUser.id;
 
-      if (data.targetType === "USER" && data.targetId !== dbUser.id) {
-        throw new Error("Users can only request their own data");
+      if (data.targetType === 'USER' && data.targetId !== dbUser.id) {
+        throw new Error('Users can only request their own data');
       }
     }
 
@@ -29,10 +20,10 @@ const createDataRequest = async (data, dbUser, dbCustomer) => {
       requestedByCustomerId = dbCustomer.id;
 
       if (
-        data.targetType !== "CUSTOMER" ||
+        data.targetType !== 'CUSTOMER' ||
         data.targetId !== requestedByCustomerId
       ) {
-        throw new Error("Customers can only request their own data");
+        throw new Error('Customers can only request their own data');
       }
     }
 
@@ -42,17 +33,17 @@ const createDataRequest = async (data, dbUser, dbCustomer) => {
         type: data.type,
         targetType: data.targetType,
         targetId: data.targetId,
-        status: { in: ["PENDING", "PROCESSING"] },
+        status: { in: ['PENDING', 'PROCESSING'] },
       },
     });
 
     if (existing) {
-      throw new Error("A similar request is already in progress");
+      throw new Error('A similar request is already in progress');
     }
 
     // 🔥 FIX: Detect self-export
     const isSelfExport =
-      data.type === "EXPORT" &&
+      data.type === 'EXPORT' &&
       ((requestedByUserId && data.targetId === requestedByUserId) ||
         (requestedByCustomerId && data.targetId === requestedByCustomerId));
 
@@ -80,8 +71,8 @@ const createDataRequest = async (data, dbUser, dbCustomer) => {
     // 🧾 AUDIT LOG (UNCHANGED — IMPORTANT)
     await tx.auditLog.create({
       data: {
-        action: "DATA_REQUEST_CREATED",
-        entityType: "DATA_REQUEST",
+        action: 'DATA_REQUEST_CREATED',
+        entityType: 'DATA_REQUEST',
         entityId: createdRequest.id,
         userId: requestedByUserId,
         metadata: {
@@ -98,19 +89,19 @@ const createDataRequest = async (data, dbUser, dbCustomer) => {
 
 exports.getMyDataRequests = async (user) => {
   const whereClause =
-    user.role === "CUSTOMER"
+    user.role === 'CUSTOMER'
       ? { requestedByCustomerId: user.id }
       : { requestedByUserId: user.id };
 
   return prisma.dataRequest.findMany({
     where: whereClause,
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: 'desc' },
   });
 };
 
 exports.getMyDataRequestById = async (id, user) => {
   const whereClause =
-    user.role === "CUSTOMER"
+    user.role === 'CUSTOMER'
       ? {
           id,
           requestedByCustomerId: user.id,
@@ -125,7 +116,7 @@ exports.getMyDataRequestById = async (id, user) => {
   });
 
   if (!request) {
-    throw new Error("Request not found");
+    throw new Error('Request not found');
   }
 
   return request;
@@ -140,19 +131,19 @@ exports.createConsent = async (data, user) => {
       userId: user.id || null,
       businessId: user.businessId || null,
       type: data.type,
-      status: "GRANTED",
-      source: data.source || "SYSTEM",
+      status: 'GRANTED',
+      source: data.source || 'SYSTEM',
       metadata: data.metadata || {},
     },
   });
 
   await auditHelper.logAudit({
     userId: user.id || null,
-    entityType: "CONSENT",
+    entityType: 'CONSENT',
     entityId: consent.id,
-    action: "CONSENT_GRANTED",
-    module: "PRIVACY",
-    actorType: "USER",
+    action: 'CONSENT_GRANTED',
+    module: 'PRIVACY',
+    actorType: 'USER',
   });
 
   return consent;
@@ -170,11 +161,11 @@ exports.updateConsent = async (data, user) => {
         { businessId: user.businessId || null },
       ],
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: 'desc' },
   });
 
   if (!existing) {
-    throw new Error("Consent not found");
+    throw new Error('Consent not found');
   }
 
   const consent = await prisma.consentLog.create({
@@ -183,18 +174,18 @@ exports.updateConsent = async (data, user) => {
       businessId: user.businessId || null,
       type: data.type,
       status: data.status, // GRANTED / REVOKED
-      source: data.source || "USER_ACTION",
+      source: data.source || 'USER_ACTION',
       metadata: data.metadata || {},
     },
   });
 
   await auditHelper.logAudit({
     userId: user.id || null,
-    entityType: "CONSENT",
+    entityType: 'CONSENT',
     entityId: consent.id,
-    action: data.status === "GRANTED" ? "CONSENT_GRANTED" : "CONSENT_REVOKED",
-    module: "PRIVACY",
-    actorType: "USER",
+    action: data.status === 'GRANTED' ? 'CONSENT_GRANTED' : 'CONSENT_REVOKED',
+    module: 'PRIVACY',
+    actorType: 'USER',
   });
 
   return consent;
@@ -211,6 +202,6 @@ exports.getMyConsents = async (user) => {
         { businessId: user.businessId || null },
       ],
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: 'desc' },
   });
 };

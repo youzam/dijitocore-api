@@ -1,7 +1,7 @@
-const prisma = require("../config/prisma");
-const systemJobService = require("../modules/admin/operation/operation.service");
-const { isJobExecutionAllowed } = require("./systemState.helper");
-const env = require("../config/env");
+const prisma = require('../config/prisma');
+const systemJobService = require('../modules/admin/operation/operation.service');
+const { isJobExecutionAllowed } = require('./systemState.helper');
+const env = require('../config/env');
 
 const instanceId = env.jobs.instanceId || `instance-${process.pid}`;
 
@@ -95,7 +95,7 @@ async function releaseLock(jobName) {
       },
     });
   } catch (err) {
-    console.error("Failed to release lock:", jobName, err);
+    console.error('Failed to release lock:', jobName, err);
   }
 }
 
@@ -138,7 +138,7 @@ async function runSafeJob(jobName, jobFn, ttlSeconds = 900) {
           },
         });
       } catch (err) {
-        console.error("Heartbeat failed:", jobName, err);
+        console.error('Heartbeat failed:', jobName, err);
       }
     }, 30000);
 
@@ -149,7 +149,7 @@ async function runSafeJob(jobName, jobFn, ttlSeconds = 900) {
     */
     await systemJobService.logJobExecution({
       jobName,
-      status: "RUNNING",
+      status: 'RUNNING',
       startedAt,
     });
 
@@ -162,7 +162,7 @@ async function runSafeJob(jobName, jobFn, ttlSeconds = 900) {
 
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => {
-        reject(new Error("Job timeout exceeded"));
+        reject(new Error('Job timeout exceeded'));
       }, timeout);
     });
 
@@ -182,7 +182,7 @@ async function runSafeJob(jobName, jobFn, ttlSeconds = 900) {
     */
     await systemJobService.logJobExecution({
       jobName,
-      status: "SUCCESS",
+      status: 'SUCCESS',
       startedAt,
       finishedAt: new Date(),
     });
@@ -215,7 +215,7 @@ async function runSafeJob(jobName, jobFn, ttlSeconds = 900) {
     */
     await systemJobService.logJobExecution({
       jobName,
-      status: "FAILED",
+      status: 'FAILED',
       startedAt,
       finishedAt: new Date(),
       errorMessage: err.message,
@@ -249,7 +249,7 @@ async function runSafeJob(jobName, jobFn, ttlSeconds = 900) {
         data: {
           jobName,
           instanceId,
-          reason: "Max retries exceeded",
+          reason: 'Max retries exceeded',
         },
       });
     }
@@ -262,8 +262,8 @@ async function runSafeJob(jobName, jobFn, ttlSeconds = 900) {
     if (env.jobs.alertWebhook) {
       try {
         await fetch(env.jobs.alertWebhook, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             job: jobName,
             error: err.message,
@@ -271,7 +271,7 @@ async function runSafeJob(jobName, jobFn, ttlSeconds = 900) {
             instance: instanceId,
           }),
         });
-      } catch (_) {}
+      } catch {}
     }
 
     throw err;
@@ -301,15 +301,15 @@ function gracefulShutdown(tasks) {
   shutdownHookRegistered = true;
 
   const shutdown = async () => {
-    console.log("🛑 Shutting down jobs...");
+    console.log('🛑 Shutting down jobs...');
 
     for (const task of tasks) {
       try {
-        if (task && typeof task.stop === "function") {
+        if (task && typeof task.stop === 'function') {
           task.stop();
         }
       } catch (err) {
-        console.error("Failed to stop task:", err);
+        console.error('Failed to stop task:', err);
       }
     }
 
@@ -320,8 +320,8 @@ function gracefulShutdown(tasks) {
     process.exit(0);
   };
 
-  process.on("SIGTERM", shutdown);
-  process.on("SIGINT", shutdown);
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
 }
 
 module.exports = {

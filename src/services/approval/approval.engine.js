@@ -1,5 +1,6 @@
-const prisma = require("../../config/prisma");
-const AppError = require("../../utils/AppError");
+const prisma = require('../../config/prisma');
+const AppError = require('../../utils/AppError');
+const subscriptionAuthority = require('../../modules/subscription/subscription.authority.service');
 
 exports.createApproval = async ({
   tx,
@@ -18,7 +19,7 @@ exports.createApproval = async ({
   // 🔒 Enforce monthly approval limit
   await subscriptionAuthority.assertMonthlyLimit(
     businessId,
-    "maxApprovalRequests",
+    'maxApprovalRequests',
   );
 
   // 🔒 Prevent duplicate pending approval for same entity
@@ -27,12 +28,12 @@ exports.createApproval = async ({
       businessId,
       entityType,
       entityId,
-      status: "PENDING",
+      status: 'PENDING',
     },
   });
 
   if (existing) {
-    throw new AppError("approval.already_pending", 400);
+    throw new AppError('approval.already_pending', 400);
   }
 
   const approval = await db.approvalRequest.create({
@@ -47,7 +48,7 @@ exports.createApproval = async ({
   });
 
   // 🔒 Track usage after successful creation
-  await subscriptionAuthority.trackUsage(businessId, "maxApprovalRequests", 1);
+  await subscriptionAuthority.trackUsage(businessId, 'maxApprovalRequests', 1);
 
   return approval;
 };
@@ -64,26 +65,26 @@ exports.approveApproval = async ({
     where: {
       id: approvalId,
       businessId,
-      status: "PENDING",
+      status: 'PENDING',
     },
   });
 
   if (!approval) {
-    throw new AppError("approval.not_found", 404);
+    throw new AppError('approval.not_found', 404);
   }
 
   // 🔒 Prevent self-approval
   if (approval.requestedBy === approverId) {
-    throw new AppError("approval.self_not_allowed", 403);
+    throw new AppError('approval.self_not_allowed', 403);
   }
 
   return db.approvalRequest.update({
     where: {
       id: approvalId,
-      status: "PENDING", // optimistic guard
+      status: 'PENDING', // optimistic guard
     },
     data: {
-      status: "APPROVED",
+      status: 'APPROVED',
       approvedBy: approverId,
       resolvedAt: new Date(),
     },
@@ -97,26 +98,26 @@ exports.rejectApproval = async ({ tx, approvalId, businessId, approverId }) => {
     where: {
       id: approvalId,
       businessId,
-      status: "PENDING",
+      status: 'PENDING',
     },
   });
 
   if (!approval) {
-    throw new AppError("approval.not_found", 404);
+    throw new AppError('approval.not_found', 404);
   }
 
   // 🔒 Prevent self-reject
   if (approval.requestedBy === approverId) {
-    throw new AppError("approval.self_not_allowed", 403);
+    throw new AppError('approval.self_not_allowed', 403);
   }
 
   return db.approvalRequest.update({
     where: {
       id: approvalId,
-      status: "PENDING",
+      status: 'PENDING',
     },
     data: {
-      status: "REJECTED",
+      status: 'REJECTED',
       approvedBy: approverId,
       resolvedAt: new Date(),
     },
@@ -132,6 +133,6 @@ exports.listApprovals = async ({ businessId, status, entityType }) => {
 
   return prisma.approvalRequest.findMany({
     where,
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: 'desc' },
   });
 };

@@ -1,10 +1,8 @@
-/**
- * In-app notifications are already persisted via Notification table.
- * This channel just acknowledges delivery.
- */
-module.exports.send = async ({ recipient, title, message }) => {
+module.exports.send = async ({ notification }) => {
+  // already saved by createNotification
   return {
     success: true,
-    channel: "IN_APP",
+    channel: 'IN_APP',
+    notificationId: notification.id,
   };
 };

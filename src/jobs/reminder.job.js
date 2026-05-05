@@ -216,7 +216,7 @@ async function run() {
         }
       }
     }
-  } catch (error) {
+  } catch (error)  {
     throw error;
   }
 }

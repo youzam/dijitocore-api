@@ -37,7 +37,7 @@ const INCIDENT_RULES = {
   },
 };
 
-exports.handleSecurityEvent = async (event) => {
+exports.handleSecurityIncident = async (event) => {
   const rule = INCIDENT_RULES[event.type];
   if (!rule) return;
 

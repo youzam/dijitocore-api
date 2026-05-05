@@ -7,7 +7,7 @@ const {
 } = require("../../services/notifications/notification.service");
 const approvalEngine = require("../../services/approval/approval.engine");
 const subscriptionAuthority = require("../subscription/subscription.authority.service");
-const { handleSecurityEvent } = require("../../utils/incidentEngine");
+const { handleSecurityIncident } = require("../../utils/incidentEngine");
 const AppError = require("../../utils/AppError");
 
 /**
@@ -28,7 +28,7 @@ async function guardPaymentMutation({
   if (flow === "REVERSAL") return;
 
   // 🔴 BLOCK ANY OTHER ATTEMPT
-  await handleSecurityEvent({
+  await handleSecurityIncident({
     type: "PAYMENT_TAMPERING_ATTEMPT",
     title: "Unauthorized payment mutation attempt",
     description: `User ${user?.id} attempted direct payment modification`,
@@ -97,7 +97,7 @@ exports.recordPayment = async ({
       });
 
       if (duplicate) {
-        await handleSecurityEvent({
+        await handleSecurityIncident({
           type: "DUPLICATE_PAYMENT_ATTEMPT",
           source: "API",
           referenceId: contractId,

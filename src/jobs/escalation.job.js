@@ -185,7 +185,7 @@ async function run() {
 
     // ✅ ADD: Run support escalation AFTER financial escalation loop
     await handleSupportEscalation();
-  } catch (error) {
+  } catch (error)  {
     console.error("Escalation cron failed:", error);
     throw error;
   }

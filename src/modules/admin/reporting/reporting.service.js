@@ -1,10 +1,11 @@
-const fs = require("fs");
-const path = require("path");
-const { Parser } = require("json2csv");
-const ExcelJS = require("exceljs");
-const PDFDocument = require("pdfkit");
+const fs = require('fs');
+const path = require('path');
+const { Parser } = require('json2csv');
+const ExcelJS = require('exceljs');
+const PDFDocument = require('pdfkit');
 
-const prisma = require("../../../config/prisma");
+const prisma = require('../../../config/prisma');
+const { logAudit } = require('../../../utils/audit.helper');
 
 // =============================
 // CACHE
@@ -50,7 +51,7 @@ const generateCSV = (data) => {
 
 const generateExcel = async (data) => {
   const workbook = new ExcelJS.Workbook();
-  const sheet = workbook.addWorksheet("Report");
+  const sheet = workbook.addWorksheet('Report');
 
   if (data.length > 0) {
     sheet.columns = Object.keys(data[0]).map((key) => ({
@@ -67,7 +68,7 @@ const generatePDF = (data) => {
   const doc = new PDFDocument();
   let buffers = [];
 
-  doc.on("data", buffers.push.bind(buffers));
+  doc.on('data', buffers.push.bind(buffers));
 
   data.forEach((item) => {
     doc.text(JSON.stringify(item, null, 2));
@@ -77,16 +78,16 @@ const generatePDF = (data) => {
   doc.end();
 
   return new Promise((resolve) => {
-    doc.on("end", () => resolve(Buffer.concat(buffers)));
+    doc.on('end', () => resolve(Buffer.concat(buffers)));
   });
 };
 
 const handleExport = async (format, data) => {
   if (!format) return null;
 
-  if (format === "csv") return generateCSV(data);
-  if (format === "excel") return await generateExcel(data);
-  if (format === "pdf") return await generatePDF(data);
+  if (format === 'csv') return generateCSV(data);
+  if (format === 'excel') return await generateExcel(data);
+  if (format === 'pdf') return await generatePDF(data);
 
   return null;
 };
@@ -126,7 +127,7 @@ const processReport = async ({ query, model, where, include, select }) => {
     ...(select && { select }),
     skip,
     take,
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: 'desc' },
   });
 
   // EXPORT
@@ -159,7 +160,7 @@ const processReport = async ({ query, model, where, include, select }) => {
 exports.getTransactionReport = async (query) => {
   return processReport({
     query,
-    model: "transaction",
+    model: 'transaction',
     where: buildWhere(query),
     include: { business: true, subscription: true },
   });
@@ -177,7 +178,7 @@ exports.getMonthlyRevenueReport = async (query) => {
 
   const where = {
     ...buildDateFilter(startDate, endDate),
-    status: "SUCCESS",
+    status: 'SUCCESS',
   };
 
   const payments = await prisma.transaction.findMany({
@@ -218,11 +219,11 @@ exports.getMonthlyRevenueReport = async (query) => {
 exports.getSetupFeeReport = async (query) => {
   return processReport({
     query,
-    model: "transaction",
+    model: 'transaction',
     where: {
       ...buildDateFilter(query.startDate, query.endDate),
-      type: "SETUP_FEE",
-      status: "SUCCESS",
+      type: 'SETUP_FEE',
+      status: 'SUCCESS',
     },
   });
 };
@@ -230,11 +231,11 @@ exports.getSetupFeeReport = async (query) => {
 exports.getSubscriptionRevenueReport = async (query) => {
   return processReport({
     query,
-    model: "transaction",
+    model: 'transaction',
     where: {
       ...buildDateFilter(query.startDate, query.endDate),
-      type: "SUBSCRIPTION",
-      status: "SUCCESS",
+      type: 'SUBSCRIPTION',
+      status: 'SUCCESS',
     },
   });
 };
@@ -242,10 +243,10 @@ exports.getSubscriptionRevenueReport = async (query) => {
 exports.getRefundReport = async (query) => {
   return processReport({
     query,
-    model: "transaction",
+    model: 'transaction',
     where: {
       ...buildDateFilter(query.startDate, query.endDate),
-      type: "REFUND",
+      type: 'REFUND',
     },
   });
 };
@@ -334,7 +335,7 @@ exports.getSupportReport = async (query) => {
   const data = tickets.map((t) => {
     let resolutionTime = null;
 
-    if (t.status === "CLOSED" && t.updatedAt) {
+    if (t.status === 'CLOSED' && t.updatedAt) {
       resolutionTime = (new Date(t.updatedAt) - new Date(t.createdAt)) / 1000; // seconds
 
       totalResolutionTime += resolutionTime;
@@ -353,8 +354,8 @@ exports.getSupportReport = async (query) => {
     ? totalResolutionTime / resolvedCount
     : 0;
 
-  const open = tickets.filter((t) => t.status === "OPEN").length;
-  const closed = tickets.filter((t) => t.status === "CLOSED").length;
+  const open = tickets.filter((t) => t.status === 'OPEN').length;
+  const closed = tickets.filter((t) => t.status === 'CLOSED').length;
 
   const exportFile = await handleExport(format, data);
   if (exportFile) {
@@ -378,7 +379,7 @@ exports.getSupportReport = async (query) => {
 exports.getAuditReport = async (query) => {
   return processReport({
     query,
-    model: "auditLog",
+    model: 'auditLog',
     where: buildDateFilter(query.startDate, query.endDate),
   });
 };
@@ -398,7 +399,7 @@ exports.getComplianceReport = async (query) => {
 
   return processReport({
     query,
-    model: "complianceLog",
+    model: 'complianceLog',
     where,
   });
 };
@@ -406,7 +407,7 @@ exports.getComplianceReport = async (query) => {
 // =============================
 // EXPORT STORAGE PATH
 // =============================
-const EXPORT_DIR = path.join(__dirname, "../../../../uploads/reports");
+const EXPORT_DIR = path.join(__dirname, '../../../../uploads/reports');
 
 if (!fs.existsSync(EXPORT_DIR)) {
   fs.mkdirSync(EXPORT_DIR, { recursive: true });
@@ -420,7 +421,7 @@ exports.createAsyncExport = async (query, adminId, type) => {
     data: {
       type,
       format: query.format,
-      status: "PENDING",
+      status: 'PENDING',
       requestedBy: adminId,
     },
   });
@@ -430,11 +431,11 @@ exports.createAsyncExport = async (query, adminId, type) => {
     try {
       let data;
 
-      if (type === "transactions") {
+      if (type === 'transactions') {
         data = await exports.getTransactionReport({ ...query, format: null });
       }
 
-      if (type === "revenue") {
+      if (type === 'revenue') {
         data = await exports.getMonthlyRevenueReport({
           ...query,
           format: null,
@@ -451,7 +452,7 @@ exports.createAsyncExport = async (query, adminId, type) => {
       await prisma.reportExport.update({
         where: { id: record.id },
         data: {
-          status: "COMPLETED",
+          status: 'COMPLETED',
           filePath,
           completedAt: new Date(),
         },
@@ -459,36 +460,36 @@ exports.createAsyncExport = async (query, adminId, type) => {
 
       await logAudit({
         userId: adminId,
-        entityType: "REPORT_EXPORT",
+        entityType: 'REPORT_EXPORT',
         entityId: record.id,
-        action: "REPORT_EXPORT_COMPLETED",
-        module: "REPORTING",
-        actorType: "SYSTEM",
+        action: 'REPORT_EXPORT_COMPLETED',
+        module: 'REPORTING',
+        actorType: 'SYSTEM',
       });
-    } catch (err) {
+    } catch {
       await prisma.reportExport.update({
         where: { id: record.id },
-        data: { status: "FAILED" },
+        data: { status: 'FAILED' },
       });
 
       await logAudit({
         userId: adminId,
-        entityType: "REPORT_EXPORT",
+        entityType: 'REPORT_EXPORT',
         entityId: record.id,
-        action: "REPORT_EXPORT_FAILED",
-        module: "REPORTING",
-        actorType: "SYSTEM",
+        action: 'REPORT_EXPORT_FAILED',
+        module: 'REPORTING',
+        actorType: 'SYSTEM',
       });
     }
   });
 
   await logAudit({
     userId: adminId,
-    entityType: "REPORT_EXPORT",
+    entityType: 'REPORT_EXPORT',
     entityId: record.id,
-    action: "REPORT_EXPORT_CREATED",
-    module: "REPORTING",
-    actorType: "ADMIN",
+    action: 'REPORT_EXPORT_CREATED',
+    module: 'REPORTING',
+    actorType: 'ADMIN',
   });
 
   return record;
@@ -497,15 +498,15 @@ exports.createAsyncExport = async (query, adminId, type) => {
 exports.getExportHistory = async (adminId) => {
   return prisma.reportExport.findMany({
     where: { requestedBy: adminId },
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: 'desc' },
   });
 };
 
 exports.downloadExportFile = async (id) => {
   const record = await prisma.reportExport.findUnique({ where: { id } });
 
-  if (!record || record.status !== "COMPLETED") {
-    throw new Error("Export not ready");
+  if (!record || record.status !== 'COMPLETED') {
+    throw new Error('Export not ready');
   }
 
   return record;
@@ -520,9 +521,9 @@ exports.getSupportSummaryReport = async (query) => {
 
   const [total, open, inProgress, resolved, escalated] = await Promise.all([
     prisma.ticket.count({ where }),
-    prisma.ticket.count({ where: { ...where, status: "OPEN" } }),
-    prisma.ticket.count({ where: { ...where, status: "IN_PROGRESS" } }),
-    prisma.ticket.count({ where: { ...where, status: "RESOLVED" } }),
+    prisma.ticket.count({ where: { ...where, status: 'OPEN' } }),
+    prisma.ticket.count({ where: { ...where, status: 'IN_PROGRESS' } }),
+    prisma.ticket.count({ where: { ...where, status: 'RESOLVED' } }),
     prisma.ticket.count({ where: { ...where, escalated: true } }),
   ]);
 
@@ -541,13 +542,13 @@ exports.getSupportSLAReport = async () => {
   const [totalActive, breached] = await Promise.all([
     prisma.ticket.count({
       where: {
-        status: { notIn: ["RESOLVED", "CLOSED"] },
+        status: { notIn: ['RESOLVED', 'CLOSED'] },
       },
     }),
     prisma.ticket.count({
       where: {
         slaDeadline: { lt: now },
-        status: { notIn: ["RESOLVED", "CLOSED"] },
+        status: { notIn: ['RESOLVED', 'CLOSED'] },
       },
     }),
   ]);
@@ -564,11 +565,11 @@ exports.getSupportSLAReport = async () => {
 
 exports.getTicketsPerBusinessReport = async () => {
   const data = await prisma.ticket.groupBy({
-    by: ["businessId"],
+    by: ['businessId'],
     _count: true,
     orderBy: {
       _count: {
-        businessId: "desc",
+        businessId: 'desc',
       },
     },
   });

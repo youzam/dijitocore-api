@@ -1,7 +1,7 @@
-const axios = require("axios");
-const AppError = require("../AppError");
-const health = require("./gateway.health");
-const env = require("../../config/env");
+const axios = require('axios');
+const AppError = require('../AppError');
+const health = require('./gateway.health');
+const env = require('../../config/env');
 
 /**
  * =====================================================
@@ -31,7 +31,7 @@ const validateConfig = () => {
   ];
 
   if (required.some((v) => !v)) {
-    throw new AppError("payment.mpesa_config_missing", 500);
+    throw new AppError('payment.mpesa_config_missing', 500);
   }
 };
 
@@ -40,7 +40,7 @@ const validateConfig = () => {
  */
 const getAccessToken = async () => {
   const auth = Buffer.from(`${consumerKey}:${consumerSecret}`).toString(
-    "base64",
+    'base64',
   );
 
   try {
@@ -55,9 +55,9 @@ const getAccessToken = async () => {
     );
 
     return response.data.access_token;
-  } catch (error) {
-    await health.markDown("MPESA");
-    throw new AppError("payment.mpesa_auth_failed", 502);
+  } catch {
+    await health.markDown('MPESA');
+    throw new AppError('payment.mpesa_auth_failed', 502);
   }
 };
 
@@ -69,11 +69,11 @@ const getTimestamp = () => {
 
   return (
     date.getFullYear().toString() +
-    String(date.getMonth() + 1).padStart(2, "0") +
-    String(date.getDate()).padStart(2, "0") +
-    String(date.getHours()).padStart(2, "0") +
-    String(date.getMinutes()).padStart(2, "0") +
-    String(date.getSeconds()).padStart(2, "0")
+    String(date.getMonth() + 1).padStart(2, '0') +
+    String(date.getDate()).padStart(2, '0') +
+    String(date.getHours()).padStart(2, '0') +
+    String(date.getMinutes()).padStart(2, '0') +
+    String(date.getSeconds()).padStart(2, '0')
   );
 };
 
@@ -81,7 +81,7 @@ const getTimestamp = () => {
  * Generate password
  */
 const generatePassword = (timestamp) => {
-  return Buffer.from(`${shortcode}${passkey}${timestamp}`).toString("base64");
+  return Buffer.from(`${shortcode}${passkey}${timestamp}`).toString('base64');
 };
 
 /**
@@ -100,7 +100,7 @@ exports.initiate = async ({ amount, reference, businessId, phone }) => {
       BusinessShortCode: shortcode,
       Password: password,
       Timestamp: timestamp,
-      TransactionType: "CustomerPayBillOnline",
+      TransactionType: 'CustomerPayBillOnline',
       Amount: amount,
       PartyA: phone,
       PartyB: shortcode,
@@ -110,31 +110,27 @@ exports.initiate = async ({ amount, reference, businessId, phone }) => {
       TransactionDesc: `Subscription-${businessId}`,
     };
 
-    const response = await axios.post(
-      `${baseUrl}/mpesa/stkpush/v1/processrequest`,
-      payload,
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-        timeout: 15000,
+    await axios.post(`${baseUrl}/mpesa/stkpush/v1/processrequest`, payload, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
       },
-    );
+      timeout: 15000,
+    });
 
-    await health.markHealthy("MPESA");
+    await health.markHealthy('MPESA');
 
     return {
-      type: "STK_PUSH",
-      provider: "MPESA",
-      message: "Check your phone",
+      type: 'STK_PUSH',
+      provider: 'MPESA',
+      message: 'Check your phone',
     };
   } catch (error) {
-    await health.markDown("MPESA");
+    await health.markDown('MPESA');
 
     if (error.response) {
-      throw new AppError("payment.mpesa_request_failed", 502);
+      throw new AppError('payment.mpesa_request_failed', 502);
     }
 
-    throw new AppError("payment.mpesa_unreachable", 503);
+    throw new AppError('payment.mpesa_unreachable', 503);
   }
 };

@@ -1,13 +1,13 @@
-const prisma = require("../../../config/prisma");
-const AppError = require("../../../utils/AppError");
-const { logAudit } = require("../../../utils/audit.helper");
-const subscriptionService = require("../../subscription/subscription.service");
-const authService = require("../../auth/auth.service");
-const coreAuth = require("../../auth/core.auth.service");
+const prisma = require('../../../config/prisma');
+const AppError = require('../../../utils/AppError');
+const { logAudit } = require('../../../utils/audit.helper');
+const subscriptionService = require('../../subscription/subscription.service');
+const authService = require('../../auth/auth.service');
+const coreAuth = require('../../auth/core.auth.service');
 const {
   lockUserAccount,
   unlockUserAccount,
-} = require("../../../utils/security.helper");
+} = require('../../../utils/security.helper');
 
 /*
 |--------------------------------------------------------------------------
@@ -21,21 +21,21 @@ exports.updateBusinessStatus = async (businessId, status) => {
   });
 
   if (!business) {
-    throw new AppError("governance.business_not_found", 404);
+    throw new AppError('governance.business_not_found', 404);
   }
 
   const allowedTransitions = {
-    PENDING: ["ACTIVE", "TERMINATED"],
-    ACTIVE: ["GRACE", "TERMINATED"],
-    GRACE: ["ACTIVE", "SUSPENDED"],
-    SUSPENDED: ["ACTIVE", "TERMINATED"],
+    PENDING: ['ACTIVE', 'TERMINATED'],
+    ACTIVE: ['GRACE', 'TERMINATED'],
+    GRACE: ['ACTIVE', 'SUSPENDED'],
+    SUSPENDED: ['ACTIVE', 'TERMINATED'],
     TERMINATED: [],
   };
 
   const currentStatus = business.status;
 
   if (!allowedTransitions[currentStatus].includes(status)) {
-    throw new AppError("governance.invalid_status_transition", 400);
+    throw new AppError('governance.invalid_status_transition', 400);
   }
 
   const updated = await prisma.business.update({
@@ -45,15 +45,15 @@ exports.updateBusinessStatus = async (businessId, status) => {
 
   await logAudit({
     userId: null,
-    entityType: "BUSINESS",
+    entityType: 'BUSINESS',
     entityId: businessId,
-    action: "BUSINESS_STATUS_UPDATED",
+    action: 'BUSINESS_STATUS_UPDATED',
     metadata: {
       previousStatus: currentStatus,
       newStatus: status,
     },
-    module: "GOVERNANCE",
-    actorType: "ADMIN",
+    module: 'GOVERNANCE',
+    actorType: 'ADMIN',
   });
   return updated;
 };
@@ -96,7 +96,7 @@ exports.listBusinesses = async (query) => {
           },
         },
         subscriptions: {
-          orderBy: { createdAt: "desc" },
+          orderBy: { createdAt: 'desc' },
           take: 1,
         },
       },
@@ -125,18 +125,18 @@ exports.getBusinessTimeline = async (businessId) => {
   });
 
   if (!business) {
-    throw new AppError("governance.business_not_found", 404);
+    throw new AppError('governance.business_not_found', 404);
   }
 
   const [subscriptions, payments] = await Promise.all([
     prisma.subscription.findMany({
       where: { businessId },
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: 'desc' },
     }),
 
     prisma.subscriptionPayment.findMany({
       where: { businessId },
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: 'desc' },
     }),
   ]);
 
@@ -159,13 +159,13 @@ exports.getBusinessRevenueSummary = async (businessId) => {
   });
 
   if (!business) {
-    throw new AppError("governance.business_not_found", 404);
+    throw new AppError('governance.business_not_found', 404);
   }
 
   const revenue = await prisma.subscriptionPayment.aggregate({
     where: {
       businessId,
-      status: "SUCCESS",
+      status: 'SUCCESS',
     },
     _sum: { amount: true },
     _count: { id: true },
@@ -190,7 +190,7 @@ exports.changeBusinessSubscription = async (businessId, packageId) => {
   });
 
   if (!business) {
-    throw new AppError("governance.business_not_found", 404);
+    throw new AppError('governance.business_not_found', 404);
   }
 
   const result = await subscriptionService.createSubscription({
@@ -201,15 +201,15 @@ exports.changeBusinessSubscription = async (businessId, packageId) => {
 
   await logAudit({
     userId: null,
-    entityType: "SUBSCRIPTION",
+    entityType: 'SUBSCRIPTION',
     entityId: result.id,
-    action: "BUSINESS_SUBSCRIPTION_CHANGED",
+    action: 'BUSINESS_SUBSCRIPTION_CHANGED',
     metadata: {
       businessId,
       packageId,
     },
-    module: "GOVERNANCE",
-    actorType: "ADMIN",
+    module: 'GOVERNANCE',
+    actorType: 'ADMIN',
   });
 
   return result;
@@ -225,12 +225,12 @@ exports.extendBusinessGracePeriod = async (businessId, days) => {
   const subscription = await prisma.subscription.findFirst({
     where: {
       businessId,
-      status: "GRACE",
+      status: 'GRACE',
     },
   });
 
   if (!subscription) {
-    throw new AppError("governance.no_grace_subscription", 404);
+    throw new AppError('governance.no_grace_subscription', 404);
   }
 
   const newGraceDate = new Date(subscription.graceUntil);
@@ -243,16 +243,16 @@ exports.extendBusinessGracePeriod = async (businessId, days) => {
 
   await logAudit({
     userId: null,
-    entityType: "SUBSCRIPTION",
+    entityType: 'SUBSCRIPTION',
     entityId: subscription.id,
-    action: "BUSINESS_GRACE_EXTENDED",
+    action: 'BUSINESS_GRACE_EXTENDED',
     metadata: {
       businessId,
       days,
       newGraceUntil: newGraceDate,
     },
-    module: "GOVERNANCE",
-    actorType: "ADMIN",
+    module: 'GOVERNANCE',
+    actorType: 'ADMIN',
   });
   return updated;
 };
@@ -314,7 +314,7 @@ exports.lockUser = async (userId) => {
   });
 
   if (!user) {
-    throw new AppError("governance.user_not_found", 404);
+    throw new AppError('governance.user_not_found', 404);
   }
 
   const lockUntil = new Date(Date.now() + 1000 * 60 * 60 * 24 * 365);
@@ -331,14 +331,14 @@ exports.lockUser = async (userId) => {
 
   await logAudit({
     userId: null,
-    entityType: "USER",
+    entityType: 'USER',
     entityId: userId,
-    action: "USER_LOCKED",
+    action: 'USER_LOCKED',
     metadata: {
       lockUntil,
     },
-    module: "GOVERNANCE",
-    actorType: "ADMIN",
+    module: 'GOVERNANCE',
+    actorType: 'ADMIN',
   });
   return updated;
 };
@@ -355,7 +355,7 @@ exports.unlockUser = async (userId) => {
   });
 
   if (!user) {
-    throw new AppError("governance.user_not_found", 404);
+    throw new AppError('governance.user_not_found', 404);
   }
 
   const updated = await prisma.user.update({
@@ -368,11 +368,11 @@ exports.unlockUser = async (userId) => {
 
   await logAudit({
     userId: null,
-    entityType: "USER",
+    entityType: 'USER',
     entityId: userId,
-    action: "USER_UNLOCKED",
-    module: "GOVERNANCE",
-    actorType: "ADMIN",
+    action: 'USER_UNLOCKED',
+    module: 'GOVERNANCE',
+    actorType: 'ADMIN',
   });
   return updated;
 };
@@ -389,13 +389,13 @@ exports.updateUserStatus = async (userId, status) => {
   });
 
   if (!user) {
-    throw new AppError("governance.user_not_found", 404);
+    throw new AppError('governance.user_not_found', 404);
   }
 
-  const allowedStatuses = ["ACTIVE", "INACTIVE", "SUSPENDED"];
+  const allowedStatuses = ['ACTIVE', 'INACTIVE', 'SUSPENDED'];
 
   if (!allowedStatuses.includes(status)) {
-    throw new AppError("governance.invalid_user_status", 400);
+    throw new AppError('governance.invalid_user_status', 400);
   }
 
   const updated = await prisma.user.update({
@@ -405,14 +405,14 @@ exports.updateUserStatus = async (userId, status) => {
 
   await logAudit({
     userId: null,
-    entityType: "USER",
+    entityType: 'USER',
     entityId: userId,
-    action: "USER_STATUS_UPDATED",
+    action: 'USER_STATUS_UPDATED',
     metadata: {
       newStatus: status,
     },
-    module: "GOVERNANCE",
-    actorType: "ADMIN",
+    module: 'GOVERNANCE',
+    actorType: 'ADMIN',
   });
 
   return updated;
@@ -441,11 +441,11 @@ exports.forceLogoutUser = async (userId) => {
 
   await logAudit({
     userId: null,
-    entityType: "USER",
+    entityType: 'USER',
     entityId: userId,
-    action: "USER_FORCE_LOGOUT",
-    module: "GOVERNANCE",
-    actorType: "ADMIN",
+    action: 'USER_FORCE_LOGOUT',
+    module: 'GOVERNANCE',
+    actorType: 'ADMIN',
   });
 
   return { success: true };
@@ -463,7 +463,7 @@ exports.impersonateUser = async (adminId, userId) => {
   });
 
   if (!user) {
-    throw new AppError("governance.user_not_found", 404);
+    throw new AppError('governance.user_not_found', 404);
   }
 
   /*
@@ -473,7 +473,7 @@ exports.impersonateUser = async (adminId, userId) => {
   */
 
   if (user.lockUntil && user.lockUntil > new Date()) {
-    throw new AppError("governance.user_locked", 403);
+    throw new AppError('governance.user_locked', 403);
   }
 
   /*
@@ -482,8 +482,8 @@ exports.impersonateUser = async (adminId, userId) => {
   |--------------------------------------------------------------------------
   */
 
-  if (user.status === "SUSPENDED") {
-    throw new AppError("governance.user_suspended", 403);
+  if (user.status === 'SUSPENDED') {
+    throw new AppError('governance.user_suspended', 403);
   }
 
   /*
@@ -493,7 +493,7 @@ exports.impersonateUser = async (adminId, userId) => {
   */
   const tokens = coreAuth.generateAuthTokens({
     sub: user.id,
-    identity_type: "user",
+    identity_type: 'user',
     role: user.role,
     businessId: user.businessId,
     impersonatedBy: adminId,
@@ -502,14 +502,14 @@ exports.impersonateUser = async (adminId, userId) => {
 
   await logAudit({
     userId: adminId,
-    entityType: "USER",
+    entityType: 'USER',
     entityId: user.id,
-    action: "ADMIN_IMPERSONATE_USER",
+    action: 'ADMIN_IMPERSONATE_USER',
     metadata: {
       businessId: user.businessId,
     },
-    module: "GOVERNANCE",
-    actorType: "ADMIN",
+    module: 'GOVERNANCE',
+    actorType: 'ADMIN',
   });
 
   return {
@@ -538,7 +538,7 @@ exports.getCustomerSummary = async (customerId) => {
   });
 
   if (!customer) {
-    throw new AppError("governance.customer_not_found", 404);
+    throw new AppError('governance.customer_not_found', 404);
   }
 
   return customer;
@@ -556,7 +556,7 @@ exports.blacklistCustomer = async (customerId) => {
   });
 
   if (!customer) {
-    throw new AppError("governance.customer_not_found", 404);
+    throw new AppError('governance.customer_not_found', 404);
   }
 
   const updated = await prisma.customer.update({
@@ -566,11 +566,11 @@ exports.blacklistCustomer = async (customerId) => {
 
   await logAudit({
     userId: null,
-    entityType: "CUSTOMER",
+    entityType: 'CUSTOMER',
     entityId: customerId,
-    action: "CUSTOMER_BLACKLISTED",
-    module: "GOVERNANCE",
-    actorType: "ADMIN",
+    action: 'CUSTOMER_BLACKLISTED',
+    module: 'GOVERNANCE',
+    actorType: 'ADMIN',
   });
 
   return updated;
@@ -588,7 +588,7 @@ exports.unblacklistCustomer = async (customerId) => {
   });
 
   if (!customer) {
-    throw new AppError("governance.customer_not_found", 404);
+    throw new AppError('governance.customer_not_found', 404);
   }
 
   const updated = await prisma.customer.update({
@@ -598,11 +598,11 @@ exports.unblacklistCustomer = async (customerId) => {
 
   await logAudit({
     userId: null,
-    entityType: "CUSTOMER",
+    entityType: 'CUSTOMER',
     entityId: customerId,
-    action: "CUSTOMER_UNBLACKLISTED",
-    module: "GOVERNANCE",
-    actorType: "ADMIN",
+    action: 'CUSTOMER_UNBLACKLISTED',
+    module: 'GOVERNANCE',
+    actorType: 'ADMIN',
   });
 
   return updated;
@@ -625,7 +625,7 @@ exports.getBusinessProfile = async (businessId) => {
   });
 
   if (!business) {
-    throw new Error("Business not found");
+    throw new Error('Business not found');
   }
 
   return business;
@@ -643,18 +643,18 @@ exports.resetUserPassword = async (userId, newPassword) => {
   });
 
   if (!user) {
-    throw new AppError("governance.user_not_found", 404);
+    throw new AppError('governance.user_not_found', 404);
   }
 
   const result = await authService.resetUserPassword(userId, newPassword);
 
   await logAudit({
     userId: null,
-    entityType: "USER",
+    entityType: 'USER',
     entityId: userId,
-    action: "USER_PASSWORD_RESET",
-    module: "GOVERNANCE",
-    actorType: "ADMIN",
+    action: 'USER_PASSWORD_RESET',
+    module: 'GOVERNANCE',
+    actorType: 'ADMIN',
   });
 
   return result;
@@ -673,7 +673,7 @@ exports.listAdminAuditLogs = async (query) => {
   const take = Number(limit);
 
   const where = {
-    actorType: "ADMIN",
+    actorType: 'ADMIN',
   };
 
   if (action) where.action = action;
@@ -692,7 +692,7 @@ exports.listAdminAuditLogs = async (query) => {
       where,
       skip,
       take,
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: 'desc' },
       include: {
         user: {
           select: {
@@ -738,7 +738,7 @@ exports.getRiskFlags = async () => {
       prisma.business.count({
         where: {
           status: {
-            in: ["SUSPENDED", "GRACE"],
+            in: ['SUSPENDED', 'GRACE'],
           },
         },
       }),
@@ -768,37 +768,37 @@ const MIN_QUERY_LENGTH = 2;
 |--------------------------------------------------------------------------
 */
 const MODULE_RESOURCES = {
-  governance: ["businesses", "users", "customers"],
+  governance: ['businesses', 'users', 'customers'],
 
   commerce: [
-    "subscriptions",
-    "subscriptionPackages",
-    "payments",
-    "coupons",
-    "financialAdjustments",
+    'subscriptions',
+    'subscriptionPackages',
+    'payments',
+    'coupons',
+    'financialAdjustments',
   ],
 
-  support: ["tickets"],
+  support: ['tickets'],
 
-  communication: ["notifications"],
+  communication: ['notifications'],
 
-  reporting: ["reportExports"],
+  reporting: ['reportExports'],
 
-  security: ["auditLogs", "loginActivities"],
+  security: ['auditLogs', 'loginActivities'],
 
-  compliance: ["dataRequests", "consents"],
+  compliance: ['dataRequests', 'consents'],
 
-  settings: ["systemSettings"],
+  settings: ['systemSettings'],
 };
 
 // GLOBAL FALLBACK
 const GLOBAL_RESOURCES = [
-  "businesses",
-  "users",
-  "customers",
-  "subscriptions",
-  "payments",
-  "tickets",
+  'businesses',
+  'users',
+  'customers',
+  'subscriptions',
+  'payments',
+  'tickets',
 ];
 
 /*
@@ -828,8 +828,8 @@ const getPagination = (query) => {
 */
 const buildSearch = (field, value) => ({
   OR: [
-    { [field]: { startsWith: value, mode: "insensitive" } },
-    { [field]: { contains: value, mode: "insensitive" } },
+    { [field]: { startsWith: value, mode: 'insensitive' } },
+    { [field]: { contains: value, mode: 'insensitive' } },
   ],
 });
 
@@ -842,7 +842,7 @@ const RESOURCE_HANDLERS = {
   businesses: (search, p) =>
     prisma.business.findMany({
       where: {
-        OR: [buildSearch("name", search), buildSearch("businessCode", search)],
+        OR: [buildSearch('name', search), buildSearch('businessCode', search)],
       },
       take: p.limit,
       skip: p.skip,
@@ -853,9 +853,9 @@ const RESOURCE_HANDLERS = {
     prisma.user.findMany({
       where: {
         OR: [
-          buildSearch("email", search),
-          buildSearch("firstName", search),
-          buildSearch("lastName", search),
+          buildSearch('email', search),
+          buildSearch('firstName', search),
+          buildSearch('lastName', search),
           { phone: { contains: search } },
         ],
       },
@@ -867,7 +867,7 @@ const RESOURCE_HANDLERS = {
   customers: (search, p) =>
     prisma.customer.findMany({
       where: {
-        OR: [buildSearch("name", search), { phone: { contains: search } }],
+        OR: [buildSearch('name', search), { phone: { contains: search } }],
       },
       take: p.limit,
       skip: p.skip,
@@ -876,7 +876,7 @@ const RESOURCE_HANDLERS = {
 
   subscriptions: (search, p) =>
     prisma.subscription.findMany({
-      where: buildSearch("subscriptionCode", search),
+      where: buildSearch('subscriptionCode', search),
       take: p.limit,
       skip: p.skip,
       select: { id: true, subscriptionCode: true },
@@ -884,7 +884,7 @@ const RESOURCE_HANDLERS = {
 
   payments: (search, p) =>
     prisma.payment.findMany({
-      where: buildSearch("reference", search),
+      where: buildSearch('reference', search),
       take: p.limit,
       skip: p.skip,
       select: { id: true, reference: true, amount: true },
@@ -892,7 +892,7 @@ const RESOURCE_HANDLERS = {
 
   coupons: (search, p) =>
     prisma.coupon.findMany({
-      where: buildSearch("code", search),
+      where: buildSearch('code', search),
       take: p.limit,
       skip: p.skip,
       select: { id: true, code: true },
@@ -900,7 +900,7 @@ const RESOURCE_HANDLERS = {
 
   tickets: (search, p) =>
     prisma.ticket.findMany({
-      where: buildSearch("subject", search),
+      where: buildSearch('subject', search),
       take: p.limit,
       skip: p.skip,
       select: { id: true, subject: true, status: true },
@@ -908,7 +908,7 @@ const RESOURCE_HANDLERS = {
 
   subscriptionPackages: (search, p) =>
     prisma.subscriptionPackage.findMany({
-      where: buildSearch("name", search),
+      where: buildSearch('name', search),
       take: p.limit,
       skip: p.skip,
       select: { id: true, name: true },
@@ -916,7 +916,7 @@ const RESOURCE_HANDLERS = {
 
   notifications: (search, p) =>
     prisma.notification.findMany({
-      where: buildSearch("title", search),
+      where: buildSearch('title', search),
       take: p.limit,
       skip: p.skip,
       select: { id: true, title: true },
@@ -924,7 +924,7 @@ const RESOURCE_HANDLERS = {
 
   reportExports: (search, p) =>
     prisma.reportExport.findMany({
-      where: buildSearch("fileName", search),
+      where: buildSearch('fileName', search),
       take: p.limit,
       skip: p.skip,
       select: { id: true, fileName: true },
@@ -939,12 +939,12 @@ const RESOURCE_HANDLERS = {
 const detectRouteContext = (req) => {
   if (!req) return {};
 
-  const source = req.originalUrl || req.baseUrl || req.headers?.referer || "";
+  const source = req.originalUrl || req.baseUrl || req.headers?.referer || '';
 
-  const segments = source.toLowerCase().split("/");
+  const segments = source.toLowerCase().split('/');
 
   for (const resource of Object.keys(RESOURCE_HANDLERS)) {
-    const singular = resource.endsWith("s") ? resource.slice(0, -1) : resource;
+    const singular = resource.endsWith('s') ? resource.slice(0, -1) : resource;
 
     if (segments.includes(resource) || segments.includes(singular)) {
       return { resource };
@@ -1031,22 +1031,20 @@ exports.lockUser = async ({ userId, durationMs, actorId }) => {
   const result = await lockUserAccount({
     userId,
     durationMs,
-    reason: "ADMIN_MANUAL_LOCK",
+    reason: 'ADMIN_MANUAL_LOCK',
     actorId,
   });
 
   await logAudit({
-    tx,
     userId: actorId, // admin performing action
-    entityType: "USER",
+    entityType: 'USER',
     entityId: userId,
-    action: "USER_LOCKED",
-    module: "GOVERNANCE",
-    actorType: "ADMIN",
+    action: 'USER_LOCKED',
+    module: 'GOVERNANCE',
+    actorType: 'ADMIN',
     metadata: {
-      lockUntil,
       durationMs,
-      reason: "MANUAL_LOCK",
+      reason: 'MANUAL_LOCK',
     },
   });
 
@@ -1060,15 +1058,14 @@ exports.unlockUser = async ({ userId, actorId }) => {
   });
 
   await logAudit({
-    tx,
     userId: actorId,
-    entityType: "USER",
+    entityType: 'USER',
     entityId: userId,
-    action: "USER_UNLOCKED",
-    module: "GOVERNANCE",
-    actorType: "ADMIN",
+    action: 'USER_UNLOCKED',
+    module: 'GOVERNANCE',
+    actorType: 'ADMIN',
     metadata: {
-      reason: "MANUAL_UNLOCK",
+      reason: 'MANUAL_UNLOCK',
     },
   });
   return result;

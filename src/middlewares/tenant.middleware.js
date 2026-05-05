@@ -100,7 +100,7 @@ const tenantMiddleware = async (req, res, next) => {
     if (!business.subscriptions.length) {
       return next(new AppError("subscription.required", 403));
     }
-  } catch (error) {
+  } catch (error)  {
     return next(error);
   }
 

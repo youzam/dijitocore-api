@@ -1,5 +1,6 @@
-const prisma = require("../config/prisma");
-const response = require("../utils/response");
+const prisma = require('../config/prisma');
+const response = require('../utils/response');
+const { handleSecurityIncident } = require('../utils/incidentEngine');
 
 /*
 |--------------------------------------------------------------------------
@@ -21,11 +22,11 @@ function buildPermissionKey(module, action, scope) {
 
 async function logPermissionViolation(req, user, module, action, scope) {
   try {
-    await handleSecurityEvent({
-      type: "PRIVILEGE_ESCALATION_ATTEMPT",
-      title: "Permission violation",
+    await handleSecurityIncident({
+      type: 'PRIVILEGE_ESCALATION_ATTEMPT',
+      title: 'Permission violation',
       description: `User role ${user?.role} attempted unauthorized action`,
-      source: "API",
+      source: 'API',
       referenceId: user?.id || null,
       metadata: {
         module,
@@ -39,7 +40,7 @@ async function logPermissionViolation(req, user, module, action, scope) {
     });
   } catch (err) {
     // usivunje flow kama logging imefail
-    console.error("Incident logging failed:", err.message);
+    console.error('Incident logging failed:', err.message);
   }
 }
 /*
@@ -60,7 +61,7 @@ module.exports = function requirePermission({ module, action, scope }) {
       const user = req.user;
 
       if (!user) {
-        return response.error(req, res, null, 401, "auth.unauthorized");
+        return response.error(req, res, null, 401, 'auth.unauthorized');
       }
 
       /*
@@ -69,7 +70,7 @@ module.exports = function requirePermission({ module, action, scope }) {
       |--------------------------------------------------------------------------
       */
 
-      if (user.role === "SUPER_ADMIN") {
+      if (user.role === 'SUPER_ADMIN') {
         return next();
       }
 
@@ -80,7 +81,7 @@ module.exports = function requirePermission({ module, action, scope }) {
       */
 
       const permissionKey = buildPermissionKey(module, action, scope);
-      const globalPermissionKey = buildPermissionKey(module, action, "GLOBAL");
+      const globalPermissionKey = buildPermissionKey(module, action, 'GLOBAL');
 
       /*
       |--------------------------------------------------------------------------
@@ -115,7 +116,7 @@ module.exports = function requirePermission({ module, action, scope }) {
         }
 
         await logPermissionViolation(req, user, module, action, scope);
-        return response.error(req, res, null, 403, "auth.forbidden");
+        return response.error(req, res, null, 403, 'auth.forbidden');
       }
 
       /*
@@ -146,7 +147,7 @@ module.exports = function requirePermission({ module, action, scope }) {
             module_action_scope: {
               module,
               action,
-              scope: "GLOBAL",
+              scope: 'GLOBAL',
             },
           },
         });
@@ -155,7 +156,7 @@ module.exports = function requirePermission({ module, action, scope }) {
       if (!permission) {
         permissionCache.set(cacheKey, false);
 
-        return response.error(req, res, null, 403, "auth.permission_not_found");
+        return response.error(req, res, null, 403, 'auth.permission_not_found');
       }
 
       /*
@@ -183,7 +184,7 @@ module.exports = function requirePermission({ module, action, scope }) {
 
       if (!allowed) {
         await logPermissionViolation(req, user, module, action, scope);
-        return response.error(req, res, null, 403, "auth.forbidden");
+        return response.error(req, res, null, 403, 'auth.forbidden');
       }
 
       /*
@@ -193,7 +194,7 @@ module.exports = function requirePermission({ module, action, scope }) {
       */
 
       return next();
-    } catch (error) {
+    } catch (error)  {
       /*
       |--------------------------------------------------------------------------
       | ERROR HANDLER

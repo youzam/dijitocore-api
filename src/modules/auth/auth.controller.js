@@ -1,7 +1,8 @@
-const authService = require("./auth.service.js");
-const customerAuthService = require("./customer.auth.service");
-const catchAsync = require("../../utils/catchAsync.js");
-const response = require("../../utils/response");
+const authService = require('./auth.service.js');
+const customerAuthService = require('./customer.auth.service');
+const catchAsync = require('../../utils/catchAsync.js');
+const response = require('../../utils/response');
+const { translate } = require('../../utils/i18n.js');
 
 /**
  * =====================================================
@@ -71,7 +72,7 @@ exports.requestOtp = catchAsync(async (req, res) => {
   await customerAuthService.requestOtp(phone, businessCode);
 
   return response.success(req, res, {
-    message: translate("auth.otp_sent", req.locale),
+    message: translate('auth.otp_sent', req.locale),
   });
 });
 
@@ -101,7 +102,7 @@ exports.setPin = catchAsync(async (req, res) => {
   await customerAuthService.setPin(customerId, pin);
 
   return response.success(req, res, {
-    message: translate("auth.pin_set_success", req.locale),
+    message: translate('auth.pin_set_success', req.locale),
   });
 });
 

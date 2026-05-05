@@ -1,8 +1,10 @@
-const bcrypt = require("bcryptjs");
-const prisma = require("../../config/prisma");
-const AppError = require("../../utils/AppError");
-const notificationService = require("../../services/notifications/notification.service");
-const coreAuth = require("./core.auth.service");
+const bcrypt = require('bcryptjs');
+const prisma = require('../../config/prisma');
+const AppError = require('../../utils/AppError');
+const notificationService = require('../../services/notifications/notification.service');
+const coreAuth = require('./core.auth.service');
+const { logAudit } = require('../../utils/audit.helper');
+const securityService = require('../admin/security/security.service');
 
 const generateOtp = () =>
   Math.floor(100000 + Math.random() * 900000).toString();
@@ -29,11 +31,11 @@ exports.requestOtp = async (phone, businessCode) => {
   if (!customer) return;
 
   if (customer.isBlacklisted) {
-    throw new AppError("customer.blacklisted", 403);
+    throw new AppError('customer.blacklisted', 403);
   }
 
-  if (customer.status !== "ACTIVE") {
-    throw new AppError("customer.inactive", 403);
+  if (customer.status !== 'ACTIVE') {
+    throw new AppError('customer.inactive', 403);
   }
 
   const otp = generateOtp();
@@ -50,14 +52,14 @@ exports.requestOtp = async (phone, businessCode) => {
   await logAudit({
     businessId: business.id,
     userId: null,
-    entityType: "AUTH",
+    entityType: 'AUTH',
     entityId: phone,
-    action: "OTP_REQUESTED",
+    action: 'OTP_REQUESTED',
   });
 
   await notificationService.sendOtp({
     to: phone,
-    locale: "sw",
+    locale: 'sw',
     otp,
   });
 };
@@ -71,7 +73,7 @@ exports.verifyOtp = async (phone, businessCode, otp, req) => {
   });
 
   if (!business) {
-    throw new AppError("auth.business_not_found", 404);
+    throw new AppError('auth.business_not_found', 404);
   }
 
   const customer = await prisma.customer.findUnique({
@@ -84,11 +86,11 @@ exports.verifyOtp = async (phone, businessCode, otp, req) => {
   });
 
   if (!customer || !customer.otpHash || !customer.otpExpiresAt) {
-    throw new AppError("auth.invalid_otp", 400);
+    throw new AppError('auth.invalid_otp', 400);
   }
 
   if (customer.otpExpiresAt < new Date()) {
-    throw new AppError("auth.invalid_otp", 400);
+    throw new AppError('auth.invalid_otp', 400);
   }
 
   // 🔥 CORE VALIDATION (ADDED)
@@ -100,12 +102,12 @@ exports.verifyOtp = async (phone, businessCode, otp, req) => {
     await logAudit({
       businessId: business.id,
       customerId: customer.id,
-      entityType: "AUTH",
+      entityType: 'AUTH',
       entityId: customer.id,
-      action: "CUSTOMER_OTP_FAILED",
+      action: 'CUSTOMER_OTP_FAILED',
     });
 
-    throw new AppError("auth.invalid_otp", 400);
+    throw new AppError('auth.invalid_otp', 400);
   }
 
   await prisma.customer.update({
@@ -120,7 +122,7 @@ exports.verifyOtp = async (phone, businessCode, otp, req) => {
   await prisma.loginActivity.create({
     data: {
       customerId: customer.id,
-      status: "SUCCESS",
+      status: 'SUCCESS',
       ipAddress: req?.ip || null,
     },
   });
@@ -130,9 +132,9 @@ exports.verifyOtp = async (phone, businessCode, otp, req) => {
   // 🔥 CORE TOKEN
   const tokens = coreAuth.generateAuthTokens({
     sub: customer.id,
-    identity_type: "customer",
+    identity_type: 'customer',
     businessId: customer.businessId,
-    role: "CUSTOMER",
+    role: 'CUSTOMER',
     tokenVersion: customer.tokenVersion,
   });
 
@@ -145,9 +147,9 @@ exports.verifyOtp = async (phone, businessCode, otp, req) => {
   await logAudit({
     businessId: business.id,
     customerId: customer.id,
-    entityType: "AUTH",
+    entityType: 'AUTH',
     entityId: customer.id,
-    action: "CUSTOMER_OTP_VERIFIED",
+    action: 'CUSTOMER_OTP_VERIFIED',
   });
 
   return {
@@ -181,7 +183,7 @@ exports.loginWithPin = async (phone, businessCode, pin, req) => {
   });
 
   if (!business) {
-    throw new AppError("auth.business_not_found", 404);
+    throw new AppError('auth.business_not_found', 404);
   }
 
   const customer = await prisma.customer.findUnique({
@@ -194,7 +196,7 @@ exports.loginWithPin = async (phone, businessCode, pin, req) => {
   });
 
   if (!customer) {
-    throw new AppError("auth.customer_not_found", 404);
+    throw new AppError('auth.customer_not_found', 404);
   }
 
   // 🔥 CORE VALIDATION (ADDED)
@@ -206,7 +208,7 @@ exports.loginWithPin = async (phone, businessCode, pin, req) => {
     await prisma.loginActivity.create({
       data: {
         customerId: customer.id,
-        status: "FAILED",
+        status: 'FAILED',
         ipAddress: req.ip,
       },
     });
@@ -216,18 +218,18 @@ exports.loginWithPin = async (phone, businessCode, pin, req) => {
     await logAudit({
       businessId: business.id,
       customerId: customer.id,
-      entityType: "AUTH",
+      entityType: 'AUTH',
       entityId: customer.id,
-      action: "CUSTOMER_LOGIN_FAILED",
+      action: 'CUSTOMER_LOGIN_FAILED',
     });
 
-    throw new AppError("auth.invalid_credentials", 401);
+    throw new AppError('auth.invalid_credentials', 401);
   }
 
   await prisma.loginActivity.create({
     data: {
       customerId: customer.id,
-      status: "SUCCESS",
+      status: 'SUCCESS',
       ipAddress: req.ip,
     },
   });
@@ -237,9 +239,9 @@ exports.loginWithPin = async (phone, businessCode, pin, req) => {
   // 🔥 CORE TOKEN (REPLACED signToken)
   const tokens = coreAuth.generateAuthTokens({
     sub: customer.id,
-    identity_type: "customer",
+    identity_type: 'customer',
     businessId: customer.businessId,
-    role: "CUSTOMER",
+    role: 'CUSTOMER',
     tokenVersion: customer.tokenVersion,
   });
 
@@ -252,9 +254,9 @@ exports.loginWithPin = async (phone, businessCode, pin, req) => {
   await logAudit({
     businessId: business.id,
     customerId: customer.id,
-    entityType: "AUTH",
+    entityType: 'AUTH',
     entityId: customer.id,
-    action: "CUSTOMER_LOGIN_SUCCESS",
+    action: 'CUSTOMER_LOGIN_SUCCESS',
   });
 
   // 🔥 PATCH — CONSENT CHECK

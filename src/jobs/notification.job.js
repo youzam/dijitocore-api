@@ -9,7 +9,7 @@ const {
 async function run() {
   try {
     await retryNotifications();
-  } catch (error) {
+  } catch (error)  {
     throw error; // Let jobRunner handle centralized logging
   }
 }

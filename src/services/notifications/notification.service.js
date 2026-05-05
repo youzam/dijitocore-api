@@ -1,19 +1,19 @@
-const emailDev = require("./channels/email.dev");
-const emailProd = require("./channels/email.prod");
-const smsDev = require("./channels/sms.dev");
-const smsProd = require("./channels/sms.prod");
-const { translate } = require("../../utils/i18n");
-const prisma = require("../../config/prisma");
-const auditService = require("../audit/audit.service");
+const emailDev = require('./channels/email.dev');
+const emailProd = require('./channels/email.prod');
+const smsDev = require('./channels/sms.dev');
+const smsProd = require('./channels/sms.prod');
+const { translate } = require('../../utils/i18n');
+const prisma = require('../../config/prisma');
+const auditService = require('../audit/audit.service');
 
-const inAppChannel = require("./channels/inapp.channel");
-const pushChannel = require("./channels/push.channel");
-const whatsappChannel = require("./channels/whatsapp.channel");
+const inAppChannel = require('./channels/inapp.channel');
+const pushChannel = require('./channels/push.channel');
+const whatsappChannel = require('./channels/whatsapp.channel');
 
-const subscriptionAuthority = require("../../modules/subscription/subscription.authority.service");
-const env = require("../../config/env");
+const subscriptionAuthority = require('../../modules/subscription/subscription.authority.service');
+const env = require('../../config/env');
 
-const isProd = env.NODE_ENV !== "development";
+const isProd = env.NODE_ENV !== 'development';
 const emailChannel = isProd ? emailProd : emailDev;
 const smsChannel = isProd ? smsProd : smsDev;
 
@@ -72,9 +72,9 @@ const isWithinQuietHours = (setting) => {
  * =====================================================
  */
 
-const sendPasswordReset = async ({ to, locale = "en", resetUrl }) => {
-  const subject = translate("notification.password_reset.subject", locale);
-  const body = translate("notification.password_reset.body", locale, {
+const sendPasswordReset = async ({ to, locale = 'en', resetUrl }) => {
+  const subject = translate('notification.password_reset.subject', locale);
+  const body = translate('notification.password_reset.body', locale, {
     resetUrl,
   });
 
@@ -85,21 +85,21 @@ const sendPasswordReset = async ({ to, locale = "en", resetUrl }) => {
   });
 };
 
-const sendOtp = async ({ to, locale = "sw", otp }) => {
-  const message = translate("notification.otp.message", locale, { otp });
+const sendOtp = async ({ to, locale = 'sw', otp }) => {
+  const message = translate('notification.otp.message', locale, { otp });
   return smsChannel.send({ to, message });
 };
 
-const sendEmailVerification = async ({ to, locale = "en", code }) => {
-  const subject = translate("notification.email_verify.subject", locale);
-  const body = translate("notification.email_verify.body", locale, { code });
+const sendEmailVerification = async ({ to, locale = 'en', code }) => {
+  const subject = translate('notification.email_verify.subject', locale);
+  const body = translate('notification.email_verify.body', locale, { code });
 
   return emailChannel.send({ to, subject, body });
 };
 
-const sendBusinessInvite = async ({ to, locale = "en", inviteUrl, role }) => {
-  const subject = translate("notification.business_invite.subject", locale);
-  const body = translate("notification.business_invite.body", locale, {
+const sendBusinessInvite = async ({ to, locale = 'en', inviteUrl, role }) => {
+  const subject = translate('notification.business_invite.subject', locale);
+  const body = translate('notification.business_invite.body', locale, {
     inviteUrl,
     role,
   });
@@ -115,11 +115,11 @@ const sendCustomerWelcome = async ({
   phone,
   businessName,
   businessCode,
-  locale = "sw",
+  locale = 'sw',
 }) => {
   if (!phone) return;
 
-  const message = translate("customer.welcome_sms", locale, {
+  const message = translate('customer.welcome_sms', locale, {
     business: businessName,
     code: businessCode,
   });
@@ -142,7 +142,7 @@ const createNotification = async ({
   channel,
   titleKey,
   messageKey,
-  locale = "sw",
+  locale = 'sw',
   templateVars = {},
   recipient,
 }) => {
@@ -177,7 +177,10 @@ const createNotification = async ({
       channel,
       title,
       message,
-      status: "QUEUED",
+      status: 'QUEUED',
+      metadata: {
+        phone: recipient || null, // 🔥 muhimu
+      },
     },
   });
 
@@ -185,20 +188,20 @@ const createNotification = async ({
     const setting = await getNotificationSetting({ businessId, userId });
 
     if (setting) {
-      if (channel === "IN_APP" && !setting.enableInApp) return notification;
-      if (channel === "PUSH" && !setting.enablePush) return notification;
-      if (channel === "SMS" && !setting.enableSMS) return notification;
-      if (channel === "WHATSAPP" && !setting.enableWhatsApp)
+      if (channel === 'IN_APP' && !setting.enableInApp) return notification;
+      if (channel === 'PUSH' && !setting.enablePush) return notification;
+      if (channel === 'SMS' && !setting.enableSMS) return notification;
+      if (channel === 'WHATSAPP' && !setting.enableWhatsApp)
         return notification;
-      if (channel === "EMAIL" && !setting.enableEmail) return notification;
+      if (channel === 'EMAIL' && !setting.enableEmail) return notification;
 
-      if (type === "OVERDUE" && setting.muteOverdue) return notification;
-      if (type === "REMINDER" && setting.muteReminders) return notification;
+      if (type === 'OVERDUE' && setting.muteOverdue) return notification;
+      if (type === 'REMINDER' && setting.muteReminders) return notification;
 
       if (isWithinQuietHours(setting)) return notification;
     }
 
-    if (channel === "PUSH") {
+    if (channel === 'PUSH') {
       const tokens = await prisma.deviceToken.findMany({
         where: {
           OR: [
@@ -222,37 +225,36 @@ const createNotification = async ({
         throw new Error(`Unsupported channel: ${channel}`);
       }
 
-      if (channel === "SMS") {
+      if (channel === 'SMS') {
         await subscriptionAuthority.assertActiveSubscription(businessId);
-        await subscriptionAuthority.assertFeature(businessId, "allowSMS");
+        await subscriptionAuthority.assertFeature(businessId, 'allowSMS');
         await subscriptionAuthority.assertMonthlyLimit(
           businessId,
-          "maxMonthlySms",
+          'maxMonthlySms',
         );
       }
 
       await adapter.send({
-        recipient,
-        title,
-        message,
+        notification,
+        recipient, // only for WhatsApp fallback
       });
 
-      if (channel === "SMS") {
-        await subscriptionAuthority.trackUsage(businessId, "maxMonthlySms", 1);
+      if (channel === 'SMS') {
+        await subscriptionAuthority.trackUsage(businessId, 'maxMonthlySms', 1);
       }
     }
 
     await prisma.notification.update({
       where: { id: notification.id },
       data: {
-        status: "SENT",
+        status: 'SENT',
         sentAt: new Date(),
       },
     });
 
     await auditService.log({
       businessId,
-      action: "NOTIFICATION_SENT",
+      action: 'NOTIFICATION_SENT',
       metadata: {
         notificationId: notification.id,
         channel,
@@ -265,7 +267,7 @@ const createNotification = async ({
     await prisma.notification.update({
       where: { id: notification.id },
       data: {
-        status: "FAILED",
+        status: 'FAILED',
         retryCount: { increment: 1 },
         providerResponse: { error: err.message },
       },
@@ -294,7 +296,7 @@ const retryNotifications = async () => {
 
       const failed = await prisma.notification.findMany({
         where: {
-          status: "FAILED",
+          status: 'FAILED',
           retryCount: { lt: MAX_NOTIFICATION_RETRIES },
         },
         take: BATCH_SIZE,
@@ -302,7 +304,7 @@ const retryNotifications = async () => {
           skip: 1,
           cursor: { id: cursor },
         }),
-        orderBy: { id: "asc" },
+        orderBy: { id: 'asc' },
       });
 
       if (!failed.length) break;
@@ -311,7 +313,7 @@ const retryNotifications = async () => {
         cursor = n.id;
 
         try {
-          if (n.channel === "PUSH") {
+          if (n.channel === 'PUSH') {
             const conditions = [];
             if (n.userId) conditions.push({ userId: n.userId });
             if (n.customerId) conditions.push({ customerId: n.customerId });
@@ -329,7 +331,7 @@ const retryNotifications = async () => {
                 body: n.message,
               });
             }
-          } else if (n.channel !== "IN_APP") {
+          } else if (n.channel !== 'IN_APP') {
             const adapter = CHANNEL_MAP[n.channel];
             if (!adapter) continue;
 
@@ -342,15 +344,15 @@ const retryNotifications = async () => {
           }
 
           await prisma.notification.update({
-            where: { id: n.id, status: "FAILED" },
+            where: { id: n.id, status: 'FAILED' },
             data: {
-              status: "SENT",
+              status: 'SENT',
               sentAt: new Date(),
             },
           });
         } catch (e) {
           await prisma.notification.update({
-            where: { id: n.id, status: "FAILED" },
+            where: { id: n.id, status: 'FAILED' },
             data: {
               retryCount: { increment: 1 },
               providerResponse: { error: e.message },
@@ -360,7 +362,7 @@ const retryNotifications = async () => {
       }
     }
   } catch (err) {
-    console.error("Retry notifications failed:", err);
+    console.error('Retry notifications failed:', err);
     throw err;
   }
 };
@@ -383,13 +385,13 @@ const markNotificationRead = async ({
   });
 
   if (!notification) {
-    throw new Error("notification.not_found_or_unauthorized");
+    throw new Error('notification.not_found_or_unauthorized');
   }
 
   return prisma.notification.update({
     where: { id: notificationId },
     data: {
-      status: "READ",
+      status: 'READ',
       readAt: new Date(),
     },
   });

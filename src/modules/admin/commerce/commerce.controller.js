@@ -1,14 +1,13 @@
-const catchAsync = require("../../../utils/catchAsync");
-const response = require("../../../utils/response");
-const { logAudit } = require("../../../utils/audit.helper");
-const handlerFactory = require("../../../utils/handlerFactory");
+const catchAsync = require('../../../utils/catchAsync');
+const response = require('../../../utils/response');
+const handlerFactory = require('../../../utils/handlerFactory');
 
 // Services
-const ledgerService = require("./ledger.service");
-const financialService = require("./financial.service");
-const couponService = require("./coupon.service");
-const packageService = require("./package.service");
-const subscriptionControlService = require("./subscription-control.service");
+const ledgerService = require('./ledger.service');
+const financialService = require('./financial.service');
+const couponService = require('./coupon.service');
+const packageService = require('./package.service');
+const subscriptionControlService = require('./subscription-control.service');
 
 /**
  * =========================
@@ -19,13 +18,13 @@ const subscriptionControlService = require("./subscription-control.service");
 exports.getTransactions = catchAsync(async (req, res) => {
   const data = await ledgerService.getTransactions(req.query);
 
-  return response.success(req, res, data, 200, "commerce.transactions_fetched");
+  return response.success(req, res, data, 200, 'commerce.transactions_fetched');
 });
 
 exports.getTransaction = catchAsync(async (req, res) => {
   const data = await ledgerService.getTransactionById(req.params.id);
 
-  return response.success(req, res, data, 200, "commerce.transaction_fetched");
+  return response.success(req, res, data, 200, 'commerce.transaction_fetched');
 });
 
 exports.getTransactionDrilldown = catchAsync(async (req, res) => {
@@ -36,7 +35,7 @@ exports.getTransactionDrilldown = catchAsync(async (req, res) => {
     res,
     data,
     200,
-    "commerce.transaction_drilldown_fetched",
+    'commerce.transaction_drilldown_fetched',
   );
 });
 
@@ -52,13 +51,13 @@ exports.refundTransaction = catchAsync(async (req, res) => {
     req.auth,
   );
 
-  return response.success(req, res, data, 200, "commerce.refund_success");
+  return response.success(req, res, data, 200, 'commerce.refund_success');
 });
 
 exports.createAdjustment = catchAsync(async (req, res) => {
   const data = await financialService.createAdjustment(req.body, req.auth);
 
-  return response.success(req, res, data, 201, "commerce.adjustment_created");
+  return response.success(req, res, data, 201, 'commerce.adjustment_created');
 });
 
 exports.regenerateInvoice = catchAsync(async (req, res) => {
@@ -67,7 +66,7 @@ exports.regenerateInvoice = catchAsync(async (req, res) => {
     req.auth,
   );
 
-  return response.success(req, res, data, 200, "commerce.invoice_regenerated");
+  return response.success(req, res, data, 200, 'commerce.invoice_regenerated');
 });
 
 /**
@@ -79,10 +78,10 @@ exports.regenerateInvoice = catchAsync(async (req, res) => {
 exports.createCoupon = catchAsync(async (req, res) => {
   const data = await couponService.createCoupon(req.body, req.auth);
 
-  return response.success(req, res, data, 201, "commerce.coupon_created");
+  return response.success(req, res, data, 201, 'commerce.coupon_created');
 });
 
-exports.getCoupons = handlerFactory.getAll("coupon");
+exports.getCoupons = handlerFactory.getAll('coupon');
 
 exports.updateCoupon = catchAsync(async (req, res) => {
   const data = await couponService.updateCoupon(
@@ -91,7 +90,7 @@ exports.updateCoupon = catchAsync(async (req, res) => {
     req.auth,
   );
 
-  return response.success(req, res, data, 200, "commerce.coupon_updated");
+  return response.success(req, res, data, 200, 'commerce.coupon_updated');
 });
 
 /**
@@ -103,20 +102,20 @@ exports.updateCoupon = catchAsync(async (req, res) => {
 exports.createPackage = catchAsync(async (req, res) => {
   const data = await packageService.createPackage(req.body, req);
 
-  return response.success(req, res, data, 201, "subscription.package_created");
+  return response.success(req, res, data, 201, 'subscription.package_created');
 });
 
 exports.updatePackage = catchAsync(async (req, res) => {
   const data = await packageService.updatePackage(req.params.id, req.body, req);
 
-  return response.success(req, res, data, 200, "subscription.package_updated");
+  return response.success(req, res, data, 200, 'subscription.package_updated');
 });
 
 exports.updatePackageConfiguration = catchAsync(async (req, res) => {
   const data = await packageService.updatePackageConfiguration(
     req.params.id,
     req.body,
-    req,
+    req.user,
   );
 
   return response.success(
@@ -124,7 +123,7 @@ exports.updatePackageConfiguration = catchAsync(async (req, res) => {
     res,
     data,
     200,
-    "subscription.package_configuration_updated",
+    'subscription.package_configuration_updated',
   );
 });
 
@@ -136,16 +135,16 @@ exports.deactivatePackage = catchAsync(async (req, res) => {
     res,
     data,
     200,
-    "subscription.package_deactivated",
+    'subscription.package_deactivated',
   );
 });
 
-exports.getPackages = handlerFactory.getAll("subscriptionPackage");
+exports.getPackages = handlerFactory.getAll('subscriptionPackage');
 
 exports.getPackage = catchAsync(async (req, res) => {
   const data = await packageService.getPackageById(req.params.id);
 
-  return response.success(req, res, data, 200, "subscription.package_fetched");
+  return response.success(req, res, data, 200, 'subscription.package_fetched');
 });
 
 /**
@@ -161,7 +160,7 @@ exports.changeSubscriptionPlan = catchAsync(async (req, res) => {
     req,
   );
 
-  return response.success(req, res, data, 200, "commerce.subscription_changed");
+  return response.success(req, res, data, 200, 'commerce.subscription_changed');
 });
 
 exports.cancelSubscription = catchAsync(async (req, res) => {
@@ -175,7 +174,7 @@ exports.cancelSubscription = catchAsync(async (req, res) => {
     res,
     data,
     200,
-    "commerce.subscription_cancelled",
+    'commerce.subscription_cancelled',
   );
 });
 
@@ -191,14 +190,14 @@ exports.extendSubscription = catchAsync(async (req, res) => {
     res,
     data,
     200,
-    "commerce.subscription_extended",
+    'commerce.subscription_extended',
   );
 });
 
 exports.getGraceStatus = catchAsync(async (req, res) => {
   const data = await subscriptionControlService.getGraceStatus(req.params.id);
 
-  return response.success(req, res, data, 200, "commerce.grace_status_fetched");
+  return response.success(req, res, data, 200, 'commerce.grace_status_fetched');
 });
 
 exports.extendGracePeriod = catchAsync(async (req, res) => {
@@ -208,5 +207,5 @@ exports.extendGracePeriod = catchAsync(async (req, res) => {
     req,
   );
 
-  return response.success(req, res, data, 200, "commerce.grace_extended");
+  return response.success(req, res, data, 200, 'commerce.grace_extended');
 });

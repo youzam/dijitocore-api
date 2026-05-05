@@ -1,15 +1,26 @@
-const axios = require("axios");
-const env = require("../../../config/env");
+const axios = require('axios');
+const env = require('../../../config/env');
 
-const send = async ({ to, message }) => {
+const send = async ({ notification }) => {
+  const phone = notification.metadata?.phone;
+
+  if (!phone) {
+    throw new Error('SMS: phone not found in metadata');
+  }
+
   await axios.post(
-    "https://apisms.beem.africa/v1/send",
+    'https://apisms.beem.africa/v1/send',
     {
       source_addr: env.sms.from,
-      schedule_time: "",
+      schedule_time: '',
       encoding: 0,
-      message,
-      recipients: [{ recipient_id: 1, dest_addr: to }],
+      message: notification.message,
+      recipients: [
+        {
+          recipient_id: 1,
+          dest_addr: phone,
+        },
+      ],
     },
     {
       auth: {
@@ -18,6 +29,8 @@ const send = async ({ to, message }) => {
       },
     },
   );
+
+  return { success: true };
 };
 
 module.exports = { send };

@@ -1,10 +1,10 @@
-const prisma = require("../../config/prisma");
-const AppError = require("../../utils/AppError");
-const auditHelper = require("../../utils/audit.helper");
-const { SubscriptionStatus } = require("@prisma/client");
-const { validateDowngradeLimits } = require("../../utils/featureFlags");
-const registry = require("../../utils/subscriptionFeatureRegistry");
-const couponService = require("./subscription.coupon.service");
+const prisma = require('../../config/prisma');
+const AppError = require('../../utils/AppError');
+const auditHelper = require('../../utils/audit.helper');
+const { SubscriptionStatus } = require('@prisma/client');
+const { validateDowngradeLimits } = require('../../utils/featureFlags');
+const registry = require('../../utils/subscriptionFeatureRegistry');
+const couponService = require('./subscription.coupon.service');
 
 /* ===========================
    INTERNAL
@@ -35,7 +35,7 @@ exports.calculatePrice = async ({ businessId, subscriptionId }) => {
   });
 
   if (!subscription) {
-    throw new AppError("subscription.not_found", 404);
+    throw new AppError('subscription.not_found', 404);
   }
 
   const isInitial = !subscription.setupFeePaid;
@@ -46,18 +46,18 @@ exports.calculatePrice = async ({ businessId, subscriptionId }) => {
   if (isInitial) {
     baseAmount =
       subscription.setupFeeSnapshot +
-      (subscription.billingCycle === "YEARLY"
+      (subscription.billingCycle === 'YEARLY'
         ? subscription.priceYearlySnapshot
         : subscription.priceMonthlySnapshot);
   } else {
     baseAmount =
-      subscription.billingCycle === "YEARLY"
+      subscription.billingCycle === 'YEARLY'
         ? subscription.priceYearlySnapshot
         : subscription.priceMonthlySnapshot;
   }
 
   if (!Number.isInteger(baseAmount) || baseAmount < 0) {
-    throw new AppError("payment.invalid_amount", 500);
+    throw new AppError('payment.invalid_amount', 500);
   }
 
   // 🔹 ADJUSTMENTS
@@ -71,9 +71,9 @@ exports.calculatePrice = async ({ businessId, subscriptionId }) => {
   });
 
   for (const adj of adjustments) {
-    if (adj.type === "CREDIT") {
+    if (adj.type === 'CREDIT') {
       adjustmentTotal -= Number(adj.amount);
-    } else if (adj.type === "DEBIT") {
+    } else if (adj.type === 'DEBIT') {
       adjustmentTotal += Number(adj.amount);
     }
   }
@@ -110,7 +110,7 @@ exports.applyCouponToSubscription = async ({
   });
 
   if (!subscription) {
-    throw new AppError("subscription.not_found", 404);
+    throw new AppError('subscription.not_found', 404);
   }
 
   const isInitial = !subscription.setupFeePaid;
@@ -121,18 +121,18 @@ exports.applyCouponToSubscription = async ({
   if (isInitial) {
     baseAmount =
       subscription.setupFeeSnapshot +
-      (subscription.billingCycle === "YEARLY"
+      (subscription.billingCycle === 'YEARLY'
         ? subscription.priceYearlySnapshot
         : subscription.priceMonthlySnapshot);
   } else {
     baseAmount =
-      subscription.billingCycle === "YEARLY"
+      subscription.billingCycle === 'YEARLY'
         ? subscription.priceYearlySnapshot
         : subscription.priceMonthlySnapshot;
   }
 
   if (!Number.isInteger(baseAmount) || baseAmount < 0) {
-    throw new AppError("payment.invalid_amount", 500);
+    throw new AppError('payment.invalid_amount', 500);
   }
 
   // 🔹 ADJUSTMENTS
@@ -146,9 +146,9 @@ exports.applyCouponToSubscription = async ({
   });
 
   for (const adj of adjustments) {
-    if (adj.type === "CREDIT") {
+    if (adj.type === 'CREDIT') {
       adjustmentTotal -= Number(adj.amount);
-    } else if (adj.type === "DEBIT") {
+    } else if (adj.type === 'DEBIT') {
       adjustmentTotal += Number(adj.amount);
     }
   }
@@ -193,14 +193,14 @@ exports.createSubscription = async ({
   billingCycle,
   userId,
 }) => {
-  if (!["MONTHLY", "YEARLY"].includes(billingCycle)) {
-    throw new AppError("subscription.invalid_billing_cycle", 400);
+  if (!['MONTHLY', 'YEARLY'].includes(billingCycle)) {
+    throw new AppError('subscription.invalid_billing_cycle', 400);
   }
 
   const existing = await findActiveSubscription(businessId);
 
   if (existing) {
-    throw new AppError("subscription.already_active", 400);
+    throw new AppError('subscription.already_active', 400);
   }
 
   const pkg = await prisma.subscriptionPackage.findUnique({
@@ -208,7 +208,7 @@ exports.createSubscription = async ({
   });
 
   if (!pkg || !pkg.isActive) {
-    throw new AppError("subscription.package_not_available", 404);
+    throw new AppError('subscription.package_not_available', 404);
   }
 
   if (
@@ -218,11 +218,11 @@ exports.createSubscription = async ({
       pkg.priceYearly !== undefined &&
       !Number.isInteger(pkg.priceYearly))
   ) {
-    throw new AppError("subscription.invalid_package_pricing", 500);
+    throw new AppError('subscription.invalid_package_pricing', 500);
   }
 
-  if (billingCycle === "YEARLY" && !pkg.priceYearly) {
-    throw new AppError("subscription.yearly_not_available", 400);
+  if (billingCycle === 'YEARLY' && !pkg.priceYearly) {
+    throw new AppError('subscription.yearly_not_available', 400);
   }
 
   const startDate = new Date();
@@ -259,9 +259,9 @@ exports.createSubscription = async ({
   await auditHelper.logAudit({
     businessId,
     userId,
-    entityType: "SUBSCRIPTION",
+    entityType: 'SUBSCRIPTION',
     entityId: subscription.id,
-    action: "CREATE",
+    action: 'CREATE',
     metadata: {
       packageCode: pkg.code,
       billingCycle,
@@ -282,8 +282,8 @@ exports.upgradeSubscription = async ({
   billingCycle,
   userId,
 }) => {
-  if (!["MONTHLY", "YEARLY"].includes(billingCycle)) {
-    throw new AppError("subscription.invalid_billing_cycle", 400);
+  if (!['MONTHLY', 'YEARLY'].includes(billingCycle)) {
+    throw new AppError('subscription.invalid_billing_cycle', 400);
   }
 
   const subscription = await prisma.subscription.findFirst({
@@ -292,7 +292,7 @@ exports.upgradeSubscription = async ({
   });
 
   if (!subscription) {
-    throw new AppError("subscription.not_found", 404);
+    throw new AppError('subscription.not_found', 404);
   }
 
   if (
@@ -302,11 +302,11 @@ exports.upgradeSubscription = async ({
       SubscriptionStatus.GRACE,
     ].includes(subscription.status)
   ) {
-    throw new AppError("subscription.not_active", 403);
+    throw new AppError('subscription.not_active', 403);
   }
 
   if (subscription.packageId === packageId) {
-    throw new AppError("subscription.same_package", 400);
+    throw new AppError('subscription.same_package', 400);
   }
 
   const pkg = await prisma.subscriptionPackage.findUnique({
@@ -314,7 +314,7 @@ exports.upgradeSubscription = async ({
   });
 
   if (!pkg || !pkg.isActive) {
-    throw new AppError("subscription.package_not_available", 404);
+    throw new AppError('subscription.package_not_available', 404);
   }
 
   if (
@@ -324,11 +324,11 @@ exports.upgradeSubscription = async ({
       pkg.priceYearly !== undefined &&
       !Number.isInteger(pkg.priceYearly))
   ) {
-    throw new AppError("subscription.invalid_package_pricing", 500);
+    throw new AppError('subscription.invalid_package_pricing', 500);
   }
 
-  if (billingCycle === "YEARLY" && !pkg.priceYearly) {
-    throw new AppError("subscription.yearly_not_available", 400);
+  if (billingCycle === 'YEARLY' && !pkg.priceYearly) {
+    throw new AppError('subscription.yearly_not_available', 400);
   }
 
   /* ===========================
@@ -350,11 +350,11 @@ exports.upgradeSubscription = async ({
     const remainingDays = Math.floor(remainingMs / 86400000);
 
     const oldPrice =
-      subscription.billingCycle === "YEARLY"
+      subscription.billingCycle === 'YEARLY'
         ? subscription.priceYearlySnapshot
         : subscription.priceMonthlySnapshot;
 
-    const totalDays = subscription.billingCycle === "YEARLY" ? 365 : 30;
+    const totalDays = subscription.billingCycle === 'YEARLY' ? 365 : 30;
     const dailyRate = oldPrice / totalDays;
 
     credit = Math.floor(dailyRate * remainingDays);
@@ -387,16 +387,16 @@ exports.upgradeSubscription = async ({
         },
       },
     });
-  } catch (error) {
-    throw new AppError("subscription.concurrent_update_detected", 409);
+  } catch {
+    throw new AppError('subscription.concurrent_update_detected', 409);
   }
 
   await auditHelper.logAudit({
     businessId,
     userId,
-    entityType: "SUBSCRIPTION",
+    entityType: 'SUBSCRIPTION',
     entityId: subscriptionId,
-    action: "UPGRADE",
+    action: 'UPGRADE',
     metadata: {
       newPackageCode: pkg.code,
       billingCycle,
@@ -413,17 +413,17 @@ exports.cancelSubscription = async (subscriptionId, req) => {
   });
 
   if (!subscription) {
-    throw new AppError("subscription.not_found", 404);
+    throw new AppError('subscription.not_found', 404);
   }
 
-  if (subscription.status === "CANCELLED") {
-    throw new AppError("subscription.already_cancelled", 400);
+  if (subscription.status === 'CANCELLED') {
+    throw new AppError('subscription.already_cancelled', 400);
   }
 
   const updated = await prisma.subscription.update({
     where: { id: subscriptionId },
     data: {
-      status: "CANCELLED",
+      status: 'CANCELLED',
       cancelledAt: new Date(),
       metadata: {
         ...(subscription.metadata || {}),
@@ -440,7 +440,7 @@ exports.extendSubscription = async (subscriptionId, data, req) => {
   const { days } = data;
 
   if (!days || Number(days) <= 0) {
-    throw new AppError("subscription.invalid_extension_days", 400);
+    throw new AppError('subscription.invalid_extension_days', 400);
   }
 
   const subscription = await prisma.subscription.findUnique({
@@ -448,7 +448,7 @@ exports.extendSubscription = async (subscriptionId, data, req) => {
   });
 
   if (!subscription) {
-    throw new AppError("subscription.not_found", 404);
+    throw new AppError('subscription.not_found', 404);
   }
 
   const currentExpiry = subscription.expiresAt || new Date();
@@ -460,7 +460,7 @@ exports.extendSubscription = async (subscriptionId, data, req) => {
     where: { id: subscriptionId },
     data: {
       expiresAt: newExpiry,
-      status: "ACTIVE",
+      status: 'ACTIVE',
       metadata: {
         ...(subscription.metadata || {}),
         extendedBy: req.user.id,
@@ -479,13 +479,13 @@ exports.getGraceStatus = async (subscriptionId) => {
   });
 
   if (!subscription) {
-    throw new AppError("subscription.not_found", 404);
+    throw new AppError('subscription.not_found', 404);
   }
 
   const now = new Date();
 
   const inGrace =
-    subscription.status === "GRACE" &&
+    subscription.status === 'GRACE' &&
     subscription.graceUntil &&
     now <= subscription.graceUntil;
 
@@ -501,7 +501,7 @@ exports.extendGracePeriod = async (subscriptionId, data, req) => {
   const { days } = data;
 
   if (!days || Number(days) <= 0) {
-    throw new AppError("subscription.invalid_grace_days", 400);
+    throw new AppError('subscription.invalid_grace_days', 400);
   }
 
   const subscription = await prisma.subscription.findUnique({
@@ -509,7 +509,7 @@ exports.extendGracePeriod = async (subscriptionId, data, req) => {
   });
 
   if (!subscription) {
-    throw new AppError("subscription.not_found", 404);
+    throw new AppError('subscription.not_found', 404);
   }
 
   const currentGrace = subscription.graceUntil || new Date();
@@ -520,7 +520,7 @@ exports.extendGracePeriod = async (subscriptionId, data, req) => {
   const updated = await prisma.subscription.update({
     where: { id: subscriptionId },
     data: {
-      status: "GRACE",
+      status: 'GRACE',
       graceUntil: newGrace,
       metadata: {
         ...(subscription.metadata || {}),
@@ -542,7 +542,7 @@ exports.extendGracePeriod = async (subscriptionId, data, req) => {
 exports.getActivePackages = async () => {
   const packages = await prisma.subscriptionPackage.findMany({
     where: { isActive: true },
-    orderBy: { priceMonthly: "asc" },
+    orderBy: { priceMonthly: 'asc' },
   });
 
   const featureLabels = registry.getFeatureLabels();
@@ -566,7 +566,7 @@ exports.getActivePackages = async () => {
       if (value !== null && value !== undefined) {
         const labelTemplate = limitLabels[key] || key;
 
-        limits.push(labelTemplate.replace("{value}", value));
+        limits.push(labelTemplate.replace('{value}', value));
       }
     }
 
@@ -583,7 +583,7 @@ exports.getActivePackages = async () => {
       features,
       limits,
 
-      isPopular: pkg.code === "STANDARD",
+      isPopular: pkg.code === 'STANDARD',
     };
   });
 };

@@ -1,4 +1,3 @@
-const { translate } = require("../utils/i18n");
 class AppError extends Error {
   constructor(messageKey, statusCode) {
     super(messageKey);

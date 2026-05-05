@@ -1,7 +1,7 @@
-const prisma = require("../../../config/prisma");
-const AppError = require("../../../utils/AppError");
-const registry = require("../../../utils/subscriptionFeatureRegistry");
-const { logAudit } = require("../../../utils/audit.helper");
+const prisma = require('../../../config/prisma');
+const AppError = require('../../../utils/AppError');
+const registry = require('../../../utils/subscriptionFeatureRegistry');
+const { logAudit } = require('../../../utils/audit.helper');
 
 /**
  * ===== INTERNAL HELPERS =====
@@ -14,7 +14,7 @@ const validatePricing = (price) => {
   if (price === undefined || price === null) return;
 
   if (Number(price) < 0) {
-    throw new AppError("subscription.invalid_package_price", 400);
+    throw new AppError('subscription.invalid_package_price', 400);
   }
 };
 
@@ -25,19 +25,19 @@ const validatePricing = (price) => {
 const validateConfigJSON = (data, type) => {
   if (!data) return {};
 
-  if (typeof data !== "object") {
+  if (typeof data !== 'object') {
     throw new AppError(`subscription.invalid_${type}_format`, 400);
   }
 
   const validated = {};
 
-  if (type === "features") {
+  if (type === 'features') {
     for (const key of Object.keys(data)) {
       if (!registry.isValidFeatureKey(key)) {
         throw new AppError(`Invalid feature key: ${key}`, 400);
       }
 
-      if (typeof data[key] !== "boolean") {
+      if (typeof data[key] !== 'boolean') {
         throw new AppError(`Feature must be boolean: ${key}`, 400);
       }
     }
@@ -47,7 +47,7 @@ const validateConfigJSON = (data, type) => {
     }
   }
 
-  if (type === "limits") {
+  if (type === 'limits') {
     for (const key of Object.keys(data)) {
       if (!registry.isValidLimitKey(key)) {
         throw new AppError(`Invalid limit key: ${key}`, 400);
@@ -55,7 +55,7 @@ const validateConfigJSON = (data, type) => {
 
       const value = data[key];
 
-      if (value !== null && (typeof value !== "number" || value < 0)) {
+      if (value !== null && (typeof value !== 'number' || value < 0)) {
         throw new AppError(`Invalid limit value: ${key}`, 400);
       }
     }
@@ -75,19 +75,19 @@ exports.createPackage = async (data, req) => {
   const { name, code, price, currency, features, limits, isActive } = data;
 
   if (!name || !code || price === undefined) {
-    throw new AppError("subscription.invalid_package_data", 400);
+    throw new AppError('subscription.invalid_package_data', 400);
   }
 
   validatePricing(price);
-  const validatedFeatures = validateConfigJSON(features, "features");
-  const validatedLimits = validateConfigJSON(limits, "limits");
+  const validatedFeatures = validateConfigJSON(features, 'features');
+  const validatedLimits = validateConfigJSON(limits, 'limits');
 
   const existing = await prisma.subscriptionPackage.findUnique({
     where: { code },
   });
 
   if (existing) {
-    throw new AppError("subscription.package_code_exists", 400);
+    throw new AppError('subscription.package_code_exists', 400);
   }
 
   const pkg = await prisma.subscriptionPackage.create({
@@ -95,10 +95,10 @@ exports.createPackage = async (data, req) => {
       name,
       code,
       price,
-      currency: currency || "USD",
+      currency: currency || 'USD',
       features: validatedFeatures,
       limits: validatedLimits,
-      isActive: typeof isActive === "boolean" ? isActive : true,
+      isActive: typeof isActive === 'boolean' ? isActive : true,
       metadata: {
         createdBy: req.user.id,
         createdAt: new Date(),
@@ -108,16 +108,16 @@ exports.createPackage = async (data, req) => {
 
   await logAudit({
     userId: req.auth?.id || null,
-    entityType: "PACKAGE",
+    entityType: 'PACKAGE',
     entityId: pkg.id,
-    action: "PACKAGE_CREATED",
+    action: 'PACKAGE_CREATED',
     metadata: {
       name: pkg.name,
       code: pkg.code,
       price: pkg.price,
     },
-    module: "COMMERCE",
-    actorType: "ADMIN",
+    module: 'COMMERCE',
+    actorType: 'ADMIN',
   });
 
   return pkg;
@@ -134,7 +134,7 @@ exports.updatePackage = async (id, data, req) => {
   });
 
   if (!existing) {
-    throw new AppError("subscription.package_not_found", 404);
+    throw new AppError('subscription.package_not_found', 404);
   }
 
   if (data.code && data.code !== existing.code) {
@@ -143,7 +143,7 @@ exports.updatePackage = async (id, data, req) => {
     });
 
     if (duplicate) {
-      throw new AppError("subscription.package_code_exists", 400);
+      throw new AppError('subscription.package_code_exists', 400);
     }
   }
 
@@ -164,7 +164,7 @@ exports.updatePackage = async (id, data, req) => {
       ...(data.code && { code: data.code }),
       ...(data.price !== undefined && { price: data.price }),
       ...(data.currency && { currency: data.currency }),
-      ...(typeof data.isActive === "boolean" && {
+      ...(typeof data.isActive === 'boolean' && {
         isActive: data.isActive,
       }),
     },
@@ -172,14 +172,14 @@ exports.updatePackage = async (id, data, req) => {
 
   await logAudit({
     userId: req.auth?.id || null,
-    entityType: "PACKAGE",
+    entityType: 'PACKAGE',
     entityId: id,
-    action: "PACKAGE_UPDATED",
+    action: 'PACKAGE_UPDATED',
     metadata: {
       changes,
     },
-    module: "COMMERCE",
-    actorType: "ADMIN",
+    module: 'COMMERCE',
+    actorType: 'ADMIN',
   });
 
   return updated;
@@ -188,21 +188,21 @@ exports.updatePackage = async (id, data, req) => {
 /**
  * Update Package Configuration (features + limits)
  */
-exports.updatePackageConfiguration = async (id, data, req) => {
+exports.updatePackageConfiguration = async (id, data, actor) => {
   const existing = await prisma.subscriptionPackage.findUnique({
     where: { id },
   });
 
   if (!existing) {
-    throw new AppError("subscription.package_not_found", 404);
+    throw new AppError('subscription.package_not_found', 404);
   }
 
   const validatedFeatures = data.features
-    ? validateConfigJSON(data.features, "features")
+    ? validateConfigJSON(data.features, 'features')
     : null;
 
   const validatedLimits = data.limits
-    ? validateConfigJSON(data.limits, "limits")
+    ? validateConfigJSON(data.limits, 'limits')
     : null;
 
   const updated = await prisma.subscriptionPackage.update({
@@ -221,15 +221,15 @@ exports.updatePackageConfiguration = async (id, data, req) => {
 
   await logAudit({
     userId: actor?.id || null,
-    entityType: "PACKAGE",
+    entityType: 'PACKAGE',
     entityId: id,
-    action: "PACKAGE_CONFIG_UPDATED",
+    action: 'PACKAGE_CONFIG_UPDATED',
     metadata: {
       featuresUpdated: !!data.features,
       limitsUpdated: !!data.limits,
     },
-    module: "COMMERCE",
-    actorType: "ADMIN",
+    module: 'COMMERCE',
+    actorType: 'ADMIN',
   });
   return updated;
 };
@@ -243,32 +243,31 @@ exports.deactivatePackage = async (id, req) => {
   });
 
   if (!existing) {
-    throw new AppError("subscription.package_not_found", 404);
+    throw new AppError('subscription.package_not_found', 404);
   }
 
   if (!existing.isActive) {
-    throw new AppError("subscription.package_already_inactive", 400);
+    throw new AppError('subscription.package_already_inactive', 400);
   }
 
   const updated = await prisma.subscriptionPackage.update({
     where: { id },
     data: {
       isActive: false,
-      metadata: buildAuditMetadata(
-        existing.metadata,
-        { deactivated: true },
-        req.user.id,
-      ),
+      metadata: {
+        deactivated: true,
+        actor: req.user.id,
+      },
     },
   });
 
   await logAudit({
     userId: req.auth?.id || null,
-    entityType: "PACKAGE",
+    entityType: 'PACKAGE',
     entityId: id,
-    action: "PACKAGE_DEACTIVATED",
-    module: "COMMERCE",
-    actorType: "ADMIN",
+    action: 'PACKAGE_DEACTIVATED',
+    module: 'COMMERCE',
+    actorType: 'ADMIN',
   });
 
   return updated;
@@ -283,7 +282,7 @@ exports.getPackageById = async (id) => {
   });
 
   if (!pkg) {
-    throw new AppError("subscription.package_not_found", 404);
+    throw new AppError('subscription.package_not_found', 404);
   }
 
   return pkg;

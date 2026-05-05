@@ -85,7 +85,7 @@ exports.initiate = async ({ amount, reference, businessId }) => {
       reference,
       amount,
     };
-  } catch (error) {
+  } catch (error)  {
     await health.markDown("SELCOM");
 
     if (error.response) {

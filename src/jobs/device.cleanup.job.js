@@ -42,7 +42,7 @@ async function run() {
         },
       });
     }
-  } catch (error) {
+  } catch (error)  {
     console.error("Device cleanup cron failed:", error);
     throw error;
   }

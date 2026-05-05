@@ -1,11 +1,7 @@
 // src/services/deletion-scope.service.js
 
-const prisma = require("../config/prisma");
-const {
-  DATA_GRAPH,
-  getChildren,
-  isSystemModel,
-} = require("../config/data-graph");
+const prisma = require('../config/prisma');
+const { getChildren, isSystemModel } = require('../config/data-graph');
 
 /**
  * Build deletion/export scope using graph traversal
@@ -25,7 +21,7 @@ const buildScope = async ({ rootModel, rootId }) => {
     if (isSystemModel(model)) continue;
 
     // avoid re-processing same model+ids combo
-    const visitKey = `${model}:${ids.join(",")}`;
+    const visitKey = `${model}:${ids.join(',')}`;
     if (visited.has(visitKey)) continue;
     visited.add(visitKey);
 

@@ -993,6 +993,8 @@ model Notification {
   title   String
   message String
 
+  metadata Json?
+  
   status String
 
   retryCount       Int   @default(0)

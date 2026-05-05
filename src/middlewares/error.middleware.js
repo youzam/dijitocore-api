@@ -1,6 +1,6 @@
 const { translate } = require('../utils/i18n');
 
-module.exports = (err, req, res, next) => {
+module.exports = (err, req, res, _next) => {
   const statusCode = err.statusCode || 500;
 
   let message = err.message;

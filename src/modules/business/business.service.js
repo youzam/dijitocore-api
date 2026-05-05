@@ -1,9 +1,6 @@
-const crypto = require("crypto");
-
-const notifications = require("../../services/notifications");
-const prisma = require("../../config/prisma");
-const AppError = require("../../utils/AppError");
-const authHelper = require("../../utils/auth.helper");
+const prisma = require('../../config/prisma');
+const AppError = require('../../utils/AppError');
+const authHelper = require('../../utils/auth.helper');
 
 /**
  * Generate professional business code
@@ -11,7 +8,7 @@ const authHelper = require("../../utils/auth.helper");
  */
 const generateBusinessCode = (businessName) => {
   const prefix = businessName
-    .replace(/[^a-zA-Z]/g, "")
+    .replace(/[^a-zA-Z]/g, '')
     .substring(0, 4)
     .toUpperCase();
 
@@ -34,7 +31,7 @@ const generateUniqueBusinessCode = async (businessName, attempts = 5) => {
     if (!exists) return code;
   }
 
-  throw new AppError("business.codeGenerationFailed", 500);
+  throw new AppError('business.codeGenerationFailed', 500);
 };
 
 /**
@@ -44,13 +41,13 @@ const generateUniqueBusinessCode = async (businessName, attempts = 5) => {
  */
 exports.createBusiness = async (user, payload) => {
   if (user.businessId) {
-    throw new AppError("business.alreadyExists", 400);
+    throw new AppError('business.alreadyExists', 400);
   }
 
   const { name, email, phone, currency, timezone } = payload;
 
   if (!name || !currency || !timezone) {
-    throw new AppError("business.missingRequired", 400);
+    throw new AppError('business.missingRequired', 400);
   }
 
   const businessCode = await generateUniqueBusinessCode(name);
@@ -61,7 +58,7 @@ exports.createBusiness = async (user, payload) => {
       email,
       phone,
       businessCode,
-      status: "PENDING",
+      status: 'PENDING',
       setupCompleted: false,
       settings: {
         create: {
@@ -76,7 +73,7 @@ exports.createBusiness = async (user, payload) => {
     where: { id: user.id },
     data: {
       businessId: business.id,
-      role: "BUSINESS_OWNER",
+      role: 'BUSINESS_OWNER',
     },
   });
 
@@ -89,9 +86,9 @@ exports.createBusiness = async (user, payload) => {
 
   const tokens = authHelper.signToken({
     sub: user.id,
-    role: "BUSINESS_OWNER",
+    role: 'BUSINESS_OWNER',
     business_id: business.id,
-    identity_type: "business",
+    identity_type: 'business',
   });
 
   return {
@@ -112,8 +109,8 @@ exports.getBusinessSettings = async (businessId) => {
 };
 
 exports.updateBusinessSettings = async (user, payload) => {
-  if (user.role !== "BUSINESS_OWNER") {
-    throw new AppError("auth.forbidden", 403);
+  if (user.role !== 'BUSINESS_OWNER') {
+    throw new AppError('auth.forbidden', 403);
   }
 
   const { currency, timezone } = payload;
@@ -134,7 +131,7 @@ exports.updateBusinessSettings = async (user, payload) => {
  */
 exports.getBusinessDetails = async (businessId) => {
   if (!businessId) {
-    throw new AppError("business.notFound", 404);
+    throw new AppError('business.notFound', 404);
   }
 
   const business = await prisma.business.findUnique({
@@ -153,7 +150,7 @@ exports.getBusinessDetails = async (businessId) => {
   });
 
   if (!business) {
-    throw new AppError("business.notFound", 404);
+    throw new AppError('business.notFound', 404);
   }
 
   return business;

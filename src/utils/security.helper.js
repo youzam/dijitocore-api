@@ -1,6 +1,5 @@
-const prisma = require("../config/prisma");
-const AppError = require("./AppError");
-const { logAudit } = require("./audit.helper");
+const AppError = require('./AppError');
+const { logAudit } = require('./audit.helper');
 
 /**
  * =====================================================
@@ -25,9 +24,9 @@ exports.lockUserAccount = async ({
   tx,
   userId,
   businessId = null,
-  reason = "MANUAL_LOCK",
+  reason = 'MANUAL_LOCK',
   actorId = null,
-  context = "SYSTEM",
+  context = 'SYSTEM',
 }) => {
   const duration = await getLockDuration(tx);
   const lockUntil = new Date(Date.now() + duration);
@@ -47,11 +46,11 @@ exports.lockUserAccount = async ({
     tx,
     businessId,
     userId: actorId,
-    entityType: "USER",
+    entityType: 'USER',
     entityId: userId,
-    action: "USER_LOCKED",
-    module: "SECURITY",
-    actorType: "ADMIN",
+    action: 'USER_LOCKED',
+    module: 'SECURITY',
+    actorType: 'ADMIN',
     metadata: {
       reason,
       context,
@@ -77,7 +76,7 @@ exports.unlockUserAccount = async ({
   userId,
   businessId = null,
   actorId = null,
-  context = "SYSTEM",
+  context = 'SYSTEM',
 }) => {
   const user = await tx.user.update({
     where: { id: userId },
@@ -91,11 +90,11 @@ exports.unlockUserAccount = async ({
     tx,
     businessId,
     userId: actorId,
-    entityType: "USER",
+    entityType: 'USER',
     entityId: userId,
-    action: "USER_UNLOCKED",
-    module: "SECURITY",
-    actorType: "ADMIN",
+    action: 'USER_UNLOCKED',
+    module: 'SECURITY',
+    actorType: 'ADMIN',
     metadata: {
       context,
     },
@@ -115,7 +114,7 @@ exports.unlockUserAccount = async ({
  */
 exports.assertUserNotLocked = (user) => {
   if (user?.lockUntil && user.lockUntil > new Date()) {
-    throw new AppError("auth.accountLocked", 403);
+    throw new AppError('auth.accountLocked', 403);
   }
 };
 
@@ -179,13 +178,13 @@ exports.handleSuspiciousTransaction = async ({
       tx,
       businessId,
       userId,
-      entityType: "SECURITY",
+      entityType: 'SECURITY',
       entityId: referenceId,
-      action: "SUSPICIOUS_TRANSACTION",
-      module: "SECURITY",
-      actorType: "TENANT",
+      action: 'SUSPICIOUS_TRANSACTION',
+      module: 'SECURITY',
+      actorType: 'TENANT',
       metadata: {
-        type: "LARGE_AMOUNT",
+        type: 'LARGE_AMOUNT',
         amount,
         expectedAmount,
         ratio: deviationRatio,
@@ -199,13 +198,13 @@ exports.handleSuspiciousTransaction = async ({
       tx,
       businessId,
       userId,
-      entityType: "SECURITY",
+      entityType: 'SECURITY',
       entityId: referenceId,
-      action: "SUSPICIOUS_TRANSACTION",
-      module: "SECURITY",
-      actorType: "TENANT",
+      action: 'SUSPICIOUS_TRANSACTION',
+      module: 'SECURITY',
+      actorType: 'TENANT',
       metadata: {
-        type: "AMOUNT_DEVIATION",
+        type: 'AMOUNT_DEVIATION',
         amount,
         expectedAmount,
         deviationRatio,
@@ -224,13 +223,13 @@ exports.handleSuspiciousTransaction = async ({
       tx,
       businessId,
       userId,
-      entityType: "SECURITY",
+      entityType: 'SECURITY',
       entityId: referenceId,
-      action: "SUSPICIOUS_TRANSACTION",
-      module: "SECURITY",
-      actorType: "TENANT",
+      action: 'SUSPICIOUS_TRANSACTION',
+      module: 'SECURITY',
+      actorType: 'TENANT',
       metadata: {
-        type: "ADVANCED_DETECTION",
+        type: 'ADVANCED_DETECTION',
         amount,
         expectedAmount,
         deviationRatio,
@@ -250,7 +249,7 @@ exports.handleSuspiciousTransaction = async ({
    */
   const recentSuspiciousCount = await tx.auditLog.count({
     where: {
-      action: "SUSPICIOUS_TRANSACTION",
+      action: 'SUSPICIOUS_TRANSACTION',
       entityId: referenceId,
       createdAt: {
         gte: new Date(Date.now() - WINDOW_MS),
@@ -281,13 +280,13 @@ exports.handleSuspiciousTransaction = async ({
       tx,
       businessId,
       userId,
-      entityType: "USER",
+      entityType: 'USER',
       entityId: userId,
-      action: "USER_LOCKED",
-      module: "SECURITY",
-      actorType: "ADMIN",
+      action: 'USER_LOCKED',
+      module: 'SECURITY',
+      actorType: 'ADMIN',
       metadata: {
-        reason: "SUSPICIOUS_ACTIVITY",
+        reason: 'SUSPICIOUS_ACTIVITY',
         count: recentSuspiciousCount,
         lockUntil,
         context,

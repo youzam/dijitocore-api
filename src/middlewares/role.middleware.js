@@ -1,5 +1,5 @@
 const AppError = require("../utils/AppError.js");
-const { handleSecurityEvent } = require("../utils/incidentEngine");
+const { handleSecurityIncident } = require("../utils/incidentEngine");
 
 /**
  * =====================================================
@@ -25,7 +25,7 @@ const roleMiddleware = (allowedRoles = []) => {
      * 🔴 CUSTOMER WRITE ATTEMPT PROTECTION (ADDED)
      */
     if (req.auth.identityType === "customer" && req.method !== "GET") {
-      await handleSecurityEvent({
+      await handleSecurityIncident({
         type: "CUSTOMER_WRITE_ATTEMPT",
         title: "Customer attempted write operation",
         description: `Customer ${req.auth.userId} attempted ${req.method} on ${req.originalUrl}`,
@@ -56,7 +56,7 @@ const roleMiddleware = (allowedRoles = []) => {
     }
 
     if (!allowedRoles.includes(req.auth.role)) {
-      await handleSecurityEvent({
+      await handleSecurityIncident({
         type: "PRIVILEGE_ESCALATION_ATTEMPT",
         title: "Privilege escalation attempt",
         description: `Role ${req.auth.role} attempted restricted access`,

@@ -1,6 +1,6 @@
-const catchAsync = require("../../utils/catchAsync");
-const { success } = require("../../utils/response");
-const ticketService = require("./ticket.service");
+const catchAsync = require('../../utils/catchAsync');
+const { success } = require('../../utils/response');
+const ticketService = require('./ticket.service');
 
 /*
 |--------------------------------------------------------------------------
@@ -15,7 +15,7 @@ exports.createTicket = catchAsync(async (req, res) => {
     priority: req.body.priority,
   });
 
-  return success(req, res, ticket, 201, "support.ticket_created");
+  return success(req, res, ticket, 201, 'support.ticket_created');
 });
 
 /*
@@ -24,12 +24,12 @@ exports.createTicket = catchAsync(async (req, res) => {
 |--------------------------------------------------------------------------
 */
 exports.getMyTickets = catchAsync(async (req, res) => {
-  const result = await service.getMyTickets({
+  const result = await ticketService.getMyTickets({
     user: req.user,
     query: req.query,
   });
 
-  return response.success(req, res, result);
+  return success(req, res, result);
 });
 
 /*
@@ -43,7 +43,7 @@ exports.getMyTicketById = catchAsync(async (req, res) => {
     ticketId: req.params.id,
   });
 
-  return success(req, res, ticket, 200, "support.ticket_fetched");
+  return success(req, res, ticket, 200, 'support.ticket_fetched');
 });
 
 /*
@@ -58,7 +58,7 @@ exports.replyToTicket = catchAsync(async (req, res) => {
     message: req.body.message,
   });
 
-  return success(req, res, message, 201, "support.message_sent");
+  return success(req, res, message, 201, 'support.message_sent');
 });
 
 /*
@@ -75,5 +75,5 @@ exports.addAttachment = catchAsync(async (req, res) => {
     files: Array.isArray(files) ? files : [files],
   });
 
-  return success(req, res, result, 201, "support.attachment_added");
+  return success(req, res, result, 201, 'support.attachment_added');
 });

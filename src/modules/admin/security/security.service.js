@@ -1,8 +1,9 @@
-const crypto = require("crypto");
-const AppError = require("../../../utils/AppError");
-const prisma = require("../../../config/prisma");
-const { handleSecurityEvent } = require("../../../utils/incidentEngine");
-const env = require("../../../config/env");
+const crypto = require('crypto');
+const AppError = require('../../../utils/AppError');
+const prisma = require('../../../config/prisma');
+const { handleSecurityIncident } = require('../../../utils/incidentEngine');
+const env = require('../../../config/env');
+const { logAudit } = require('../../../utils/audit.helper');
 
 /**
  * =====================================================
@@ -19,6 +20,44 @@ const getPagination = (query) => {
 };
 
 /**
+ * CREATE INCIDENT (CORE ENGINE)
+ */
+const createSecurityIncident = async ({
+  type,
+  title,
+  description,
+  severity = 'MEDIUM',
+  source,
+  referenceId = null,
+  metadata = null,
+}) => {
+  const result = await prisma.securityIncident.create({
+    data: {
+      type,
+      title,
+      description,
+      severity,
+      status: 'OPEN',
+      source,
+      referenceId,
+      metadata,
+    },
+  });
+
+  await logAudit({
+    userId: null,
+    entityType: 'SECURITY_INCIDENT',
+    entityId: result.id,
+    action: 'SECURITY_INCIDENT_CREATED',
+    module: 'SECURITY',
+    actorType: 'SYSTEM',
+  });
+
+  return result;
+};
+
+exports.createSecurityIncident = createSecurityIncident;
+/**
  * =====================================================
  * LOGIN ACTIVITY
  * =====================================================
@@ -34,7 +73,7 @@ exports.getLoginActivities = async (query) => {
     },
     skip,
     take,
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: 'desc' },
   });
 };
 
@@ -55,7 +94,7 @@ exports.getAuditLogs = async (query) => {
     },
     skip,
     take,
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: 'desc' },
   });
 };
 
@@ -65,11 +104,11 @@ exports.getAuditLogById = async (id) => {
   });
 
   if (!log) {
-    throw new AppError("security.audit_not_found", 404);
+    throw new AppError('security.audit_not_found', 404);
   }
 
   if (!log.before || !log.after) {
-    throw new AppError("Audit log missing before/after state", 500);
+    throw new AppError('Audit log missing before/after state', 500);
   }
 
   return log;
@@ -88,7 +127,7 @@ exports.getUserSessions = async (userId, query) => {
     where: { userId },
     skip,
     take,
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: 'desc' },
   });
 };
 
@@ -115,11 +154,11 @@ exports.revokeUserSession = async (tokenId) => {
 
   await logAudit({
     userId: null,
-    entityType: "SESSION",
+    entityType: 'SESSION',
     entityId: tokenId,
-    action: "USER_SESSION_REVOKED",
-    module: "SECURITY",
-    actorType: "ADMIN",
+    action: 'USER_SESSION_REVOKED',
+    module: 'SECURITY',
+    actorType: 'ADMIN',
   });
 
   return result;
@@ -141,11 +180,11 @@ exports.revokeAllUserSessions = async (userId) => {
 
   await logAudit({
     userId: userId,
-    entityType: "SESSION",
+    entityType: 'SESSION',
     entityId: userId,
-    action: "ALL_USER_SESSIONS_REVOKED",
-    module: "SECURITY",
-    actorType: "ADMIN",
+    action: 'ALL_USER_SESSIONS_REVOKED',
+    module: 'SECURITY',
+    actorType: 'ADMIN',
   });
 
   return result;
@@ -164,7 +203,7 @@ exports.getAdminSessions = async (adminId, query) => {
     where: { adminId },
     skip,
     take,
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: 'desc' },
   });
 };
 
@@ -174,7 +213,7 @@ exports.revokeAdminSession = async (tokenId) => {
   });
 
   if (!session) {
-    throw new Error("Session not found");
+    throw new Error('Session not found');
   }
 
   await prisma.adminSession.delete({
@@ -183,11 +222,11 @@ exports.revokeAdminSession = async (tokenId) => {
 
   await logAudit({
     userId: session.adminId,
-    entityType: "SESSION",
+    entityType: 'SESSION',
     entityId: session.id,
-    action: "ADMIN_SESSION_REVOKED",
-    module: "SECURITY",
-    actorType: "ADMIN",
+    action: 'ADMIN_SESSION_REVOKED',
+    module: 'SECURITY',
+    actorType: 'ADMIN',
   });
 
   return true;
@@ -200,11 +239,11 @@ exports.revokeAllAdminSessions = async (adminId) => {
 
   await logAudit({
     userId: adminId,
-    entityType: "SESSION",
+    entityType: 'SESSION',
     entityId: adminId,
-    action: "ALL_ADMIN_SESSIONS_REVOKED",
-    module: "SECURITY",
-    actorType: "ADMIN",
+    action: 'ALL_ADMIN_SESSIONS_REVOKED',
+    module: 'SECURITY',
+    actorType: 'ADMIN',
   });
 
   return true;
@@ -224,11 +263,11 @@ exports.revokeToken = async (tokenId) => {
 
   await logAudit({
     userId: null,
-    entityType: "SESSION",
+    entityType: 'SESSION',
     entityId: tokenId,
-    action: "TOKEN_REVOKED",
-    module: "SECURITY",
-    actorType: "ADMIN",
+    action: 'TOKEN_REVOKED',
+    module: 'SECURITY',
+    actorType: 'ADMIN',
   });
 
   return result;
@@ -244,63 +283,63 @@ exports.flagUser = async (data, actor) => {
   const { targetId, targetType, reason } = data;
 
   // 🔒 SUPER_ADMIN ONLY
-  if (actor.role !== "SUPER_ADMIN") {
-    throw new AppError("Only SUPER_ADMIN can flag", 403);
+  if (actor.role !== 'SUPER_ADMIN') {
+    throw new AppError('Only SUPER_ADMIN can flag', 403);
   }
 
   let existing;
 
-  if (targetType === "USER") {
+  if (targetType === 'USER') {
     existing = await prisma.fraudFlag.findFirst({
-      where: { userId: targetId, status: "ACTIVE" },
+      where: { userId: targetId, status: 'ACTIVE' },
     });
   }
 
-  if (targetType === "ADMIN") {
+  if (targetType === 'ADMIN') {
     existing = await prisma.fraudFlag.findFirst({
-      where: { adminId: targetId, status: "ACTIVE" },
+      where: { adminId: targetId, status: 'ACTIVE' },
     });
   }
 
-  if (targetType === "CUSTOMER") {
+  if (targetType === 'CUSTOMER') {
     existing = await prisma.fraudFlag.findFirst({
-      where: { customerId: targetId, status: "ACTIVE" },
+      where: { customerId: targetId, status: 'ACTIVE' },
     });
   }
 
   if (existing) {
-    throw new AppError("Already flagged", 400);
+    throw new AppError('Already flagged', 400);
   }
 
   const flagData = {
     entityType: targetType,
     reason,
-    status: "ACTIVE",
+    status: 'ACTIVE',
   };
 
-  if (targetType === "USER") flagData.userId = targetId;
-  if (targetType === "ADMIN") flagData.adminId = targetId;
-  if (targetType === "CUSTOMER") flagData.customerId = targetId;
+  if (targetType === 'USER') flagData.userId = targetId;
+  if (targetType === 'ADMIN') flagData.adminId = targetId;
+  if (targetType === 'CUSTOMER') flagData.customerId = targetId;
 
   const flag = await prisma.fraudFlag.create({ data: flagData });
 
   // 🔥 ENFORCEMENT
 
-  if (targetType === "USER") {
+  if (targetType === 'USER') {
     await prisma.user.update({
       where: { id: targetId },
       data: {
-        status: "SUSPENDED",
+        status: 'SUSPENDED',
         tokenVersion: { increment: 1 },
       },
     });
   }
 
-  if (targetType === "ADMIN") {
+  if (targetType === 'ADMIN') {
     await prisma.systemAdmin.update({
       where: { id: targetId },
       data: {
-        status: "SUSPENDED",
+        status: 'SUSPENDED',
       },
     });
 
@@ -309,27 +348,27 @@ exports.flagUser = async (data, actor) => {
     });
   }
 
-  if (targetType === "CUSTOMER") {
+  if (targetType === 'CUSTOMER') {
     await prisma.customer.update({
       where: { id: targetId },
       data: {
-        status: "SUSPENDED",
+        status: 'SUSPENDED',
       },
     });
   }
 
   await createIncidentIfNotExists({
-    type: "FRAUD",
+    type: 'FRAUD',
     referenceId: targetId,
   });
 
   await logAudit({
     userId: actor.id,
-    entityType: "FRAUD_FLAG",
+    entityType: 'FRAUD_FLAG',
     entityId: flag.id,
-    action: "USER_FLAGGED",
-    module: "SECURITY",
-    actorType: "ADMIN",
+    action: 'USER_FLAGGED',
+    module: 'SECURITY',
+    actorType: 'ADMIN',
   });
 
   return flag;
@@ -339,20 +378,20 @@ exports.flagTransaction = async (subscriptionPaymentId, reason) => {
   const existing = await prisma.fraudFlag.findFirst({
     where: {
       subscriptionPaymentId,
-      status: "ACTIVE",
+      status: 'ACTIVE',
     },
   });
 
   if (existing) {
-    throw new AppError("Transaction already flagged", 400);
+    throw new AppError('Transaction already flagged', 400);
   }
 
   const flag = await prisma.fraudFlag.create({
     data: {
       subscriptionPaymentId,
-      entityType: "SUBSCRIPTION_PAYMENT",
+      entityType: 'SUBSCRIPTION_PAYMENT',
       reason,
-      status: "ACTIVE",
+      status: 'ACTIVE',
     },
   });
 
@@ -360,23 +399,23 @@ exports.flagTransaction = async (subscriptionPaymentId, reason) => {
   await prisma.subscriptionPayment.update({
     where: { id: subscriptionPaymentId },
     data: {
-      status: "FAILED",
+      status: 'FAILED',
       flagged: true,
     },
   });
 
   await createIncidentIfNotExists({
-    type: "FRAUD",
+    type: 'FRAUD',
     referenceId: subscriptionPaymentId,
   });
 
   await logAudit({
     userId: null,
-    entityType: "FRAUD_FLAG",
+    entityType: 'FRAUD_FLAG',
     entityId: flag.id,
-    action: "TRANSACTION_FLAGGED",
-    module: "SECURITY",
-    actorType: "ADMIN",
+    action: 'TRANSACTION_FLAGGED',
+    module: 'SECURITY',
+    actorType: 'ADMIN',
   });
 
   return flag;
@@ -388,66 +427,66 @@ exports.resolveFlag = async (flagId, actor) => {
   });
 
   if (!flag) {
-    throw new AppError("Flag not found", 404);
+    throw new AppError('Flag not found', 404);
   }
 
   const result = await prisma.fraudFlag.update({
     where: { id: flagId },
     data: {
-      status: "RESOLVED",
+      status: 'RESOLVED',
       resolvedAt: new Date(),
     },
   });
 
   // 🔄 REVERSAL LOGIC
 
-  if (flag.entityType === "USER" && flag.userId) {
+  if (flag.entityType === 'USER' && flag.userId) {
     await prisma.user.update({
       where: { id: flag.userId },
       data: {
-        status: "ACTIVE",
+        status: 'ACTIVE',
         tokenVersion: { increment: 1 },
       },
     });
   }
 
-  if (flag.entityType === "ADMIN" && flag.adminId) {
+  if (flag.entityType === 'ADMIN' && flag.adminId) {
     await prisma.systemAdmin.update({
       where: { id: flag.adminId },
       data: {
-        status: "ACTIVE",
+        status: 'ACTIVE',
       },
     });
   }
 
-  if (flag.entityType === "CUSTOMER" && flag.customerId) {
+  if (flag.entityType === 'CUSTOMER' && flag.customerId) {
     await prisma.customer.update({
       where: { id: flag.customerId },
       data: {
-        status: "ACTIVE",
+        status: 'ACTIVE',
       },
     });
   }
 
   if (
-    flag.entityType === "SUBSCRIPTION_PAYMENT" &&
+    flag.entityType === 'SUBSCRIPTION_PAYMENT' &&
     flag.subscriptionPaymentId
   ) {
     await prisma.subscriptionPayment.update({
       where: { id: flag.subscriptionPaymentId },
       data: {
-        status: "CONFIRMED",
+        status: 'CONFIRMED',
       },
     });
   }
 
   await logAudit({
     userId: actor.id,
-    entityType: "FRAUD_FLAG",
+    entityType: 'FRAUD_FLAG',
     entityId: flagId,
-    action: "FRAUD_FLAG_RESOLVED",
-    module: "SECURITY",
-    actorType: "ADMIN",
+    action: 'FRAUD_FLAG_RESOLVED',
+    module: 'SECURITY',
+    actorType: 'ADMIN',
   });
 
   return result;
@@ -462,7 +501,7 @@ exports.getFlags = async (query) => {
     },
     skip,
     take,
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: 'desc' },
   });
 };
 
@@ -476,7 +515,7 @@ exports.getSuspiciousTransactions = async (options = {}) => {
   const { amountThreshold = 1000000, retryThreshold = 3, limit = 50 } = options;
 
   const transactions = await prisma.subscriptionPayment.findMany({
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: 'desc' },
     take: limit,
   });
 
@@ -489,19 +528,19 @@ exports.getSuspiciousTransactions = async (options = {}) => {
     // 🔍 RULE 1 — HIGH AMOUNT
     if (tx.amount > amountThreshold) {
       riskScore += 40;
-      reasons.push("HIGH_AMOUNT");
+      reasons.push('HIGH_AMOUNT');
     }
 
     // 🔍 RULE 2 — MANY RETRIES
     if (tx.retryCount > retryThreshold) {
       riskScore += 30;
-      reasons.push("HIGH_RETRY");
+      reasons.push('HIGH_RETRY');
     }
 
     // 🔍 RULE 3 — FAILED STATUS
-    if (tx.status === "FAILED") {
+    if (tx.status === 'FAILED') {
       riskScore += 20;
-      reasons.push("FAILED_PAYMENT");
+      reasons.push('FAILED_PAYMENT');
     }
 
     // 🔍 RULE 4 — RAPID TRANSACTIONS (SAME USER)
@@ -516,7 +555,7 @@ exports.getSuspiciousTransactions = async (options = {}) => {
 
     if (recentCount > 5) {
       riskScore += 30;
-      reasons.push("RAPID_ACTIVITY");
+      reasons.push('RAPID_ACTIVITY');
     }
 
     // 🎯 FINAL DECISION
@@ -526,18 +565,18 @@ exports.getSuspiciousTransactions = async (options = {}) => {
         const existingIncident = await prisma.securityIncident.findFirst({
           where: {
             referenceId: tx.id,
-            type: "SUSPICIOUS_TRANSACTION",
-            status: "OPEN",
+            type: 'SUSPICIOUS_TRANSACTION',
+            status: 'OPEN',
           },
         });
 
         if (!existingIncident) {
           await createSecurityIncident({
-            type: "SUSPICIOUS_TRANSACTION",
-            title: "Suspicious transaction detected",
+            type: 'SUSPICIOUS_TRANSACTION',
+            title: 'Suspicious transaction detected',
             description: `Transaction ${tx.id} flagged with risk score ${riskScore}`,
-            severity: riskScore >= 90 ? "CRITICAL" : "HIGH",
-            source: "DETECTION_ENGINE",
+            severity: riskScore >= 90 ? 'CRITICAL' : 'HIGH',
+            source: 'DETECTION_ENGINE',
             referenceId: tx.id,
             metadata: {
               riskScore,
@@ -570,22 +609,22 @@ exports.detectLoginAnomaly = async (userId) => {
   // Last 10 login attempts
   const recentLogins = await prisma.loginActivity.findMany({
     where: { userId },
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: 'desc' },
     take: 10,
   });
 
   const failedAttempts = recentLogins.filter(
-    (l) => l.status === "FAILED",
+    (l) => l.status === 'FAILED',
   ).length;
 
   // Rule: more than 5 failed attempts
   if (failedAttempts >= 5) {
     await createIncidentIfNotExists({
-      type: "LOGIN_ANOMALY",
-      title: "Multiple failed login attempts",
+      type: 'LOGIN_ANOMALY',
+      title: 'Multiple failed login attempts',
       description: `User ${userId} has ${failedAttempts} failed login attempts`,
-      severity: "HIGH",
-      source: "AUTH",
+      severity: 'HIGH',
+      source: 'AUTH',
       referenceId: userId,
     });
   }
@@ -601,9 +640,9 @@ exports.detectLoginAnomaly = async (userId) => {
 
 const generateSignature = (message, stack) => {
   return crypto
-    .createHash("sha256")
-    .update(message + (stack || ""))
-    .digest("hex");
+    .createHash('sha256')
+    .update(message + (stack || ''))
+    .digest('hex');
 };
 
 exports.logSystemError = async (error) => {
@@ -634,17 +673,17 @@ exports.logSystemError = async (error) => {
     data: {
       groupId: group.id,
       stack: error.stack,
-      environment: env.NODE_ENV || "development",
+      environment: env.NODE_ENV || 'development',
     },
   });
 
   await logAudit({
     userId: null,
-    entityType: "SYSTEM_ERROR",
+    entityType: 'SYSTEM_ERROR',
     entityId: result.id,
-    action: "SYSTEM_ERROR_LOGGED",
-    module: "SECURITY",
-    actorType: "SYSTEM",
+    action: 'SYSTEM_ERROR_LOGGED',
+    module: 'SECURITY',
+    actorType: 'SYSTEM',
   });
 
   return result;
@@ -662,7 +701,7 @@ exports.forceLogoutUser = async (userId) => {
   });
 
   if (!user) {
-    throw new AppError("auth.user_not_found", 404);
+    throw new AppError('auth.user_not_found', 404);
   }
 
   await prisma.refreshToken.updateMany({
@@ -672,11 +711,11 @@ exports.forceLogoutUser = async (userId) => {
 
   await logAudit({
     userId: userId,
-    entityType: "USER",
+    entityType: 'USER',
     entityId: userId,
-    action: "USER_FORCE_LOGOUT",
-    module: "SECURITY",
-    actorType: "ADMIN",
+    action: 'USER_FORCE_LOGOUT',
+    module: 'SECURITY',
+    actorType: 'ADMIN',
   });
   return true;
 };
@@ -691,20 +730,20 @@ exports.getSecurityOverview = async () => {
   const [fraudFlags, suspiciousTransactions, integrityIssues] =
     await Promise.all([
       prisma.fraudFlag.findMany({
-        where: { status: "ACTIVE" },
-        orderBy: { createdAt: "desc" },
+        where: { status: 'ACTIVE' },
+        orderBy: { createdAt: 'desc' },
         take: 10,
       }),
 
       prisma.subscriptionPayment.findMany({
         where: {
           OR: [
-            { status: "FAILED" },
+            { status: 'FAILED' },
             { flagged: true },
             { retryCount: { gt: 3 } },
           ],
         },
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
         take: 10,
       }),
 
@@ -738,7 +777,7 @@ const createIncidentIfNotExists = async ({
       type,
       referenceId,
       status: {
-        in: ["OPEN", "IN_PROGRESS"],
+        in: ['OPEN', 'IN_PROGRESS'],
       },
     },
   });
@@ -751,7 +790,7 @@ const createIncidentIfNotExists = async ({
       title,
       description,
       severity,
-      status: "OPEN",
+      status: 'OPEN',
       source,
       referenceId,
       metadata,
@@ -775,16 +814,16 @@ exports.runIntegrityChecks = async () => {
     // Overpaid contract
     if (contract.paidAmount > contract.totalValue) {
       issues.push({
-        type: "overpaid_contract",
+        type: 'overpaid_contract',
         contractId: contract.id,
       });
 
       await createIncidentIfNotExists({
-        type: "SYSTEM_INTEGRITY",
-        title: "Contract overpaid",
+        type: 'SYSTEM_INTEGRITY',
+        title: 'Contract overpaid',
         description: `Contract ${contract.id} is overpaid`,
-        severity: "MEDIUM",
-        source: "SYSTEM",
+        severity: 'MEDIUM',
+        source: 'SYSTEM',
         referenceId: contract.id,
       });
     }
@@ -792,22 +831,20 @@ exports.runIntegrityChecks = async () => {
     // Negative outstanding
     if (contract.outstandingAmount < 0) {
       issues.push({
-        type: "negative_outstanding",
+        type: 'negative_outstanding',
         contractId: contract.id,
       });
 
-      await handleSecurityEvent({
-        type: "SUSPICIOUS_TRANSACTION",
-        title: "Suspicious transaction detected",
-        description: `Transaction ${tx.id} risk ${riskScore}`,
-        referenceId: tx.id,
-        source: "DETECTION_ENGINE",
-        riskScore,
+      await handleSecurityIncident({
+        type: 'SYSTEM_INTEGRITY',
+        title: 'Negative outstanding detected',
+        description: `Contract ${contract.id} has negative outstanding`,
+        referenceId: contract.id,
+        source: 'SYSTEM',
         metadata: {
-          reasons,
-          amount: tx.amount,
-          retryCount: tx.retryCount,
-          status: tx.status,
+          outstandingAmount: contract.outstandingAmount,
+          paidAmount: contract.paidAmount,
+          totalValue: contract.totalValue,
         },
       });
     }
@@ -821,43 +858,6 @@ exports.runIntegrityChecks = async () => {
  * SECURITY INCIDENT MANAGEMENT
  * =====================================================
  */
-
-/**
- * CREATE INCIDENT (CORE ENGINE)
- */
-exports.createSecurityIncident = async ({
-  type,
-  title,
-  description,
-  severity = "MEDIUM",
-  source,
-  referenceId = null,
-  metadata = null,
-}) => {
-  const result = await prisma.securityIncident.create({
-    data: {
-      type,
-      title,
-      description,
-      severity,
-      status: "OPEN",
-      source,
-      referenceId,
-      metadata,
-    },
-  });
-
-  await logAudit({
-    userId: null,
-    entityType: "SECURITY_INCIDENT",
-    entityId: result.id,
-    action: "SECURITY_INCIDENT_CREATED",
-    module: "SECURITY",
-    actorType: "SYSTEM",
-  });
-
-  return result;
-};
 
 /**
  * GET INCIDENTS
@@ -875,7 +875,7 @@ exports.getSecurityIncidents = async (query) => {
     },
     skip,
     take: limit,
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: 'desc' },
   });
 };
 
@@ -888,7 +888,7 @@ exports.getSecurityIncidentById = async (id) => {
   });
 
   if (!incident) {
-    throw new AppError("security.incident_not_found", 404);
+    throw new AppError('security.incident_not_found', 404);
   }
 
   return incident;
@@ -903,17 +903,17 @@ exports.updateSecurityIncidentStatus = async (id, status) => {
   });
 
   if (!incident) {
-    throw new AppError("security.incident_not_found", 404);
+    throw new AppError('security.incident_not_found', 404);
   }
 
   const allowedTransitions = {
-    OPEN: ["IN_PROGRESS", "RESOLVED"],
-    IN_PROGRESS: ["RESOLVED"],
+    OPEN: ['IN_PROGRESS', 'RESOLVED'],
+    IN_PROGRESS: ['RESOLVED'],
     RESOLVED: [],
   };
 
   if (!allowedTransitions[incident.status].includes(status)) {
-    throw new AppError("security.invalid_status_transition", 400);
+    throw new AppError('security.invalid_status_transition', 400);
   }
 
   const result = await prisma.securityIncident.update({
@@ -923,11 +923,11 @@ exports.updateSecurityIncidentStatus = async (id, status) => {
 
   await logAudit({
     userId: null,
-    entityType: "SECURITY_INCIDENT",
+    entityType: 'SECURITY_INCIDENT',
     entityId: id,
-    action: "SECURITY_INCIDENT_STATUS_UPDATED",
-    module: "SECURITY",
-    actorType: "ADMIN",
+    action: 'SECURITY_INCIDENT_STATUS_UPDATED',
+    module: 'SECURITY',
+    actorType: 'ADMIN',
   });
 
   return result;

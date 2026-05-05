@@ -1,4 +1,4 @@
-const prisma = require("../config/prisma");
+const prisma = require('../config/prisma');
 
 /*
 |--------------------------------------------------------------------------
@@ -24,7 +24,7 @@ async function suspiciousActivity(req, res, next) {
           await prisma.suspiciousActivity.create({
             data: {
               adminId: user.id,
-              action: "FORBIDDEN_REQUEST",
+              action: 'FORBIDDEN_REQUEST',
               ip: req.ip,
               endpoint: req.originalUrl,
               meta: {
@@ -34,13 +34,15 @@ async function suspiciousActivity(req, res, next) {
             },
           });
         }
-      } catch (err) {}
+      } catch (err) {
+        console.log(err);
+      }
 
       return originalSend.call(this, body);
     };
 
     next();
-  } catch (error) {
+  } catch (error)  {
     next(error);
   }
 }

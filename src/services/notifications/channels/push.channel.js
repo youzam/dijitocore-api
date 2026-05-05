@@ -1,4 +1,4 @@
-const admin = require("../../../config/firebase");
+const admin = require('../../../config/firebase');
 
 exports.send = async ({ token, title, body }) => {
   if (!token) return;

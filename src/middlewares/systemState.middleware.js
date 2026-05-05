@@ -107,7 +107,7 @@ module.exports = async (req, res, next) => {
     }
 
     return next();
-  } catch (error) {
+  } catch (error)  {
     return next(error);
   }
 };

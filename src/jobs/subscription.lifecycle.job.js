@@ -174,7 +174,7 @@ async function run() {
         }
       }
     }
-  } catch (error) {
+  } catch (error)  {
     console.error("Subscription lifecycle cron failed:", error);
     throw error;
   }

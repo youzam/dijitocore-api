@@ -179,7 +179,7 @@ async function run() {
         }
       }
     }
-  } catch (error) {
+  } catch (error)  {
     console.error("Dashboard snapshot cron failed:", error);
     throw error;
   }

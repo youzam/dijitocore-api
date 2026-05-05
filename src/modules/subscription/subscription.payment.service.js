@@ -1,15 +1,15 @@
-const crypto = require("crypto");
-const prisma = require("../../config/prisma");
-const AppError = require("../../utils/AppError");
-const auditHelper = require("../../utils/audit.helper");
-const gatewayManager = require("../../utils/paymentGateway/gateway.manager");
-const couponService = require("./subscription.coupon.service");
-const { SubscriptionStatus } = require("@prisma/client");
-const { handleSuspiciousTransaction } = require("../../utils/security.helper");
+const crypto = require('crypto');
+const prisma = require('../../config/prisma');
+const AppError = require('../../utils/AppError');
+const auditHelper = require('../../utils/audit.helper');
+const gatewayManager = require('../../utils/paymentGateway/gateway.manager');
+const couponService = require('./subscription.coupon.service');
+const { SubscriptionStatus } = require('@prisma/client');
+const { handleSuspiciousTransaction } = require('../../utils/security.helper');
 const {
   SUPPORTED_PAYMENT_GATEWAYS,
-} = require("../../utils/paymentGateway/supportedGateways");
-const env = require("../../config/env");
+} = require('../../utils/paymentGateway/supportedGateways');
+const env = require('../../config/env');
 
 /* ======================================================
    OPTIONAL SIGNATURE VERIFY (NON-BREAKING)
@@ -21,9 +21,9 @@ const verifySignatureIfProvided = (payloadHash) => {
   const secret = env.webhooks.gatewaySecret;
 
   const expected = crypto
-    .createHmac("sha256", secret)
+    .createHmac('sha256', secret)
     .update(String(payloadHash))
-    .digest("hex");
+    .digest('hex');
 
   const a = Buffer.from(expected);
   const b = Buffer.from(String(payloadHash));
@@ -44,7 +44,7 @@ const activateSubscriptionEngine = async (
   isInitial,
 ) => {
   const now = new Date();
-  const durationDays = subscription.billingCycle === "YEARLY" ? 365 : 30;
+  const durationDays = subscription.billingCycle === 'YEARLY' ? 365 : 30;
 
   const baseVersion = subscription.version;
 
@@ -68,7 +68,7 @@ const activateSubscriptionEngine = async (
     });
 
     if (!pkg) {
-      throw new AppError("subscription.package_not_found", 404);
+      throw new AppError('subscription.package_not_found', 404);
     }
 
     await tx.subscription.update({
@@ -95,7 +95,7 @@ const activateSubscriptionEngine = async (
       where: { id: subscription.businessId },
       data: {
         setupCompleted: true,
-        status: "ACTIVE",
+        status: 'ACTIVE',
       },
     });
 
@@ -157,7 +157,7 @@ const activateSubscriptionEngine = async (
 
   await tx.business.update({
     where: { id: subscription.businessId },
-    data: { status: "ACTIVE" },
+    data: { status: 'ACTIVE' },
   });
 };
 
@@ -169,59 +169,55 @@ exports.initiatePayment = async ({
   subscriptionId,
   userId,
   couponId = null,
-  finalAmount = null,
-  paymentMethod, // "MPESA" | "AIRTEL" | "SELCOM"
-  phone, // 🔥 from frontend
+  paymentMethod,
+  phone,
 }) => {
   return prisma.$transaction(async (tx) => {
-    // 🔒 LOCK SUBSCRIPTION ROW (PREVENT RACE CONDITION)
-    await tx.$executeRawUnsafe(
-      `SELECT id FROM "Subscription" WHERE id = '${subscriptionId}' FOR UPDATE`,
-    );
+    // 🔒 SAFE ROW LOCK (FIXED)
+    await tx.$executeRaw`
+      SELECT id FROM "Subscription" WHERE id = ${subscriptionId} FOR UPDATE
+    `;
 
     const subscription = await tx.subscription.findFirst({
       where: { id: subscriptionId, businessId },
     });
 
     if (!subscription) {
-      throw new AppError("subscription.not_found", 404);
+      throw new AppError('subscription.not_found', 404);
     }
 
     if (subscription.status === SubscriptionStatus.SUSPENDED) {
-      throw new AppError("subscription.not_active", 403);
+      throw new AppError('subscription.not_active', 403);
     }
 
-    // 🔥 BLOCK LOCKED USER
+    // 🔥 USER CHECK (FIXED phone issue)
     const user = await tx.user.findUnique({
       where: { id: userId },
       select: { lockUntil: true },
     });
 
     if (user?.lockUntil && user.lockUntil > new Date()) {
-      throw new AppError("auth.accountLocked", 403);
+      throw new AppError('auth.accountLocked', 403);
     }
 
     if (!paymentMethod) {
-      throw new AppError("payment.method_required", 400);
+      throw new AppError('payment.method_required', 400);
     }
 
-    if ((paymentMethod === "MPESA" || paymentMethod === "AIRTEL") && !phone) {
-      throw new AppError("payment.phone_required", 400);
+    if ((paymentMethod === 'MPESA' || paymentMethod === 'AIRTEL') && !phone) {
+      throw new AppError('payment.phone_required', 400);
     }
 
-    // 🔥 RE-CHECK INSIDE TX (IMPORTANT)
+    // 🔒 Prevent duplicate pending
     const pending = await tx.subscriptionPayment.findFirst({
-      where: {
-        subscriptionId,
-        status: "PENDING",
-      },
+      where: { subscriptionId, status: 'PENDING' },
     });
 
     if (pending) {
-      throw new AppError("subscription.payment_pending_exists", 400);
+      throw new AppError('subscription.payment_pending_exists', 400);
     }
 
-    // 🔥 RAPID REQUEST PROTECTION (MOVED INSIDE TX)
+    // 🔥 RATE LIMIT
     const recentAttempts = await tx.subscriptionPayment.count({
       where: {
         businessId,
@@ -232,31 +228,26 @@ exports.initiatePayment = async ({
     });
 
     if (recentAttempts >= 3) {
-      throw new AppError("payment.too_many_requests", 429);
+      throw new AppError('payment.too_many_requests', 429);
     }
 
     const isInitial = !subscription.setupFeePaid;
 
-    let baseAmount;
+    // 🔹 BASE AMOUNT
+    let baseAmount =
+      subscription.billingCycle === 'YEARLY'
+        ? subscription.priceYearlySnapshot
+        : subscription.priceMonthlySnapshot;
 
     if (isInitial) {
-      baseAmount =
-        subscription.setupFeeSnapshot +
-        (subscription.billingCycle === "YEARLY"
-          ? subscription.priceYearlySnapshot
-          : subscription.priceMonthlySnapshot);
-    } else {
-      baseAmount =
-        subscription.billingCycle === "YEARLY"
-          ? subscription.priceYearlySnapshot
-          : subscription.priceMonthlySnapshot;
+      baseAmount += subscription.setupFeeSnapshot;
     }
 
     if (!Number.isInteger(baseAmount) || baseAmount < 0) {
-      throw new AppError("payment.invalid_amount", 500);
+      throw new AppError('payment.invalid_amount', 500);
     }
 
-    // 🔹 APPLY ADJUSTMENTS
+    // 🔹 ADJUSTMENTS
     let adjustmentTotal = 0;
 
     const adjustments = await tx.financialAdjustment.findMany({
@@ -271,9 +262,9 @@ exports.initiatePayment = async ({
     for (const adj of adjustments) {
       adjustmentIds.push(adj.id);
 
-      if (adj.type === "CREDIT") {
+      if (adj.type === 'CREDIT') {
         adjustmentTotal -= Number(adj.amount);
-      } else if (adj.type === "DEBIT") {
+      } else {
         adjustmentTotal += Number(adj.amount);
       }
     }
@@ -288,16 +279,14 @@ exports.initiatePayment = async ({
       );
     }
 
-    // 🔹 APPLY COUPON
-    let couponDiscount = 0;
-
+    // 🔹 COUPON
     if (couponId) {
       const coupon = await tx.coupon.findUnique({
         where: { id: couponId },
       });
 
       if (!coupon) {
-        throw new AppError("coupon.not_found", 404);
+        throw new AppError('coupon.not_found', 404);
       }
 
       const result = await couponService.applyCouponForCheckout({
@@ -306,14 +295,12 @@ exports.initiatePayment = async ({
         amount: calculatedAmount,
       });
 
-      couponDiscount = result.discount;
-
-      calculatedAmount = Math.max(0, calculatedAmount - couponDiscount);
+      calculatedAmount = Math.max(0, calculatedAmount - result.discount);
     }
 
     const safeAmount = Math.max(0, calculatedAmount);
 
-    // 🔥 DUPLICATE AMOUNT PROTECTION (INSIDE TX)
+    // 🔥 DUPLICATE AMOUNT PROTECTION
     const recentSameAmount = await tx.subscriptionPayment.findFirst({
       where: {
         businessId,
@@ -325,44 +312,38 @@ exports.initiatePayment = async ({
     });
 
     if (recentSameAmount) {
-      throw new AppError("payment.duplicate_attempt", 400);
+      throw new AppError('payment.duplicate_attempt', 400);
     }
 
-    // 🔹 SYSTEM SETTINGS
     const systemSetting = await tx.systemSetting.findFirst();
 
     if (!systemSetting) {
-      throw new AppError("system.settings_missing", 500);
+      throw new AppError('system.settings_missing', 500);
     }
 
-    // 🔥 SUPPORTED GATEWAYS
-    const supportedGateways = SUPPORTED_PAYMENT_GATEWAYS;
-
-    // 🔥 validate frontend selection
-    if (!paymentMethod || !supportedGateways.includes(paymentMethod)) {
-      throw new AppError("payment.invalid_gateway", 400);
+    // 🔥 GATEWAY VALIDATION
+    if (!SUPPORTED_PAYMENT_GATEWAYS.includes(paymentMethod)) {
+      throw new AppError('payment.invalid_gateway', 400);
     }
 
-    // 🔥 RE-VALIDATE AGAINST ACTIVE AVAILABLE GATEWAYS (CRITICAL)
-    const paymentGatewayService = require("../paymentGateway/paymentGateway.service");
+    const paymentGatewayService = require('../paymentGateway/paymentGateway.service');
 
     const availableGateways =
       await paymentGatewayService.getActivePaymentGateways();
 
     if (!availableGateways.includes(paymentMethod)) {
-      throw new AppError("payment.gateway_not_available", 400);
+      throw new AppError('payment.gateway_not_available', 400);
     }
 
-    // 🔥 NORMALIZE PHONE
     const normalizePhone = (phone) => {
       if (!phone) return null;
 
-      let normalized = phone.replace(/\s+/g, "");
+      let normalized = phone.replace(/\s+/g, '');
 
-      if (normalized.startsWith("+255")) {
-        normalized = "0" + normalized.slice(4);
-      } else if (normalized.startsWith("255")) {
-        normalized = "0" + normalized.slice(3);
+      if (normalized.startsWith('+255')) {
+        normalized = '0' + normalized.slice(4);
+      } else if (normalized.startsWith('255')) {
+        normalized = '0' + normalized.slice(3);
       }
 
       return normalized;
@@ -370,100 +351,61 @@ exports.initiatePayment = async ({
 
     const cleanPhone = normalizePhone(phone);
 
-    // 🔥 VALIDATE PHONE NETWORK (STK ONLY)
     const {
       detectNetwork,
-    } = require("../../utils/paymentGateway/phoneNetwork.helper");
+    } = require('../../utils/paymentGateway/phoneNetwork.helper');
 
-    if (paymentMethod === "MPESA" || paymentMethod === "AIRTEL") {
+    if (paymentMethod === 'MPESA' || paymentMethod === 'AIRTEL') {
       if (!cleanPhone || !/^0\d{9}$/.test(cleanPhone)) {
-        throw new AppError("payment.invalid_phone_format", 400);
+        throw new AppError('payment.invalid_phone_format', 400);
       }
 
       const detectedNetwork = detectNetwork(cleanPhone);
 
-      if (!detectedNetwork || detectedNetwork === "UNKNOWN") {
-        throw new AppError("payment.invalid_phone_network", 400);
+      if (!detectedNetwork || detectedNetwork === 'UNKNOWN') {
+        throw new AppError('payment.invalid_phone_network', 400);
       }
 
       if (paymentMethod !== detectedNetwork) {
-        throw new AppError("payment.phone_network_mismatch", 400);
+        throw new AppError('payment.phone_network_mismatch', 400);
       }
     }
 
-    // 🔥 system allowed gateways (ARRAY)
     const systemGateways = systemSetting.activePaymentGateways || [];
 
-    if (systemGateways.length === 0) {
-      throw new AppError("payment.no_gateways_available", 503);
-    }
-
     if (!systemGateways.includes(paymentMethod)) {
-      throw new AppError("payment.gateway_not_allowed", 403);
+      throw new AppError('payment.gateway_not_allowed', 403);
     }
 
-    // 🔥 final gateway (NO FALLBACK)
     const finalGateway = paymentMethod;
 
-    // 🔥 HEALTH CHECK (STRICT)
-    const healthService = require("../../utils/paymentGateway/gateway.health");
+    const healthService = require('../../utils/paymentGateway/gateway.health');
 
     const gatewayStatus = await healthService.getStatus(finalGateway);
 
-    if (gatewayStatus !== "UP") {
-      throw new AppError("payment.provider_down", 503);
+    if (gatewayStatus !== 'UP') {
+      throw new AppError('payment.provider_down', 503);
     }
 
-    // 🔥 FAILED ATTEMPTS PROTECTION
-    const failedAttempts = await tx.subscriptionPayment.count({
-      where: {
-        businessId,
-        status: "FAILED",
-        createdAt: {
-          gte: new Date(Date.now() - 10 * 60 * 1000),
-        },
-      },
-    });
-
-    if (failedAttempts >= 5) {
-      throw new AppError("payment.too_many_failures", 429);
-    }
-
-    // 🔥 ZERO BALANCE FLOW
+    // 🔥 ZERO FLOW
     if (safeAmount === 0) {
       const payment = await tx.subscriptionPayment.create({
         data: {
           subscriptionId,
           businessId,
           amount: 0,
-          method: "SYSTEM",
-          status: "CONFIRMED",
+          method: 'SYSTEM',
+          status: 'CONFIRMED',
           paidAt: new Date(),
           metadata: {
             adjustmentIds,
             baseAmount,
             calculatedAmount,
-            expectedAmount: calculatedAmount,
-            reason: "ZERO_BALANCE",
           },
         },
       });
 
       await activateSubscriptionEngine(tx, subscription, payment, isInitial);
-
-      if (adjustmentIds.length > 0) {
-        await tx.financialAdjustment.updateMany({
-          where: {
-            id: { in: adjustmentIds },
-            isApplied: false,
-          },
-          data: {
-            isApplied: true,
-            appliedPaymentId: payment.id,
-            appliedAt: new Date(),
-          },
-        });
-      }
 
       return {
         success: true,
@@ -472,42 +414,39 @@ exports.initiatePayment = async ({
       };
     }
 
-    // 🔥 NORMAL FLOW
+    // 🔥 NORMAL FLOW (FIXED activeGateway bug)
     const payment = await tx.subscriptionPayment.create({
       data: {
         subscriptionId,
         businessId,
         amount: safeAmount,
-        method: activeGateway,
-        status: "PENDING",
+        method: finalGateway,
+        status: 'PENDING',
         couponId: couponId || null,
         metadata: {
           adjustmentIds,
           baseAmount,
           calculatedAmount,
-          expectedAmount: calculatedAmount,
         },
       },
     });
 
     const gatewayResponse = await gatewayManager.initiate({
-      provider: activeGateway,
+      provider: finalGateway,
       amount: safeAmount,
       reference: payment.id,
       businessId,
-      phone: user.phone,
+      phone: cleanPhone, // 🔥 FIXED
     });
 
     await auditHelper.logAudit({
       businessId,
       userId,
-      entityType: "SUBSCRIPTION_PAYMENT",
+      entityType: 'SUBSCRIPTION_PAYMENT',
       entityId: payment.id,
-      action: isInitial ? "INITIAL_PAYMENT" : "RENEWAL_PAYMENT",
+      action: isInitial ? 'INITIAL_PAYMENT' : 'RENEWAL_PAYMENT',
       metadata: {
-        gateway: activeGateway,
-        baseAmount,
-        calculatedAmount,
+        gateway: finalGateway,
         finalAmount: safeAmount,
       },
     });
@@ -531,14 +470,14 @@ exports.processGatewayWebhook = async (payload, headers = {}) => {
     });
 
     if (!payment) {
-      throw new AppError("payment.not_found", 404);
+      throw new AppError('payment.not_found', 404);
     }
 
     // =====================================================
     // 🔹 2. GATEWAY SIGNATURE VERIFICATION
     // =====================================================
-    if (!verifySignatureIfProvided(headers["x-signature"])) {
-      throw new AppError("webhook.invalid_signature", 401);
+    if (!verifySignatureIfProvided(headers['x-signature'])) {
+      throw new AppError('webhook.invalid_signature', 401);
     }
 
     // =====================================================
@@ -547,17 +486,17 @@ exports.processGatewayWebhook = async (payload, headers = {}) => {
     if (payment.webhookProcessedAt) {
       return {
         success: true,
-        message: "Webhook already processed",
+        message: 'Webhook already processed',
       };
     }
 
     // =====================================================
     // 🔹 4. STRICT IDEMPOTENCY
     // =====================================================
-    if (payment.status !== "PENDING") {
+    if (payment.status !== 'PENDING') {
       return {
         success: true,
-        message: "Already processed",
+        message: 'Already processed',
       };
     }
 
@@ -569,27 +508,27 @@ exports.processGatewayWebhook = async (payload, headers = {}) => {
       const eventTime = new Date(payload.timestamp).getTime();
 
       if (Math.abs(now - eventTime) > 5 * 60 * 1000) {
-        throw new AppError("webhook.expired", 400);
+        throw new AppError('webhook.expired', 400);
       }
     }
 
     // =====================================================
     // 🔹 6. FAILURE HANDLING
     // =====================================================
-    if (payload.status === "FAILED") {
+    if (payload.status === 'FAILED') {
       await tx.subscriptionPayment.update({
         where: { id: payment.id },
         data: {
-          status: "FAILED",
+          status: 'FAILED',
           webhookProcessedAt: new Date(),
         },
       });
 
       await auditHelper.logAudit({
         businessId: payment.businessId,
-        entityType: "PAYMENT",
+        entityType: 'PAYMENT',
         entityId: payment.id,
-        action: "PAYMENT_FAILED",
+        action: 'PAYMENT_FAILED',
         metadata: {
           reference: payload.reference,
           gateway: payload.gateway || null,
@@ -603,7 +542,7 @@ exports.processGatewayWebhook = async (payload, headers = {}) => {
     // =====================================================
     // 🔹 7. SUCCESS ONLY
     // =====================================================
-    if (payload.status !== "SUCCESS") {
+    if (payload.status !== 'SUCCESS') {
       return { skipped: true };
     }
 
@@ -614,7 +553,7 @@ exports.processGatewayWebhook = async (payload, headers = {}) => {
       payload.amount !== undefined &&
       Number(payload.amount) !== Number(payment.amount)
     ) {
-      throw new AppError("payment.amount_mismatch", 400);
+      throw new AppError('payment.amount_mismatch', 400);
     }
 
     // =====================================================
@@ -623,7 +562,7 @@ exports.processGatewayWebhook = async (payload, headers = {}) => {
     await tx.subscriptionPayment.update({
       where: { id: payment.id },
       data: {
-        status: "CONFIRMED",
+        status: 'CONFIRMED',
         paidAt: new Date(),
         webhookProcessedAt: new Date(),
       },
@@ -644,7 +583,7 @@ exports.processGatewayWebhook = async (payload, headers = {}) => {
       });
 
       if (!coupon) {
-        throw new AppError("coupon.not_found", 404);
+        throw new AppError('coupon.not_found', 404);
       }
 
       // 🔹 DO NOT BLOCK AFTER PAYMENT SUCCESS
@@ -710,7 +649,7 @@ exports.processGatewayWebhook = async (payload, headers = {}) => {
       referenceId: payment.id,
       userId: null,
       businessId: payment.businessId,
-      context: "SUBSCRIPTION",
+      context: 'SUBSCRIPTION',
     });
 
     // =====================================================
@@ -723,11 +662,11 @@ exports.processGatewayWebhook = async (payload, headers = {}) => {
     // =====================================================
     await auditHelper.logAudit({
       businessId: payment.businessId,
-      entityType: "PAYMENT",
+      entityType: 'PAYMENT',
       entityId: payment.id,
-      action: "PAYMENT_CONFIRMED",
+      action: 'PAYMENT_CONFIRMED',
       metadata: {
-        status: "CONFIRMED",
+        status: 'CONFIRMED',
       },
     });
 

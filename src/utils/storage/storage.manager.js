@@ -12,7 +12,7 @@ exports.uploadFile = async (params) => {
 
   try {
     return await s3.upload(params);
-  } catch (error) {
+  } catch (error)  {
     console.error("S3 FAILED → fallback local", error.message);
 
     if (env.NODE_ENV === "production") {

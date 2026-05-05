@@ -1,7 +1,7 @@
-const catchAsync = require("../../../utils/catchAsync");
-const response = require("../../../utils/response");
+const catchAsync = require('../../../utils/catchAsync');
+const response = require('../../../utils/response');
 
-const governanceService = require("./governance.service");
+const governanceService = require('./governance.service');
 
 /*
 |--------------------------------------------------------------------------
@@ -12,34 +12,34 @@ const governanceService = require("./governance.service");
 exports.activateBusiness = catchAsync(async (req, res) => {
   const data = await governanceService.updateBusinessStatus(
     req.params.businessId,
-    "ACTIVE",
+    'ACTIVE',
   );
 
-  return response.success(req, res, data, 200, "governance.business_activated");
+  return response.success(req, res, data, 200, 'governance.business_activated');
 });
 
 exports.moveToGrace = catchAsync(async (req, res) => {
   const data = await governanceService.updateBusinessStatus(
     req.params.businessId,
-    "GRACE",
+    'GRACE',
   );
 
-  return response.success(req, res, data, 200, "governance.business_grace");
+  return response.success(req, res, data, 200, 'governance.business_grace');
 });
 
 exports.suspendBusiness = catchAsync(async (req, res) => {
   const data = await governanceService.updateBusinessStatus(
     req.params.businessId,
-    "SUSPENDED",
+    'SUSPENDED',
   );
 
-  return response.success(req, res, data, 200, "governance.business_suspended");
+  return response.success(req, res, data, 200, 'governance.business_suspended');
 });
 
 exports.terminateBusiness = catchAsync(async (req, res) => {
   const data = await governanceService.updateBusinessStatus(
     req.params.businessId,
-    "TERMINATED",
+    'TERMINATED',
   );
 
   return response.success(
@@ -47,7 +47,7 @@ exports.terminateBusiness = catchAsync(async (req, res) => {
     res,
     data,
     200,
-    "governance.business_terminated",
+    'governance.business_terminated',
   );
 });
 
@@ -60,7 +60,7 @@ exports.terminateBusiness = catchAsync(async (req, res) => {
 exports.listBusinesses = catchAsync(async (req, res) => {
   const data = await governanceService.listBusinesses(req.query);
 
-  return response.success(req, res, data, 200, "governance.business_list");
+  return response.success(req, res, data, 200, 'governance.business_list');
 });
 
 exports.getBusinessTimeline = catchAsync(async (req, res) => {
@@ -68,7 +68,7 @@ exports.getBusinessTimeline = catchAsync(async (req, res) => {
     req.params.businessId,
   );
 
-  return response.success(req, res, data, 200, "governance.business_timeline");
+  return response.success(req, res, data, 200, 'governance.business_timeline');
 });
 
 exports.getBusinessRevenueSummary = catchAsync(async (req, res) => {
@@ -81,7 +81,7 @@ exports.getBusinessRevenueSummary = catchAsync(async (req, res) => {
     res,
     data,
     200,
-    "governance.business_revenue_summary",
+    'governance.business_revenue_summary',
   );
 });
 
@@ -98,7 +98,7 @@ exports.changeBusinessSubscription = catchAsync(async (req, res) => {
     res,
     data,
     200,
-    "governance.subscription_changed",
+    'governance.subscription_changed',
   );
 });
 
@@ -110,7 +110,7 @@ exports.extendBusinessGracePeriod = catchAsync(async (req, res) => {
     days,
   );
 
-  return response.success(req, res, data, 200, "governance.grace_extended");
+  return response.success(req, res, data, 200, 'governance.grace_extended');
 });
 
 /*
@@ -122,19 +122,19 @@ exports.extendBusinessGracePeriod = catchAsync(async (req, res) => {
 exports.listUsers = catchAsync(async (req, res) => {
   const data = await governanceService.listUsers(req.query);
 
-  return response.success(req, res, data, 200, "governance.user_list");
+  return response.success(req, res, data, 200, 'governance.user_list');
 });
 
 exports.lockUser = catchAsync(async (req, res) => {
   const data = await governanceService.lockUser(req.params.userId);
 
-  return response.success(req, res, data, 200, "governance.user_locked");
+  return response.success(req, res, data, 200, 'governance.user_locked');
 });
 
 exports.unlockUser = catchAsync(async (req, res) => {
   const data = await governanceService.unlockUser(req.params.userId);
 
-  return response.success(req, res, data, 200, "governance.user_unlocked");
+  return response.success(req, res, data, 200, 'governance.user_unlocked');
 });
 
 exports.updateUserStatus = catchAsync(async (req, res) => {
@@ -150,14 +150,14 @@ exports.updateUserStatus = catchAsync(async (req, res) => {
     res,
     data,
     200,
-    "governance.user_status_updated",
+    'governance.user_status_updated',
   );
 });
 
 exports.forceLogoutUser = catchAsync(async (req, res) => {
   const data = await governanceService.forceLogoutUser(req.params.userId);
 
-  return response.success(req, res, data, 200, "governance.user_forced_logout");
+  return response.success(req, res, data, 200, 'governance.user_forced_logout');
 });
 
 exports.impersonateUser = catchAsync(async (req, res) => {
@@ -168,7 +168,7 @@ exports.impersonateUser = catchAsync(async (req, res) => {
     req.params.userId,
   );
 
-  return response.success(req, res, data, 200, "governance.user_impersonation");
+  return response.success(req, res, data, 200, 'governance.user_impersonation');
 });
 
 /*
@@ -182,7 +182,7 @@ exports.getCustomerSummary = catchAsync(async (req, res) => {
     req.params.customerId,
   );
 
-  return response.success(req, res, data, 200, "governance.customer_summary");
+  return response.success(req, res, data, 200, 'governance.customer_summary');
 });
 
 exports.blacklistCustomer = catchAsync(async (req, res) => {
@@ -193,7 +193,7 @@ exports.blacklistCustomer = catchAsync(async (req, res) => {
     res,
     data,
     200,
-    "governance.customer_blacklisted",
+    'governance.customer_blacklisted',
   );
 });
 
@@ -207,7 +207,7 @@ exports.unblacklistCustomer = catchAsync(async (req, res) => {
     res,
     data,
     200,
-    "governance.customer_unblacklisted",
+    'governance.customer_unblacklisted',
   );
 });
 
@@ -221,7 +221,7 @@ exports.getBusinessProfile = catchAsync(async (req, res) => {
     res,
     business,
     200,
-    "governance.business_profile",
+    'governance.business_profile',
   );
 });
 
@@ -270,7 +270,7 @@ exports.globalSearch = catchAsync(async (req, res) => {
     resource: req.query.resource, // optional override
   });
 
-  return response.success(req, res, data, 200, "governance.search_success");
+  return response.success(req, res, data, 200, 'governance.search_success');
 });
 
 /*
@@ -287,7 +287,7 @@ exports.lockUser = catchAsync(async (req, res) => {
     actorId: req.auth.userId,
   });
 
-  return success(req, res, data);
+  return response.success(req, res, data);
 });
 
 exports.unlockUser = catchAsync(async (req, res) => {
@@ -298,5 +298,5 @@ exports.unlockUser = catchAsync(async (req, res) => {
     actorId: req.auth.userId,
   });
 
-  return success(req, res, data);
+  return response.success(req, res, data);
 });

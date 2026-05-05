@@ -1,6 +1,6 @@
-const prisma = require("../../../config/prisma");
-const notificationService = require("../../../services/notifications/notification.service");
-const { logAudit } = require("../../../utils/audit.helper");
+const prisma = require('../../../config/prisma');
+const notificationService = require('../../../services/notifications/notification.service');
+const { logAudit } = require('../../../utils/audit.helper');
 
 class CommunicationService {
   /*
@@ -27,7 +27,7 @@ class CommunicationService {
     } = data;
 
     if (!title || !message || !priority || !placement) {
-      throw new Error("announcement.invalid_data");
+      throw new Error('announcement.invalid_data');
     }
 
     const announcement = await prisma.announcement.create({
@@ -36,7 +36,7 @@ class CommunicationService {
         message,
         priority,
         placement,
-        eventType: eventType || "GENERAL",
+        eventType: eventType || 'GENERAL',
         startAt: startAt ? new Date(startAt) : null,
         endAt: endAt ? new Date(endAt) : null,
         trialOnly: trialOnly || false,
@@ -79,7 +79,7 @@ class CommunicationService {
     if (sendNotification && channels?.length) {
       for (const channel of channels) {
         await notificationService.createNotification({
-          type: "ANNOUNCEMENT",
+          type: 'ANNOUNCEMENT',
           channel,
           titleKey: title,
           messageKey: message,
@@ -94,17 +94,17 @@ class CommunicationService {
     */
     await logAudit({
       userId: adminId,
-      entityType: "ANNOUNCEMENT",
+      entityType: 'ANNOUNCEMENT',
       entityId: announcement.id,
-      action: "ANNOUNCEMENT_CREATED",
+      action: 'ANNOUNCEMENT_CREATED',
       metadata: {
         title,
         priority,
         placement,
         eventType,
       },
-      module: "COMMUNICATION",
-      actorType: "ADMIN",
+      module: 'COMMUNICATION',
+      actorType: 'ADMIN',
     });
 
     return announcement;
@@ -198,14 +198,14 @@ class CommunicationService {
   */
     await logAudit({
       userId: adminId,
-      entityType: "ANNOUNCEMENT",
+      entityType: 'ANNOUNCEMENT',
       entityId: id,
-      action: "ANNOUNCEMENT_UPDATED",
+      action: 'ANNOUNCEMENT_UPDATED',
       metadata: {
         updatedFields: Object.keys(data),
       },
-      module: "COMMUNICATION",
-      actorType: "ADMIN",
+      module: 'COMMUNICATION',
+      actorType: 'ADMIN',
     });
 
     return updated;
@@ -223,11 +223,11 @@ class CommunicationService {
 
     await logAudit({
       userId: adminId,
-      entityType: "ANNOUNCEMENT",
+      entityType: 'ANNOUNCEMENT',
       entityId: id,
-      action: "ANNOUNCEMENT_DELETED",
-      module: "COMMUNICATION",
-      actorType: "ADMIN",
+      action: 'ANNOUNCEMENT_DELETED',
+      module: 'COMMUNICATION',
+      actorType: 'ADMIN',
     });
 
     return deleted;
@@ -259,7 +259,7 @@ class CommunicationService {
 
     return prisma.announcement.findMany({
       where,
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: 'desc' },
       include: {
         countries: true,
         packages: true,
@@ -293,8 +293,8 @@ class CommunicationService {
   async resolveRecipients(target = {}) {
     const where = {};
 
-    if (target.userStatus === "ACTIVE") where.isActive = true;
-    if (target.userStatus === "INACTIVE") where.isActive = false;
+    if (target.userStatus === 'ACTIVE') where.isActive = true;
+    if (target.userStatus === 'INACTIVE') where.isActive = false;
 
     if (target.blacklisted !== undefined) {
       where.isBlacklisted = target.blacklisted;
@@ -306,13 +306,13 @@ class CommunicationService {
       where.business = {};
 
       if (target.businessOwnersOnly) {
-        where.role = "OWNER";
+        where.role = 'OWNER';
       }
 
       if (target.subscriptionPackageId) {
         where.business.subscription = {
           packageId: target.subscriptionPackageId,
-          status: "ACTIVE",
+          status: 'ACTIVE',
         };
       }
     }
@@ -347,24 +347,26 @@ class CommunicationService {
           await notificationService.createNotification({
             businessId: user.businessId,
             userId: user.id,
-            type: "ADMIN_BROADCAST",
+            type: 'ADMIN_BROADCAST',
             channel,
             titleKey: data.title,
             messageKey: data.body,
-            locale: "en",
+            locale: 'en',
             recipient: user.email || user.phone,
           });
 
           recipientData.push({
             messageId: message.id,
             userId: user.id,
-            status: "SENT",
+            status: 'SENT',
           });
         } catch (error) {
+          console.log(error);
+
           recipientData.push({
             messageId: message.id,
             userId: user.id,
-            status: "FAILED",
+            status: 'FAILED',
           });
         }
       }
@@ -380,7 +382,7 @@ class CommunicationService {
             await notificationService.createNotification({
               channel,
               recipient: email,
-              type: "CUSTOM",
+              type: 'CUSTOM',
               titleKey: data.title,
               messageKey: data.body,
             });
@@ -388,13 +390,13 @@ class CommunicationService {
             recipientData.push({
               messageId: message.id,
               userId: null,
-              status: "SENT",
+              status: 'SENT',
             });
-          } catch (error) {
+          } catch {
             recipientData.push({
               messageId: message.id,
               userId: null,
-              status: "FAILED",
+              status: 'FAILED',
             });
           }
         }
@@ -406,7 +408,7 @@ class CommunicationService {
             await notificationService.createNotification({
               channel,
               recipient: phone,
-              type: "CUSTOM",
+              type: 'CUSTOM',
               titleKey: data.title,
               messageKey: data.body,
             });
@@ -414,13 +416,13 @@ class CommunicationService {
             recipientData.push({
               messageId: message.id,
               userId: null,
-              status: "SENT",
+              status: 'SENT',
             });
-          } catch (error) {
+          } catch {
             recipientData.push({
               messageId: message.id,
               userId: null,
-              status: "FAILED",
+              status: 'FAILED',
             });
           }
         }
@@ -435,15 +437,15 @@ class CommunicationService {
 
     await logAudit({
       userId: adminId,
-      entityType: "MESSAGE",
+      entityType: 'MESSAGE',
       entityId: message.id,
-      action: "BROADCAST_SENT",
+      action: 'BROADCAST_SENT',
       metadata: {
         totalUsers: users.length,
         channels: data.channels,
       },
-      module: "COMMUNICATION",
-      actorType: "ADMIN",
+      module: 'COMMUNICATION',
+      actorType: 'ADMIN',
     });
 
     return {
@@ -479,24 +481,24 @@ class CommunicationService {
         await notificationService.createNotification({
           businessId: user.businessId,
           userId: user.id,
-          type: "ADMIN_BATCH",
+          type: 'ADMIN_BATCH',
           channel: data.channel,
           titleKey: data.title,
           messageKey: data.body,
-          locale: "en",
+          locale: 'en',
           recipient: user.email || user.phone,
         });
 
         recipientData.push({
           messageId: message.id,
           userId: user.id,
-          status: "SENT",
+          status: 'SENT',
         });
-      } catch (error) {
+      } catch {
         recipientData.push({
           messageId: message.id,
           userId: user.id,
-          status: "FAILED",
+          status: 'FAILED',
         });
       }
     }
@@ -509,15 +511,15 @@ class CommunicationService {
 
     await logAudit({
       userId: adminId,
-      entityType: "MESSAGE",
+      entityType: 'MESSAGE',
       entityId: message.id,
-      action: "BATCH_MESSAGE_SENT",
+      action: 'BATCH_MESSAGE_SENT',
       metadata: {
         totalRecipients: users.length,
         channel: data.channel,
       },
-      module: "COMMUNICATION",
-      actorType: "ADMIN",
+      module: 'COMMUNICATION',
+      actorType: 'ADMIN',
     });
 
     return {
@@ -532,7 +534,7 @@ class CommunicationService {
 
   async getMessageDeliveryStats(messageId) {
     return prisma.messageRecipient.groupBy({
-      by: ["status"],
+      by: ['status'],
       where: { messageId },
       _count: true,
     });
@@ -551,11 +553,11 @@ class CommunicationService {
 
     await logAudit({
       userId: adminId,
-      entityType: "TEMPLATE",
+      entityType: 'TEMPLATE',
       entityId: template.id,
-      action: "TEMPLATE_CREATED",
-      module: "COMMUNICATION",
-      actorType: "ADMIN",
+      action: 'TEMPLATE_CREATED',
+      module: 'COMMUNICATION',
+      actorType: 'ADMIN',
     });
 
     return template;
@@ -569,11 +571,11 @@ class CommunicationService {
 
     await logAudit({
       userId: adminId,
-      entityType: "TEMPLATE",
+      entityType: 'TEMPLATE',
       entityId: id,
-      action: "TEMPLATE_UPDATED",
-      module: "COMMUNICATION",
-      actorType: "ADMIN",
+      action: 'TEMPLATE_UPDATED',
+      module: 'COMMUNICATION',
+      actorType: 'ADMIN',
     });
 
     return updated;
@@ -586,11 +588,11 @@ class CommunicationService {
 
     await logAudit({
       userId: adminId,
-      entityType: "TEMPLATE",
+      entityType: 'TEMPLATE',
       entityId: id,
-      action: "TEMPLATE_DELETED",
-      module: "COMMUNICATION",
-      actorType: "ADMIN",
+      action: 'TEMPLATE_DELETED',
+      module: 'COMMUNICATION',
+      actorType: 'ADMIN',
     });
 
     return deleted;

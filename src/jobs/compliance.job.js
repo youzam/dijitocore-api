@@ -126,7 +126,7 @@ const processPurgeQueue = async () => {
         module: 'COMPLIANCE',
         actorType: 'ADMIN',
       });
-    } catch (error) {
+    } catch (error)  {
       await prisma.purgeQueue.update({
         where: { id: job.id },
         data: {
@@ -212,7 +212,7 @@ const processExportRequests = async () => {
       });
 
       await sendWebhook('EXPORT_COMPLETED', req);
-    } catch (error) {
+    } catch (error)  {
       await prisma.dataRequest.update({
         where: { id: req.id },
         data: {

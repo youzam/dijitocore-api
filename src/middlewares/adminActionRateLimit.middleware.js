@@ -78,7 +78,7 @@ async function adminActionRateLimit(req, res, next) {
     }
 
     next();
-  } catch (error) {
+  } catch (error)  {
     next(error);
   }
 }

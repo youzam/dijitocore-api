@@ -1,9 +1,10 @@
-const catchAsync = require("../../utils/catchAsync");
-const { success } = require("../../utils/response");
-const subscriptionService = require("./subscription.service");
-const paymentService = require("./subscription.payment.service");
-const prisma = require("../../config/prisma");
-const registry = require("../../utils/subscriptionFeatureRegistry");
+const catchAsync = require('../../utils/catchAsync');
+const { success } = require('../../utils/response');
+const subscriptionService = require('./subscription.service');
+const paymentService = require('./subscription.payment.service');
+const prisma = require('../../config/prisma');
+const registry = require('../../utils/subscriptionFeatureRegistry');
+const AppError = require('../../utils/AppError');
 
 /* ===========================
    BUSINESS OPERATIONS
@@ -14,7 +15,7 @@ exports.calculatePrice = catchAsync(async (req, res) => {
     subscriptionId: req.params.id,
   });
 
-  return success(req, res, result, 200, "subscription.price_calculated");
+  return success(req, res, result, 200, 'subscription.price_calculated');
 });
 
 exports.applyCoupon = catchAsync(async (req, res) => {
@@ -24,7 +25,7 @@ exports.applyCoupon = catchAsync(async (req, res) => {
     couponCode: req.body.couponCode,
   });
 
-  return success(req, res, result, 200, "subscription.coupon_applied");
+  return success(req, res, result, 200, 'subscription.coupon_applied');
 });
 
 exports.createSubscription = catchAsync(async (req, res) => {
@@ -35,7 +36,7 @@ exports.createSubscription = catchAsync(async (req, res) => {
     userId: req.user.id,
   });
 
-  return success(req, res, subscription, 201, "subscription.created");
+  return success(req, res, subscription, 201, 'subscription.created');
 });
 
 exports.getCurrentSubscription = catchAsync(async (req, res) => {
@@ -43,13 +44,13 @@ exports.getCurrentSubscription = catchAsync(async (req, res) => {
     where: {
       businessId: req.user.businessId,
       status: {
-        in: ["TRIAL", "ACTIVE", "GRACE"],
+        in: ['TRIAL', 'ACTIVE', 'GRACE'],
       },
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: 'desc' },
   });
 
-  return success(req, res, subscription, 200, "subscription.fetched");
+  return success(req, res, subscription, 200, 'subscription.fetched');
 });
 
 exports.upgradeSubscription = catchAsync(async (req, res) => {
@@ -61,7 +62,7 @@ exports.upgradeSubscription = catchAsync(async (req, res) => {
     userId: req.user.id,
   });
 
-  return success(req, res, updated, 200, "subscription.upgraded");
+  return success(req, res, updated, 200, 'subscription.upgraded');
 });
 
 /* ===========================
@@ -80,7 +81,7 @@ exports.initiatePayment = catchAsync(async (req, res) => {
     res,
     gatewayResponse,
     200,
-    "subscription.payment_initiated",
+    'subscription.payment_initiated',
   );
 });
 
@@ -93,7 +94,7 @@ exports.getPackageSchema = catchAsync(async (req, res) => {
   });
 
   if (!pkg) {
-    throw new AppError("subscription.package_not_found", 404);
+    throw new AppError('subscription.package_not_found', 404);
   }
 
   return success(
@@ -104,12 +105,12 @@ exports.getPackageSchema = catchAsync(async (req, res) => {
       package: pkg,
     },
     200,
-    "subscription.package_schema_fetched",
+    'subscription.package_schema_fetched',
   );
 });
 
 exports.getActivePackages = catchAsync(async (req, res) => {
   const data = await subscriptionService.getActivePackages();
 
-  return response.success(req, res, data, 200, "subscription.packages_fetched");
+  return success(req, res, data, 200, 'subscription.packages_fetched');
 });
