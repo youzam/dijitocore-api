@@ -36,10 +36,10 @@
     },
     "email_verify": {
       "subject": "Thibitisha barua pepe yako",
-      "body": "Msimbo wako wa uthibitisho wa DijitoTrack ni {{code}}. Unaisha baada ya dakika 15."
+      "body": "Msimbo wako wa uthibitisho wa DijitoPay ni {{code}}. Unaisha baada ya dakika 15."
     },
     "otp": {
-      "message": "Msimbo wako wa uthibitisho wa DijitoTrack ni {{otp}}. Unaisha baada ya dakika 5."
+      "message": "Msimbo wako wa uthibitisho wa DijitoPay ni {{otp}}. Unaisha baada ya dakika 5."
     },
     "business_invite": {
       "subject": "Umealikwa kujiunga na biashara",
@@ -97,7 +97,7 @@
     "file_required": "Faili la kuingiza linahitajika",
     "empty_import": "Faili halina taarifa",
     "already_exists": "Mteja tayari yupo",
-    "welcome_sms": "Karibu {{business}}. Business code yako ni {{code}}. Tumia hii kukamilisha access ya DijitoTrack.",
+    "welcome_sms": "Karibu {{business}}. Business code yako ni {{code}}. Tumia hii kukamilisha access ya DijitoPay.",
     "inactiveBlacklisted": "Akaunti ya mteja huyu haijawashwa au amewekwa kwenye orodha ya marufuku, hivyo hawezi kufanya miamala yoyote. Tafadhali washa mteja kwanza.",
     "inactive": "Akaunti yako imesitishwa. Tafadhali wasiliana na biashara.",
     "unauthorized": "Huna ruhusa ya kufikia taarifa zako"

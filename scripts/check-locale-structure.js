@@ -1,5 +1,5 @@
-const en = require("../locales/en.json");
-const sw = require("../locales/sw.json");
+const en = require("../src/locales/en.json");
+const sw = require("../src/locales/sw.json");
 
 function structure(obj) {
   return Object.keys(obj).reduce((acc, key) => {

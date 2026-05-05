@@ -1,10 +1,21 @@
 const storageManager = require("./storage/storage.manager");
 
-exports.getFileDownload = async ({ fileKey, provider }) => {
-  const result = await storageManager.getDownload({
+/**
+ * Standardized download handler
+ * ALWAYS returns URL (S3 signed or local)
+ */
+exports.downloadFile = async ({ fileKey, provider }) => {
+  if (!fileKey) {
+    throw new Error("file.key_required");
+  }
+
+  const url = await storageManager.getFileUrl({
     key: fileKey,
     provider,
   });
 
-  return result;
+  return {
+    type: "url",
+    value: url,
+  };
 };

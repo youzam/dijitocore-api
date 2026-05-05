@@ -1,8 +1,8 @@
-const prisma = require("../config/prisma");
-const auditHelper = require("../utils/audit.helper");
+const prisma = require('../config/prisma');
+const auditHelper = require('../utils/audit.helper');
 
-const { executeFullDeletion } = require("../services/deletion.service");
-const { executeExport } = require("../services/export.service");
+const { executeFullDeletion } = require('../services/deletion.service');
+const { executeExport } = require('../services/export.service');
 
 /*
 |--------------------------------------------------------------------------
@@ -13,7 +13,7 @@ const { executeExport } = require("../services/export.service");
 const processPurgeQueue = async () => {
   const jobs = await prisma.purgeQueue.findMany({
     where: {
-      status: "PENDING",
+      status: 'PENDING',
       attempts: { lt: 3 },
     },
   });
@@ -24,10 +24,10 @@ const processPurgeQueue = async () => {
       const lock = await prisma.purgeQueue.updateMany({
         where: {
           id: job.id,
-          status: "PENDING",
+          status: 'PENDING',
         },
         data: {
-          status: "PROCESSING",
+          status: 'PROCESSING',
           startedAt: new Date(),
         },
       });
@@ -46,15 +46,13 @@ const processPurgeQueue = async () => {
       }
 
       // 🔴 APPROVAL CHECK
-      if (request?.type === "DELETE" && !request.approvedAt) {
-        throw new Error("Deletion request not approved");
+      if (request?.type === 'DELETE' && !request.approvedAt) {
+        throw new Error('Deletion request not approved');
       }
 
-      let result;
-
       // 🔥 DELETE FLOW (NEW ENGINE)
-      if (request?.type === "DELETE") {
-        result = await executeFullDeletion({
+      if (request?.type === 'DELETE') {
+        await executeFullDeletion({
           rootModel: request.targetType,
           rootId: request.targetId,
         });
@@ -68,7 +66,7 @@ const processPurgeQueue = async () => {
       }
 
       // 🔥 EXPORT FLOW (FINAL CLEAN)
-      if (request?.type === "EXPORT") {
+      if (request?.type === 'EXPORT') {
         // 🛑 Already processed / exported
         if (request.processedAt || request.exportFilePath) {
           continue;
@@ -76,7 +74,7 @@ const processPurgeQueue = async () => {
 
         // 🔴 Approval required
         if (!request.approvedAt) {
-          throw new Error("Export request not approved");
+          throw new Error('Export request not approved');
         }
 
         const exportResult = await executeExport({
@@ -91,13 +89,11 @@ const processPurgeQueue = async () => {
             processedAt: new Date(),
           },
         });
-
-        result = exportResult;
       }
 
       // 🔁 FALLBACK (legacy support)
       if (!request && job.targetType && job.targetId) {
-        result = await executeFullDeletion({
+        await executeFullDeletion({
           rootModel: job.targetType.toLowerCase(),
           rootId: job.targetId,
         });
@@ -107,7 +103,7 @@ const processPurgeQueue = async () => {
       await prisma.purgeQueue.update({
         where: { id: job.id },
         data: {
-          status: "COMPLETED",
+          status: 'COMPLETED',
           completedAt: new Date(),
         },
       });
@@ -119,22 +115,22 @@ const processPurgeQueue = async () => {
       // 🧾 AUDIT
       await auditHelper.logAudit({
         userId: request?.approvedById || null,
-        entityType: "PURGE_JOB",
+        entityType: 'PURGE_JOB',
         entityId: job.id,
-        action: "PURGE_EXECUTED",
+        action: 'PURGE_EXECUTED',
         metadata: {
           dataRequestId: job.dataRequestId,
           targetType: job.targetType,
           targetId: job.targetId,
         },
-        module: "COMPLIANCE",
-        actorType: "ADMIN",
+        module: 'COMPLIANCE',
+        actorType: 'ADMIN',
       });
     } catch (error) {
       await prisma.purgeQueue.update({
         where: { id: job.id },
         data: {
-          status: "FAILED",
+          status: 'FAILED',
           lastError: error.message,
           attempts: { increment: 1 },
         },
@@ -142,14 +138,14 @@ const processPurgeQueue = async () => {
 
       await auditHelper.logAudit({
         userId: null,
-        entityType: "PURGE_JOB",
+        entityType: 'PURGE_JOB',
         entityId: job.id,
-        action: "PURGE_FAILED",
+        action: 'PURGE_FAILED',
         metadata: {
           error: error.message,
         },
-        module: "COMPLIANCE",
-        actorType: "ADMIN",
+        module: 'COMPLIANCE',
+        actorType: 'ADMIN',
       });
     }
   }
@@ -164,12 +160,12 @@ const processPurgeQueue = async () => {
 const processExportRequests = async () => {
   const requests = await prisma.dataRequest.findMany({
     where: {
-      type: "EXPORT",
-      status: "APPROVED",
+      type: 'EXPORT',
+      status: 'APPROVED',
       attempts: { lt: 3 },
     },
     take: 10,
-    orderBy: { createdAt: "asc" },
+    orderBy: { createdAt: 'asc' },
   });
 
   for (const req of requests) {
@@ -178,10 +174,10 @@ const processExportRequests = async () => {
       const lock = await prisma.dataRequest.updateMany({
         where: {
           id: req.id,
-          status: "APPROVED",
+          status: 'APPROVED',
         },
         data: {
-          status: "PROCESSING",
+          status: 'PROCESSING',
         },
       });
 
@@ -203,24 +199,24 @@ const processExportRequests = async () => {
 
       await auditHelper.logAudit({
         userId: req.requestedByUserId || req.requestedByAdminId || null,
-        entityType: "DATA_REQUEST",
+        entityType: 'DATA_REQUEST',
         entityId: req.id,
-        action: "EXPORT_COMPLETED",
+        action: 'EXPORT_COMPLETED',
         metadata: {
           requestId: req.id,
           targetType: req.targetType,
           targetId: req.targetId,
           reason: req.reason || null,
         },
-        module: "COMPLIANCE",
+        module: 'COMPLIANCE',
       });
 
-      await sendWebhook("EXPORT_COMPLETED", req);
+      await sendWebhook('EXPORT_COMPLETED', req);
     } catch (error) {
       await prisma.dataRequest.update({
         where: { id: req.id },
         data: {
-          status: "FAILED",
+          status: 'FAILED',
           attempts: { increment: 1 },
           lastError: error.message,
         },
@@ -228,14 +224,14 @@ const processExportRequests = async () => {
 
       await auditHelper.logAudit({
         userId: null,
-        entityType: "DATA_REQUEST",
+        entityType: 'DATA_REQUEST',
         entityId: req.id,
-        action: "EXPORT_FAILED",
+        action: 'EXPORT_FAILED',
         metadata: {
           requestId: req.id,
           error: error.message,
         },
-        module: "COMPLIANCE",
+        module: 'COMPLIANCE',
       });
     }
   }
@@ -256,7 +252,7 @@ const processRetentionPolicies = async () => {
       Date.now() - policy.retentionDays * 24 * 60 * 60 * 1000,
     );
 
-    if (policy.resource === "USER") {
+    if (policy.resource === 'USER') {
       const users = await prisma.user.findMany({
         where: {
           createdAt: { lt: cutoffDate },
@@ -267,18 +263,18 @@ const processRetentionPolicies = async () => {
       for (const user of users) {
         const exists = await prisma.purgeQueue.findFirst({
           where: {
-            targetType: "USER",
+            targetType: 'USER',
             targetId: user.id,
-            status: { in: ["PENDING", "PROCESSING"] },
+            status: { in: ['PENDING', 'PROCESSING'] },
           },
         });
 
         if (!exists) {
           await prisma.purgeQueue.create({
             data: {
-              targetType: "USER",
+              targetType: 'USER',
               targetId: user.id,
-              status: "PENDING",
+              status: 'PENDING',
               attempts: 0,
             },
           });

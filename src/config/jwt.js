@@ -1,10 +1,10 @@
 const crypto = require("crypto");
+const env = require("./env");
 
 module.exports = {
-  accessSecret:
-    process.env.JWT_ACCESS_SECRET || crypto.randomBytes(64).toString("hex"),
+  accessSecret: env.auth.accessSecret || crypto.randomBytes(64).toString("hex"),
   refreshSecret:
-    process.env.JWT_REFRESH_SECRET || crypto.randomBytes(64).toString("hex"),
-  accessExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN,
-  refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN,
+    env.auth.refreshSecret || crypto.randomBytes(64).toString("hex"),
+  accessExpiresIn: env.auth.accessExpiresIn,
+  refreshExpiresIn: env.auth.refreshExpiresIn,
 };

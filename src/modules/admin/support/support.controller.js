@@ -2,6 +2,7 @@ const catchAsync = require("../../../utils/catchAsync");
 const response = require("../../../utils/response");
 const handlerFactory = require("../../../utils/handlerFactory");
 const supportService = require("./support.service");
+const downloadHelper = require("../../../utils/download.helper");
 
 /*
 |--------------------------------------------------------------------------
@@ -162,19 +163,14 @@ exports.getBusinessTickets = catchAsync(async (req, res) => {
 });
 
 exports.downloadAttachment = catchAsync(async (req, res) => {
-  const result = await ticketService.downloadAttachment({
-    user: req.user,
-    ticketId: req.params.id,
-    attachmentId: req.params.attachmentId,
+  const attachment = await supportService.getAttachmentById(
+    req.params.attachmentId,
+  );
+
+  const result = await downloadHelper.downloadFile({
+    fileKey: attachment.fileKey,
+    provider: attachment.provider,
   });
 
-  // 🔥 HANDLE BOTH CASES
-  if (result.type === "url") {
-    return success(req, res, { url: result.value }, 200, "file.download_url");
-  }
-
-  if (result.type === "stream") {
-    res.setHeader("Content-Type", "application/octet-stream");
-    return result.value.pipe(res);
-  }
+  return response.success(req, res, { url: result.value }, "file.download_url");
 });

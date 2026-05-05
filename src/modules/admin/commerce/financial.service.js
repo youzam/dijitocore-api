@@ -141,7 +141,7 @@ exports.regenerateInvoice = async (transactionId, actor) => {
   }
 
   // Simulate invoice regeneration (can be replaced with real service)
-  const newInvoiceUrl = `https://invoices.dijitotrack.com/${payment.id}`;
+  const newInvoiceUrl = `https://invoices.DijitoPay.com/${payment.id}`;
 
   const updated = await prisma.subscriptionPayment.update({
     where: { id: transactionId },

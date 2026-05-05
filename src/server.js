@@ -4,8 +4,9 @@ const app = require("./app");
 const prisma = require("./config/prisma");
 const { startJobs } = require("./jobs");
 const { validateGraphCoverage } = require("./utils/graph-validator");
+const env = require("./config/env");
 
-const PORT = process.env.PORT || 4000;
+const PORT = env.server.port || 4000;
 
 let server;
 

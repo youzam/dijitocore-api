@@ -1,4 +1,5 @@
 const Redis = require("ioredis");
+const env = require("../config/env");
 
 /**
  * =====================================================
@@ -15,7 +16,7 @@ const Redis = require("ioredis");
 
 let redis;
 
-const isProduction = process.env.NODE_ENV !== "development";
+const isProduction = env.NODE_ENV !== "development";
 
 if (isProduction) {
   /**
@@ -23,13 +24,13 @@ if (isProduction) {
    * PRODUCTION (Managed Redis: Redis Cloud, Upstash, etc.)
    * ===================================================
    */
-  if (!process.env.REDIS_URL) {
+  if (!env.redis.url) {
     throw new Error("REDIS_URL is required in production");
   }
 
-  const isTLS = process.env.REDIS_URL.startsWith("rediss://");
+  const isTLS = env.redis.url.startsWith("rediss://");
 
-  redis = new Redis(process.env.REDIS_URL, {
+  redis = new Redis(env.redis.url, {
     tls: isTLS ? {} : undefined,
     connectTimeout: 10000,
     maxRetriesPerRequest: 3,
@@ -42,9 +43,9 @@ if (isProduction) {
    * ===================================================
    */
   redis = new Redis({
-    host: process.env.REDIS_HOST || "127.0.0.1",
-    port: process.env.REDIS_PORT ? Number(process.env.REDIS_PORT) : 6379,
-    password: process.env.REDIS_PASSWORD || undefined,
+    host: env.redis.host || "127.0.0.1",
+    port: env.redis.port ? Number(env.redis.port) : 6379,
+    password: env.redis.password || undefined,
     connectTimeout: 5000,
     maxRetriesPerRequest: 3,
   });

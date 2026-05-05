@@ -1,7 +1,10 @@
 node_modules
 google-services
 # Keep environment variables out of version control
-.env*
+.env
+.env.development
+.env.production
+.env.staging
 .zip
 /src/generated/prisma
 

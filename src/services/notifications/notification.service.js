@@ -11,8 +11,9 @@ const pushChannel = require("./channels/push.channel");
 const whatsappChannel = require("./channels/whatsapp.channel");
 
 const subscriptionAuthority = require("../../modules/subscription/subscription.authority.service");
+const env = require("../../config/env");
 
-const isProd = process.env.NODE_ENV !== "development";
+const isProd = env.NODE_ENV !== "development";
 const emailChannel = isProd ? emailProd : emailDev;
 const smsChannel = isProd ? smsProd : smsDev;
 

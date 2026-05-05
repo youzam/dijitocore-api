@@ -1,8 +1,9 @@
 const prisma = require("../config/prisma");
 const systemJobService = require("../modules/admin/operation/operation.service");
 const { isJobExecutionAllowed } = require("./systemState.helper");
+const env = require("../config/env");
 
-const instanceId = process.env.INSTANCE_ID || `instance-${process.pid}`;
+const instanceId = env.jobs.instanceId || `instance-${process.pid}`;
 
 const activeJobs = new Map();
 
@@ -258,9 +259,9 @@ async function runSafeJob(jobName, jobFn, ttlSeconds = 900) {
     | ALERT WEBHOOK
     |--------------------------------------------------------------------------
     */
-    if (process.env.JOB_ALERT_WEBHOOK) {
+    if (env.jobs.alertWebhook) {
       try {
-        await fetch(process.env.JOB_ALERT_WEBHOOK, {
+        await fetch(env.jobs.alertWebhook, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

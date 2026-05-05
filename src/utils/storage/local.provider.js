@@ -1,9 +1,11 @@
 const fs = require("fs");
 const path = require("path");
 
+const BASE = path.join(__dirname, "../../../uploads");
+
+/* ================= UPLOAD ================= */
 exports.upload = async ({ key, body }) => {
-  const baseDir = path.join(__dirname, "../../../uploads");
-  const filePath = path.join(baseDir, key);
+  const filePath = path.join(BASE, key);
 
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, body);
@@ -11,16 +13,22 @@ exports.upload = async ({ key, body }) => {
   return {
     key,
     provider: "local",
+    url: `/uploads/${key}`,
   };
 };
 
-exports.getFileStream = (key) => {
-  const baseDir = path.join(__dirname, "../../../uploads");
-  const filePath = path.join(baseDir, key);
+/* ================= DOWNLOAD ================= */
+exports.getDownloadUrl = async (key) => {
+  return `/uploads/${key}`;
+};
 
-  if (!fs.existsSync(filePath)) {
-    throw new Error("File not found");
+/* ================= DELETE ================= */
+exports.deleteFile = async (key) => {
+  const filePath = path.join(BASE, key);
+
+  if (fs.existsSync(filePath)) {
+    fs.unlinkSync(filePath);
   }
 
-  return fs.createReadStream(filePath);
+  return true;
 };

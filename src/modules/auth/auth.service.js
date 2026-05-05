@@ -1,20 +1,24 @@
-const bcrypt = require("bcryptjs");
-const crypto = require("crypto");
+const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 
-const prisma = require("../../config/prisma");
-const AppError = require("../../utils/AppError");
-const notifications = require("../../services/notifications");
-const { logAudit } = require("../../utils/audit.helper");
-const coreAuth = require("./core.auth.service");
+const prisma = require('../../config/prisma');
+const AppError = require('../../utils/AppError');
+const notifications = require('../../services/notifications');
+const { logAudit } = require('../../utils/audit.helper');
+const coreAuth = require('./core.auth.service');
+const securityService = require('../admin/security/security.service');
+const notificationService = require('../../services/notifications/notification.service');
+const env = require('../../config/env');
 
 /**
  * OWNER SIGNUP (NO JWT – SEND 6 DIGIT CODE)
  */
+
 const ownerSignup = async ({ email, password }) => {
   const existing = await prisma.user.findFirst({ where: { email } });
 
   if (existing) {
-    throw new AppError("auth.email_exists", 409);
+    throw new AppError('auth.email_exists', 409);
   }
 
   const passwordHash = await bcrypt.hash(password, 12);
@@ -22,16 +26,16 @@ const ownerSignup = async ({ email, password }) => {
   const verifyCode = Math.floor(100000 + Math.random() * 900000).toString();
 
   const verifyHash = crypto
-    .createHash("sha256")
+    .createHash('sha256')
     .update(verifyCode)
-    .digest("hex");
+    .digest('hex');
 
-  await prisma.user.create({
+  const user = await prisma.user.create({
     data: {
       email,
       passwordHash,
-      role: "BUSINESS_OWNER",
-      status: "PENDING",
+      role: 'BUSINESS_OWNER',
+      status: 'PENDING',
       emailVerified: false,
       emailVerifyToken: verifyHash,
       emailVerifyExpires: new Date(Date.now() + 15 * 60 * 1000),
@@ -46,9 +50,9 @@ const ownerSignup = async ({ email, password }) => {
   await logAudit({
     businessId: user.businessId,
     userId: user.id,
-    entityType: "AUTH",
+    entityType: 'AUTH',
     entityId: user.id,
-    action: "USER_SIGNUP",
+    action: 'USER_SIGNUP',
   });
 
   return {};
@@ -58,7 +62,7 @@ const ownerSignup = async ({ email, password }) => {
  * VERIFY EMAIL VIA 6 DIGIT CODE → ISSUE JWT
  */
 const verifyEmail = async (code) => {
-  const hash = crypto.createHash("sha256").update(code).digest("hex");
+  const hash = crypto.createHash('sha256').update(code).digest('hex');
 
   const user = await prisma.user.findFirst({
     where: {
@@ -68,14 +72,14 @@ const verifyEmail = async (code) => {
   });
 
   if (!user) {
-    throw new AppError("auth.token_invalid", 400);
+    throw new AppError('auth.token_invalid', 400);
   }
 
   await prisma.user.update({
     where: { id: user.id },
     data: {
       emailVerified: true,
-      status: "ACTIVE",
+      status: 'ACTIVE',
       emailVerifyToken: null,
       emailVerifyExpires: null,
     },
@@ -84,15 +88,15 @@ const verifyEmail = async (code) => {
   await logAudit({
     businessId: user.businessId,
     userId: user.id,
-    entityType: "AUTH",
+    entityType: 'AUTH',
     entityId: user.id,
-    action: "EMAIL_VERIFIED",
+    action: 'EMAIL_VERIFIED',
   });
 
   // 🔥 CORE TOKEN GENERATION
   const tokens = coreAuth.generateAuthTokens({
     sub: user.id,
-    identity_type: "business",
+    identity_type: 'business',
     role: user.role,
     businessId: null,
     tokenVersion: user.tokenVersion,
@@ -135,20 +139,20 @@ const login = async ({ email, password }, req) => {
     await logAudit({
       businessId: null,
       userId: null,
-      entityType: "AUTH",
+      entityType: 'AUTH',
       entityId: email,
-      action: "LOGIN_FAILED",
-      metadata: { reason: "INVALID_CREDENTIALS" },
+      action: 'LOGIN_FAILED',
+      metadata: { reason: 'INVALID_CREDENTIALS' },
     });
 
-    throw new AppError("auth.invalid_credentials", 401);
+    throw new AppError('auth.invalid_credentials', 401);
   }
 
   // 🔥 CORE VALIDATION
   coreAuth.validateUserAccess(user);
 
   const systemSetting = await prisma.systemSetting.findUnique({
-    where: { id: "SYSTEM" },
+    where: { id: 'SYSTEM' },
     select: {
       maxLoginAttempts: true,
       lockTimeMinutes: true,
@@ -166,7 +170,7 @@ const login = async ({ email, password }, req) => {
     await prisma.loginActivity.create({
       data: {
         userId: user.id,
-        status: "FAILED",
+        status: 'FAILED',
         ipAddress: req.ip,
       },
     });
@@ -189,17 +193,17 @@ const login = async ({ email, password }, req) => {
     await logAudit({
       businessId: null,
       userId: null,
-      entityType: "AUTH",
+      entityType: 'AUTH',
       entityId: email,
-      action: "LOGIN_FAILED",
-      metadata: { reason: "INVALID_CREDENTIALS" },
+      action: 'LOGIN_FAILED',
+      metadata: { reason: 'INVALID_CREDENTIALS' },
     });
 
-    throw new AppError("auth.invalid_credentials", 401);
+    throw new AppError('auth.invalid_credentials', 401);
   }
 
-  if (user.status !== "ACTIVE") {
-    throw new AppError("auth.invalid_credentials", 401);
+  if (user.status !== 'ACTIVE') {
+    throw new AppError('auth.invalid_credentials', 401);
   }
 
   await prisma.user.update({
@@ -214,7 +218,7 @@ const login = async ({ email, password }, req) => {
   await prisma.loginActivity.create({
     data: {
       userId: user.id,
-      status: "SUCCESS",
+      status: 'SUCCESS',
       ipAddress: req.ip,
     },
   });
@@ -224,7 +228,7 @@ const login = async ({ email, password }, req) => {
   // 🔥 CORE TOKEN
   const tokens = coreAuth.generateAuthTokens({
     sub: user.id,
-    identity_type: "business",
+    identity_type: 'business',
     role: user.role,
     businessId: user.businessId,
     tokenVersion: user.tokenVersion,
@@ -239,9 +243,9 @@ const login = async ({ email, password }, req) => {
   await logAudit({
     businessId: user.businessId,
     userId: user.id,
-    entityType: "AUTH",
+    entityType: 'AUTH',
     entityId: user.id,
-    action: "LOGIN_SUCCESS",
+    action: 'LOGIN_SUCCESS',
   });
 
   return {
@@ -280,7 +284,7 @@ const refresh = async (refreshToken) => {
 const logout = async (auth) => {
   if (!auth || !auth.refreshToken) return true;
 
-  await prisma.refreshToken.updateMany({
+  const token = await prisma.refreshToken.updateMany({
     where: {
       token: auth.refreshToken,
       revokedAt: null,
@@ -291,11 +295,11 @@ const logout = async (auth) => {
   });
 
   await logAudit({
-    businessId: user.businessId,
-    userId: user.id,
-    entityType: "AUTH",
-    entityId: user.id,
-    action: "LOGOUT",
+    businessId: token?.user.businessId,
+    userId: token?.user.id,
+    entityType: 'AUTH',
+    entityId: token?.user.id,
+    action: 'LOGOUT',
   });
 
   return true;
@@ -320,9 +324,9 @@ const requestPasswordReset = async (email) => {
 
   coreAuth.validateUserAccess(user);
 
-  const resetToken = crypto.randomBytes(32).toString("hex");
+  const resetToken = crypto.randomBytes(32).toString('hex');
 
-  const hashed = crypto.createHash("sha256").update(resetToken).digest("hex");
+  const hashed = crypto.createHash('sha256').update(resetToken).digest('hex');
 
   await prisma.user.update({
     where: { id: user.id },
@@ -333,26 +337,26 @@ const requestPasswordReset = async (email) => {
   });
 
   // 🔥 BUILD URL
-  const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
+  const resetUrl = `${env.frontend.url}/reset-password?token=${resetToken}`;
 
   // 🔥 REAL FUNCTION FROM YOUR SYSTEM
   await notificationService.sendPasswordReset({
     to: user.email,
-    locale: "en",
+    locale: 'en',
     resetUrl,
   });
 
   await logAudit({
     businessId: user.businessId,
     userId: user.id,
-    entityType: "AUTH",
+    entityType: 'AUTH',
     entityId: user.id,
-    action: "PASSWORD_RESET_REQUESTED",
+    action: 'PASSWORD_RESET_REQUESTED',
   });
 };
 
 const resetPassword = async (token, newPassword) => {
-  const hashed = crypto.createHash("sha256").update(token).digest("hex");
+  const hashed = crypto.createHash('sha256').update(token).digest('hex');
 
   const user = await prisma.user.findFirst({
     where: {
@@ -365,7 +369,7 @@ const resetPassword = async (token, newPassword) => {
   });
 
   if (!user) {
-    throw new AppError("auth.token_invalid", 400);
+    throw new AppError('auth.token_invalid', 400);
   }
 
   // 🔥 CORE VALIDATION
@@ -390,7 +394,7 @@ const resetPassword = async (token, newPassword) => {
   // 🔥 CORE TOKEN GENERATION
   const tokens = coreAuth.generateAuthTokens({
     sub: user.id,
-    identity_type: "business",
+    identity_type: 'business',
     role: user.role,
     businessId: user.businessId,
     tokenVersion: user.tokenVersion,
@@ -405,9 +409,9 @@ const resetPassword = async (token, newPassword) => {
   await logAudit({
     businessId: user.businessId,
     userId: user.id,
-    entityType: "AUTH",
+    entityType: 'AUTH',
     entityId: user.id,
-    action: "PASSWORD_RESET_COMPLETED",
+    action: 'PASSWORD_RESET_COMPLETED',
   });
 
   return {

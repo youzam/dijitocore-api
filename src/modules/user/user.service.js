@@ -7,6 +7,7 @@ const notifications = require("../../services/notifications");
 const { signToken } = require("../../utils/auth.helper");
 const subscriptionAuthority = require("../subscription/subscription.authority.service");
 const auditHelper = require("../../utils/audit.helper");
+const env = require("../../config/env");
 
 // =====================================================
 // 🔹 INVITE USER
@@ -51,7 +52,7 @@ exports.inviteUser = async (owner, payload) => {
     },
   });
 
-  const inviteUrl = `${process.env.FRONTEND_URL}/invite?token=${rawToken}`;
+  const inviteUrl = `${env.frontend.url}/invite?token=${rawToken}`;
 
   await notifications.sendBusinessInvite({
     to: email,

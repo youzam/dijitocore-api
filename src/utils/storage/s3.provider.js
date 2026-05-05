@@ -2,57 +2,67 @@ const {
   S3Client,
   PutObjectCommand,
   GetObjectCommand,
+  DeleteObjectCommand,
 } = require("@aws-sdk/client-s3");
 
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
+const env = require("../../config/env");
 
-const hasS3Config =
-  process.env.AWS_REGION &&
-  process.env.AWS_ACCESS_KEY_ID &&
-  process.env.AWS_SECRET_ACCESS_KEY &&
-  process.env.AWS_S3_BUCKET;
+const client = new S3Client({
+  region: env.storage.aws.region,
+  credentials: {
+    accessKeyId: env.storage.aws.accessKeyId,
+    secretAccessKey: env.storage.aws.secretAccessKey,
+  },
+});
 
-let s3 = null;
+const getBucket = () =>
+  env.NODE_ENV === "production"
+    ? env.storage.aws.bucketProd
+    : env.storage.aws.bucketDev;
 
-if (hasS3Config) {
-  s3 = new S3Client({
-    region: process.env.AWS_REGION,
-    credentials: {
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-    },
-  });
-}
-
+/* ================= UPLOAD ================= */
 exports.upload = async ({ key, body, contentType }) => {
-  if (!s3) {
-    throw new Error("S3 not configured");
-  }
+  const bucket = getBucket();
 
-  const command = new PutObjectCommand({
-    Bucket: process.env.AWS_S3_BUCKET,
-    Key: key,
-    Body: body,
-    ContentType: contentType,
-  });
-
-  await s3.send(command);
+  await client.send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      Body: body,
+      ContentType: contentType,
+    }),
+  );
 
   return {
     key,
     provider: "s3",
+    url: `https://${bucket}.s3.amazonaws.com/${key}`,
   };
 };
 
+/* ================= DOWNLOAD (SIGNED URL) ================= */
 exports.getSignedDownloadUrl = async (key) => {
-  if (!s3) {
-    throw new Error("S3 not configured");
-  }
+  const bucket = getBucket();
 
   const command = new GetObjectCommand({
-    Bucket: process.env.AWS_S3_BUCKET,
+    Bucket: bucket,
     Key: key,
   });
 
-  return getSignedUrl(s3, command, { expiresIn: 300 }); // 5 minutes
+  return getSignedUrl(client, command, { expiresIn: 60 * 5 }); // 5 mins
+};
+
+/* ================= DELETE ================= */
+exports.deleteFile = async (key) => {
+  const bucket = getBucket();
+
+  await client.send(
+    new DeleteObjectCommand({
+      Bucket: bucket,
+      Key: key,
+    }),
+  );
+
+  return true;
 };

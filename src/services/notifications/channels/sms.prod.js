@@ -1,10 +1,11 @@
 const axios = require("axios");
+const env = require("../../../config/env");
 
 const send = async ({ to, message }) => {
   await axios.post(
     "https://apisms.beem.africa/v1/send",
     {
-      source_addr: process.env.SMS_FROM,
+      source_addr: env.sms.from,
       schedule_time: "",
       encoding: 0,
       message,
@@ -12,8 +13,8 @@ const send = async ({ to, message }) => {
     },
     {
       auth: {
-        username: process.env.BEEM_API_KEY,
-        password: process.env.BEEM_SECRET,
+        username: env.sms.beemKey,
+        password: env.sms.beemSecret,
       },
     },
   );

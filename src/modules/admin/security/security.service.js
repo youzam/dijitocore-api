@@ -2,6 +2,7 @@ const crypto = require("crypto");
 const AppError = require("../../../utils/AppError");
 const prisma = require("../../../config/prisma");
 const { handleSecurityEvent } = require("../../../utils/incidentEngine");
+const env = require("../../../config/env");
 
 /**
  * =====================================================
@@ -633,7 +634,7 @@ exports.logSystemError = async (error) => {
     data: {
       groupId: group.id,
       stack: error.stack,
-      environment: process.env.NODE_ENV || "development",
+      environment: env.NODE_ENV || "development",
     },
   });
 

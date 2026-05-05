@@ -1,5 +1,6 @@
 const en = require("../locales/en.json");
 const sw = require("../locales/sw.json");
+const env = require("../config/env");
 
 function flatten(obj, prefix = "") {
   return Object.keys(obj).reduce((acc, key) => {
@@ -25,7 +26,7 @@ function validateLocaleKey(key) {
   if (!existsInEn || !existsInSw) {
     const message = `[I18N_MISSING_KEY] ${key} | en:${!!existsInEn} sw:${!!existsInSw}`;
 
-    if (process.env.NODE_ENV === "development") {
+    if (env.NODE_ENV === "development") {
       throw new Error(message);
     } else {
       console.error(message);

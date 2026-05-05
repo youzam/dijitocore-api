@@ -1,8 +1,10 @@
 const { S3Client, GetObjectCommand } = require("@aws-sdk/client-s3");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
+const { S3_BUCKET } = require("../config/env");
+const env = require("../config/env");
 
 const s3 = new S3Client({
-  region: process.env.AWS_REGION,
+  region: env.storage.aws.region,
 });
 
 /**
@@ -11,7 +13,7 @@ const s3 = new S3Client({
  */
 const getDownloadUrl = async (key) => {
   const command = new GetObjectCommand({
-    Bucket: process.env.AWS_BUCKET,
+    Bucket: S3_BUCKET,
     Key: key,
   });
 

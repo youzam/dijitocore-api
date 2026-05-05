@@ -4,6 +4,7 @@ const os = require("os");
 
 const prisma = require("../../../config/prisma");
 const { logAudit } = require("../../../utils/audit.helper");
+const env = require("../../../config/env");
 
 let storageCache = {
   value: null,
@@ -125,8 +126,7 @@ exports.getStorageUsage = async () => {
     return storageCache.value;
   }
 
-  const storagePath =
-    process.env.STORAGE_PATH || path.join(process.cwd(), "uploads");
+  const storagePath = env.storage.path || path.join(process.cwd(), "uploads");
 
   const size = calculateDirectorySize(storagePath);
 

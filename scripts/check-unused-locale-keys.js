@@ -1,7 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 
-const en = require("../locales/en.json");
+const en = require("../src/locales/en.json");
 
 function flatten(obj, prefix = "") {
   return Object.keys(obj).reduce((acc, key) => {

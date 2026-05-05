@@ -1,4 +1,4 @@
-const { translate } = require("../utils/i18n");
+const { translate } = require('../utils/i18n');
 
 module.exports = (err, req, res, next) => {
   const statusCode = err.statusCode || 500;
@@ -7,13 +7,13 @@ module.exports = (err, req, res, next) => {
 
   // Translate i18n keys
   try {
-    message = translate(err.message, req.locale || "en");
-  } catch (e) {
+    message = translate(err.message, req.locale || 'en');
+  } catch (err) {
     message = err.message;
   }
 
   res.status(statusCode).json({
-    status: "error",
+    status: 'error',
     message,
   });
 };

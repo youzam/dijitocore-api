@@ -1,10 +1,11 @@
 const ipRangeCheck = require("ip-range-check");
 const AppError = require("../utils/AppError");
+const env = require("../config/env");
 
 module.exports = (req, res, next) => {
-  const mode = process.env.PAYMENT_WEBHOOK_IP_MODE || "PERMISSIVE";
+  const mode = env.webhooks.payment.ipMode || "PERMISSIVE";
 
-  const rawRanges = process.env.PAYMENT_WEBHOOK_IPS;
+  const rawRanges = env.webhooks.payment.ips;
 
   // If no IP ranges configured
   if (!rawRanges || rawRanges.trim() === "") {

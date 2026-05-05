@@ -1,10 +1,11 @@
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
 const fs = require("fs");
 const path = require("path");
+const env = require("../config/env");
 
 // 🔐 S3 CLIENT
 const s3 = new S3Client({
-  region: process.env.AWS_REGION,
+  region: env.storage.aws.region,
 });
 
 /**
@@ -15,7 +16,7 @@ const uploadToS3 = async (filePath, key) => {
 
   await s3.send(
     new PutObjectCommand({
-      Bucket: process.env.AWS_BUCKET,
+      Bucket: env.getS3Bucket,
       Key: key,
       Body: fileStream,
       ContentType: "application/json",

@@ -1,0 +1,15 @@
+{
+  "eslint.enable": true,
+  "eslint.validate": ["javascript"],
+  "eslint.run": "onType",
+
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+
+  "editor.formatOnSave": true,
+
+  "problems.decorations.enabled": true,
+  "explorer.decorations.badges": true,
+  "explorer.decorations.colors": true
+}

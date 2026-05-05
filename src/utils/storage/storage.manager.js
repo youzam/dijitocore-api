@@ -1,26 +1,42 @@
-const s3Provider = require("./s3.provider");
-const localProvider = require("./local.provider");
+const s3 = require("./s3.provider");
+const local = require("./local.provider");
+const env = require("../../config/env");
 
-exports.uploadFile = async (options) => {
+const provider = env.storage.provider || "s3";
+
+/* ================= UPLOAD ================= */
+exports.uploadFile = async (params) => {
+  if (provider === "local") {
+    return local.upload(params);
+  }
+
   try {
-    const result = await s3Provider.upload(options);
-    return result;
+    return await s3.upload(params);
   } catch (error) {
-    const result = await localProvider.upload(options);
-    return result;
+    console.error("S3 FAILED → fallback local", error.message);
+
+    if (env.NODE_ENV === "production") {
+      throw error; // 🚨 NO SILENT FAIL IN PROD
+    }
+
+    return local.upload(params);
   }
 };
 
-exports.getDownload = async ({ key, provider }) => {
+/* ================= DOWNLOAD ================= */
+exports.getFileUrl = async ({ key, provider }) => {
   if (provider === "s3") {
-    const url = await s3Provider.getSignedDownloadUrl(key);
-    return { type: "url", value: url };
+    return s3.getSignedDownloadUrl(key);
   }
 
-  if (provider === "local") {
-    const stream = localProvider.getFileStream(key);
-    return { type: "stream", value: stream };
+  return local.getDownloadUrl(key);
+};
+
+/* ================= DELETE ================= */
+exports.deleteFile = async ({ key, provider }) => {
+  if (provider === "s3") {
+    return s3.deleteFile(key);
   }
 
-  throw new Error("Unknown storage provider");
+  return local.deleteFile(key);
 };

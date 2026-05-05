@@ -40,7 +40,7 @@ exports.exportPDF = async (businessId, res) => {
 
   doc
     .fontSize(18)
-    .text("DijitoTrack Enterprise Dashboard", { align: "center" });
+    .text("DijitoPay Enterprise Dashboard", { align: "center" });
   doc.moveDown();
 
   if (latest) {

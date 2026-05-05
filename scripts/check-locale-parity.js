@@ -1,14 +1,11 @@
-const fs = require("fs");
-const path = require("path");
+const en = require('../src/locales/en.json');
+const sw = require('../src/locales/sw.json');
 
-const en = require("../locales/en.json");
-const sw = require("../locales/sw.json");
-
-function flatten(obj, prefix = "") {
+function flatten(obj, prefix = '') {
   return Object.keys(obj).reduce((acc, key) => {
     const p = prefix ? `${prefix}.${key}` : key;
 
-    if (typeof obj[key] === "object" && obj[key] !== null) {
+    if (typeof obj[key] === 'object' && obj[key] !== null) {
       Object.assign(acc, flatten(obj[key], p));
     } else {
       acc[p] = true;
@@ -25,20 +22,20 @@ const missingInSw = Object.keys(enKeys).filter((k) => !swKeys[k]);
 const missingInEn = Object.keys(swKeys).filter((k) => !enKeys[k]);
 
 if (missingInSw.length || missingInEn.length) {
-  console.error("❌ Locale parity mismatch detected");
+  console.error('❌ Locale parity mismatch detected');
 
   if (missingInSw.length) {
-    console.error("Missing in sw.json:");
+    console.error('Missing in sw.json:');
     console.error(missingInSw);
   }
 
   if (missingInEn.length) {
-    console.error("Missing in en.json:");
+    console.error('Missing in en.json:');
     console.error(missingInEn);
   }
 
   process.exit(1);
 }
 
-console.log("✅ Locale parity OK");
+console.log('✅ Locale parity OK');
 process.exit(0);

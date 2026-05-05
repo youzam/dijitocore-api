@@ -1,5 +1,6 @@
 const crypto = require("crypto");
 const AppError = require("../utils/AppError");
+const env = require("../config/env");
 
 module.exports = (req, res, next) => {
   const signature = req.headers["x-payment-signature"];
@@ -15,7 +16,7 @@ module.exports = (req, res, next) => {
   const payload = req.rawBody;
 
   const expected = crypto
-    .createHmac("sha256", process.env.PAYMENT_WEBHOOK_SECRET)
+    .createHmac("sha256", env.webhooks.payment.secret)
     .update(timestamp + payload)
     .digest("hex");
 

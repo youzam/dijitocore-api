@@ -1,5 +1,6 @@
 const { translate } = require("./i18n");
 const autoAnonymize = require("./autoAnonymize");
+const env = require("../config/env");
 
 // 🔹 BASE SUCCESS (UNCHANGED + META SUPPORT)
 exports.success = (
@@ -32,7 +33,7 @@ exports.error = (
   messageKey = "general.error",
 ) => {
   const safeError =
-    process.env.NODE_ENV === "production" ? undefined : error?.message || error;
+    env.NODE_ENV === "production" ? undefined : error?.message || error;
 
   return res.status(statusCode).json({
     success: false,

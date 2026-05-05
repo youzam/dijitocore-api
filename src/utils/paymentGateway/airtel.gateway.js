@@ -2,6 +2,7 @@ const axios = require("axios");
 const crypto = require("crypto");
 const AppError = require("../AppError");
 const health = require("./gateway.health");
+const env = require("../../config/env");
 
 /**
  * =====================================================
@@ -9,25 +10,13 @@ const health = require("./gateway.health");
  * =====================================================
  */
 
-const {
-  AIRTEL_BASE_URL,
-  AIRTEL_CLIENT_ID,
-  AIRTEL_CLIENT_SECRET,
-  AIRTEL_MERCHANT_ID,
-  AIRTEL_CALLBACK_URL,
-} = process.env;
-
+const { baseUrl, clientId, clientSecret, merchantId, callbackUrl } =
+  env.payments.airtel;
 /**
  * Validate config when used
  */
 const validateConfig = () => {
-  const required = [
-    AIRTEL_BASE_URL,
-    AIRTEL_CLIENT_ID,
-    AIRTEL_CLIENT_SECRET,
-    AIRTEL_MERCHANT_ID,
-    AIRTEL_CALLBACK_URL,
-  ];
+  const required = [baseUrl, clientId, clientSecret, merchantId, callbackUrl];
 
   if (required.some((v) => !v)) {
     throw new AppError("payment.airtel_config_missing", 500);
@@ -40,10 +29,10 @@ const validateConfig = () => {
 const getAccessToken = async () => {
   try {
     const response = await axios.post(
-      `${AIRTEL_BASE_URL}/auth/oauth2/token`,
+      `${baseUrl}/auth/oauth2/token`,
       {
-        client_id: AIRTEL_CLIENT_ID,
-        client_secret: AIRTEL_CLIENT_SECRET,
+        client_id: clientId,
+        client_secret: clientSecret,
         grant_type: "client_credentials",
       },
       { timeout: 10000 },
@@ -78,11 +67,11 @@ exports.initiate = async ({ amount, reference, businessId, phone }) => {
         currency: "TZS",
         id: reference,
       },
-      callback_url: AIRTEL_CALLBACK_URL,
+      callback_url: callbackUrl,
     };
 
     const response = await axios.post(
-      `${AIRTEL_BASE_URL}/merchant/v1/payments`,
+      `${baseUrl}/merchant/v1/payments`,
       payload,
       {
         headers: {

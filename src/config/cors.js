@@ -1,15 +1,15 @@
 const allowedOrigins = [
   "http://localhost:3000",
   "http://localhost:5173",
-  "https://app.dijitotrack.com",
-  "https://admin.dijitotrack.com",
+  "https://app.DijitoPay.com",
+  "https://admin.DijitoPay.com",
 ];
 
-// Allow wildcard subdomains: *.dijitotrack.com
+// Allow wildcard subdomains: *.DijitoPay.com
 const isAllowedSubdomain = (origin) => {
   try {
     const url = new URL(origin);
-    return url.hostname.endsWith(".dijitotrack.com");
+    return url.hostname.endsWith(".DijitoPay.com");
   } catch {
     return false;
   }

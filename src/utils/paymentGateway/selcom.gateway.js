@@ -2,6 +2,7 @@ const axios = require("axios");
 const crypto = require("crypto");
 const AppError = require("../AppError");
 const health = require("./gateway.health");
+const env = require("../../config/env");
 
 /**
  * =====================================================
@@ -9,25 +10,13 @@ const health = require("./gateway.health");
  * =====================================================
  */
 
-const {
-  SELCOM_BASE_URL,
-  SELCOM_API_KEY,
-  SELCOM_API_SECRET,
-  SELCOM_VENDOR_ID,
-  SELCOM_CALLBACK_URL,
-} = process.env;
-
+const { baseUrl, apiKey, apiSecret, vendorId, callbackUrl } =
+  env.payments.selcom;
 /**
  * Validate config only when used
  */
 const validateConfig = () => {
-  const required = [
-    SELCOM_BASE_URL,
-    SELCOM_API_KEY,
-    SELCOM_API_SECRET,
-    SELCOM_VENDOR_ID,
-    SELCOM_CALLBACK_URL,
-  ];
+  const required = [baseUrl, apiKey, apiSecret, vendorId, callbackUrl];
 
   if (required.some((v) => !v)) {
     throw new AppError("payment.selcom_config_missing", 500);
@@ -45,7 +34,7 @@ const generateChecksum = (payload) => {
     .join("&");
 
   return crypto
-    .createHmac("sha256", SELCOM_API_SECRET)
+    .createHmac("sha256", apiSecret)
     .update(dataString)
     .digest("hex");
 };
@@ -57,25 +46,25 @@ exports.initiate = async ({ amount, reference, businessId }) => {
   validateConfig();
 
   const payload = {
-    vendor: SELCOM_VENDOR_ID,
+    vendor: vendorId,
     order_id: reference,
     buyer_email: "no-reply@yourapp.com",
     buyer_name: `Business-${businessId}`,
     buyer_phone: "0000000000",
     amount,
     currency: "TZS",
-    callback_url: SELCOM_CALLBACK_URL,
+    callback_url: callbackUrl,
   };
 
   const checksum = generateChecksum(payload);
 
   try {
     const response = await axios.post(
-      `${SELCOM_BASE_URL}/checkout/create-order`,
+      `${baseUrl}/checkout/create-order`,
       payload,
       {
         headers: {
-          Authorization: `Bearer ${SELCOM_API_KEY}`,
+          Authorization: `Bearer ${apiKey}`,
           "X-Checksum": checksum,
           "Content-Type": "application/json",
         },
@@ -111,7 +100,7 @@ exports.initiate = async ({ amount, reference, businessId }) => {
  * Verify Webhook Signature
  */
 exports.verifyWebhook = (payload, signature) => {
-  if (!SELCOM_API_SECRET) return false;
+  if (!apiSecret) return false;
 
   const checksum = generateChecksum(payload);
   return checksum === signature;

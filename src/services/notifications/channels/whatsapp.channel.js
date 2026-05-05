@@ -1,15 +1,13 @@
 const twilio = require("twilio");
+const env = require("../../../config/env");
 
-const client = twilio(
-  process.env.TWILIO_ACCOUNT_SID,
-  process.env.TWILIO_AUTH_TOKEN,
-);
+const client = twilio(env.twilio.accountSid, env.twilio.authToken);
 
 exports.send = async ({ recipient, message }) => {
   if (!recipient) return;
 
   return client.messages.create({
-    from: process.env.TWILIO_WHATSAPP_FROM,
+    from: env.twilio.whatsappFrom,
     to: `whatsapp:${recipient}`,
     body: message,
   });

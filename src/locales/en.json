@@ -36,10 +36,10 @@
     },
     "email_verify": {
       "subject": "Verify your email",
-      "body": "Your DijitoTrack verification code is {{code}}. It expires in 15 minutes."
+      "body": "Your DijitoPay verification code is {{code}}. It expires in 15 minutes."
     },
     "otp": {
-      "message": "Your DijitoTrack verification code is {{otp}}. It expires in 5 minutes."
+      "message": "Your DijitoPay verification code is {{otp}}. It expires in 5 minutes."
     },
     "business_invite": {
       "subject": "You have been invited to join a business",
@@ -97,7 +97,7 @@
     "file_required": "Import file is required",
     "empty_import": "Import file has no data",
     "already_exists": "Customer already exists",
-    "welcome_sms": "Welcome to {{business}}. Your business code is {{code}}. Use this to complete your DijitoTrack access.",
+    "welcome_sms": "Welcome to {{business}}. Your business code is {{code}}. Use this to complete your DijitoPay access.",
     "inactiveBlacklisted": "This customer account is either inactive or blacklisted and cannot perform any transactions. Please activate customer first.",
     "inactive": "Your account is inactive. Please contact the business.",
     "unauthorized": "Unauthorized customer access"

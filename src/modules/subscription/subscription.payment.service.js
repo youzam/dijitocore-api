@@ -9,15 +9,16 @@ const { handleSuspiciousTransaction } = require("../../utils/security.helper");
 const {
   SUPPORTED_PAYMENT_GATEWAYS,
 } = require("../../utils/paymentGateway/supportedGateways");
+const env = require("../../config/env");
 
 /* ======================================================
    OPTIONAL SIGNATURE VERIFY (NON-BREAKING)
 ====================================================== */
 const verifySignatureIfProvided = (payloadHash) => {
-  if (!process.env.GATEWAY_WEBHOOK_SECRET) return true;
+  if (!env.webhooks.gatewaySecret) return true;
   if (!payloadHash) return false;
 
-  const secret = process.env.GATEWAY_WEBHOOK_SECRET;
+  const secret = env.webhooks.gatewaySecret;
 
   const expected = crypto
     .createHmac("sha256", secret)
