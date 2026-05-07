@@ -272,7 +272,7 @@ exports.lockUser = catchAsync(async (req, res) => {
   const data = await governanceService.lockUser({
     userId,
     durationMs,
-    actorId: req.auth.userId,
+    actorId: req.auth.id,
   });
 
   return response.success(req, res, data);
@@ -283,7 +283,7 @@ exports.unlockUser = catchAsync(async (req, res) => {
 
   const data = await governanceService.unlockUser({
     userId,
-    actorId: req.auth.userId,
+    actorId: req.auth.id,
   });
 
   return response.success(req, res, data);
