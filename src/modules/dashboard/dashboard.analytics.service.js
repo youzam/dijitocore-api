@@ -312,7 +312,7 @@ exports.getAdvancedPortfolioMetrics = async (businessId) => {
   const sixMonthsAgo = new Date();
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
 
-  const payments = await prisma.payment.findMany({
+  const payments = await prisma.installmentPayment.findMany({
     where: {
       businessId,
       receivedAt: { gte: sixMonthsAgo },

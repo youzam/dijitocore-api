@@ -1,4 +1,4 @@
-const Joi = require("joi");
+const Joi = require('joi');
 
 const validate = (schema) => {
   return (req, res, next) => {
@@ -39,13 +39,14 @@ const validate = (schema) => {
 
     if (error) {
       const errors = error.details.map((err) => ({
-        field: err.path.join("."),
+        field: err.path.join('.'),
         message: err.message,
       }));
 
       return res.status(400).json({
-        success: false,
-        message: "Validation failed",
+        status: 'error',
+        code: 'VALIDATION_ERROR',
+        message: 'Validation failed',
         errors,
       });
     }

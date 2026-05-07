@@ -1,4 +1,4 @@
-const Joi = require("joi");
+const Joi = require('joi');
 
 /**
  * Bootstrap system validation
@@ -8,8 +8,6 @@ const bootstrapSchema = Joi.object({
   email: Joi.string().email().required(),
 
   password: Joi.string().min(8).max(64).required(),
-
-  currency: Joi.string().length(3).uppercase().required(),
 });
 
 /**
@@ -43,7 +41,7 @@ const updateAdminSchema = Joi.object({
 
   role: Joi.string().optional(),
 
-  status: Joi.string().valid("ACTIVE", "SUSPENDED").optional(),
+  status: Joi.string().valid('ACTIVE', 'SUSPENDED').optional(),
 });
 
 /**

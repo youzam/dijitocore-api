@@ -1,8 +1,8 @@
-const prisma = require("../../config/prisma");
-const AppError = require("../../utils/AppError");
-const { SubscriptionStatus } = require("@prisma/client");
-const registry = require("../../utils/subscriptionFeatureRegistry");
-const limitResolver = require("../../utils/subscriptionLimitResolver");
+const prisma = require('../../config/prisma');
+const AppError = require('../../utils/AppError');
+const { SubscriptionStatus } = require('@prisma/client');
+const registry = require('../../utils/subscriptionFeatureRegistry');
+const limitResolver = require('../../utils/subscriptionLimitResolver');
 
 /* ===========================
    INTERNAL
@@ -20,11 +20,11 @@ async function getCurrentSubscription(businessId) {
         ],
       },
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: 'desc' },
   });
 
   if (!subscription) {
-    throw new AppError("subscription.not_active", 403);
+    throw new AppError('subscription.not_active', 403);
   }
 
   return subscription;
@@ -33,7 +33,7 @@ async function getCurrentSubscription(businessId) {
 function getCurrentPeriod() {
   const now = new Date();
   const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const month = String(now.getMonth() + 1).padStart(2, '0');
   return `${year}-${month}`;
 }
 
@@ -44,11 +44,11 @@ function getCurrentPeriod() {
 exports.assertActiveSubscription = async (businessId) => {
   const subscription = await prisma.subscription.findFirst({
     where: { businessId },
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: 'desc' },
   });
 
   if (!subscription) {
-    throw new AppError("subscription.not_found", 404);
+    throw new AppError('subscription.not_found', 404);
   }
 
   if (
@@ -58,30 +58,14 @@ exports.assertActiveSubscription = async (businessId) => {
       SubscriptionStatus.GRACE,
     ].includes(subscription.status)
   ) {
-    throw new AppError("subscription.not_active", 403);
+    throw new AppError('subscription.not_active', 403);
   }
 
   return subscription;
 };
 
-exports.assertFeature = async (businessId, featureKey) => {
-  if (!registry.isValidFeatureKey(featureKey)) {
-    throw new AppError(`Invalid feature configuration: ${featureKey}`, 500);
-  }
-
-  const subscription = await getCurrentSubscription(businessId);
-
-  const features = subscription.featuresSnapshot || {};
-
-  if (!features[featureKey]) {
-    throw new AppError("subscription.feature_not_allowed", 403);
-  }
-
-  return true;
-};
-
 // =====================================================
-// 🔥 ASSERT LIMIT (UNIFIED VERSION)
+// 🔥 ASSERT LIMIT
 // =====================================================
 exports.assertLimit = async (businessId, limitKey, options = {}) => {
   const { currentValue } = options;
@@ -96,14 +80,14 @@ exports.assertLimit = async (businessId, limitKey, options = {}) => {
     where: {
       businessId,
       status: {
-        in: ["ACTIVE", "TRIAL", "GRACE"],
+        in: ['ACTIVE', 'TRIAL', 'GRACE'],
       },
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: 'desc' },
   });
 
   if (!subscription) {
-    throw new AppError("subscription.not_found", 404);
+    throw new AppError('subscription.not_found', 404);
   }
 
   const limits = subscription.limitsSnapshot || {};
@@ -130,14 +114,14 @@ exports.assertLimit = async (businessId, limitKey, options = {}) => {
     const resolver = limitResolver.getResolver(limitKey);
 
     if (!resolver) {
-      throw new AppError("subscription.limit_not_configured", 500);
+      throw new AppError('subscription.limit_not_configured', 500);
     }
 
     usage = await resolver(businessId);
   }
 
   if (Number(usage) >= Number(limitValue)) {
-    throw new AppError("subscription.limit_exceeded", 403);
+    throw new AppError('subscription.limit_exceeded', 403);
   }
 
   return true;
@@ -172,7 +156,7 @@ exports.assertMonthlyLimit = async (businessId, metric) => {
   const used = usage ? usage.value : 0;
 
   if (used >= limit) {
-    throw new AppError("subscription.monthly_limit_exceeded", 403);
+    throw new AppError('subscription.monthly_limit_exceeded', 403);
   }
 
   return true;
@@ -208,13 +192,13 @@ exports.assertLimit = async (businessId, limitKey) => {
   const subscription = await prisma.subscription.findFirst({
     where: {
       businessId,
-      status: { in: ["ACTIVE", "TRIAL", "GRACE"] },
+      status: { in: ['ACTIVE', 'TRIAL', 'GRACE'] },
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: 'desc' },
   });
 
   if (!subscription) {
-    throw new AppError("subscription.not_found", 404);
+    throw new AppError('subscription.not_found', 404);
   }
 
   const limits = subscription.limitsSnapshot || {};
@@ -228,13 +212,13 @@ exports.assertLimit = async (businessId, limitKey) => {
   const resolver = limitResolver.getResolver(limitKey);
 
   if (!resolver) {
-    throw new AppError("subscription.limit_not_configured", 500);
+    throw new AppError('subscription.limit_not_configured', 500);
   }
 
   const currentCount = await resolver(businessId);
 
   if (Number(currentCount) >= Number(limitValue)) {
-    throw new AppError("subscription.limit_exceeded", 403);
+    throw new AppError('subscription.limit_exceeded', 403);
   }
 
   return true;

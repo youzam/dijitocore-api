@@ -1,10 +1,11 @@
-const csv = require("csvtojson");
-const XLSX = require("xlsx");
+const csv = require('csvtojson');
+const XLSX = require('xlsx');
 
-const prisma = require("../../config/prisma");
-const AppError = require("../../utils/AppError");
-const notificationService = require("../../services/notifications/notification.service");
-const auditHelper = require("../../utils/audit.helper");
+const prisma = require('../../config/prisma');
+const AppError = require('../../utils/AppError');
+const notificationService = require('../../services/notifications/notification.service');
+const auditHelper = require('../../utils/audit.helper');
+const subscriptionAuthority = require('../subscription/subscription.authority.service');
 
 /**
  * =========================
@@ -28,14 +29,14 @@ exports.createCustomer = async (businessId, payload, req) => {
   });
 
   if (duplicate) {
-    throw new AppError("customer.already_exists", 409);
+    throw new AppError('customer.already_exists', 409);
   }
 
   const customer = await prisma.customer.create({
     data: {
       ...payload,
       businessId,
-      status: "ACTIVE",
+      status: 'ACTIVE',
       riskScore: 0,
     },
   });
@@ -55,15 +56,15 @@ exports.createCustomer = async (businessId, payload, req) => {
       });
     }
   } catch (e) {
-    console.error("SMS send failed:", e.message);
+    console.error('SMS send failed:', e.message);
   }
 
   await auditHelper.logAudit({
     businessId,
     userId: req?.user?.id || null,
-    entityType: "CUSTOMER",
+    entityType: 'CUSTOMER',
     entityId: customer.id,
-    action: "CUSTOMER_CREATED",
+    action: 'CUSTOMER_CREATED',
     metadata: {
       name: customer.name,
     },
@@ -86,7 +87,7 @@ exports.listCustomers = async (businessId, query) => {
 
   if (query.search) {
     where.OR = [
-      { fullName: { contains: query.search, mode: "insensitive" } },
+      { fullName: { contains: query.search, mode: 'insensitive' } },
       { phone: { contains: query.search } },
     ];
   }
@@ -96,7 +97,7 @@ exports.listCustomers = async (businessId, query) => {
   }
 
   if (query.blacklisted !== undefined) {
-    where.isBlacklisted = query.blacklisted === "true";
+    where.isBlacklisted = query.blacklisted === 'true';
   }
 
   const [total, customers] = await Promise.all([
@@ -105,7 +106,7 @@ exports.listCustomers = async (businessId, query) => {
       where,
       skip,
       take: limit,
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: 'desc' },
     }),
   ]);
 
@@ -126,7 +127,7 @@ exports.getCustomer = async (businessId, id) => {
   });
 
   if (!customer) {
-    throw new AppError("customer.not_found", 404);
+    throw new AppError('customer.not_found', 404);
   }
 
   return customer;
@@ -158,7 +159,7 @@ exports.updateCustomer = async (businessId, id, payload, context) => {
     });
 
     if (duplicate) {
-      throw new AppError("customer.already_exists", 409);
+      throw new AppError('customer.already_exists', 409);
     }
   }
 
@@ -175,9 +176,9 @@ exports.updateCustomer = async (businessId, id, payload, context) => {
   await auditHelper.logAudit({
     businessId,
     userId: context?.userId || null,
-    entityType: "CUSTOMER",
+    entityType: 'CUSTOMER',
     entityId: id,
-    action: "CUSTOMER_UPDATED",
+    action: 'CUSTOMER_UPDATED',
   });
 
   return updated;
@@ -199,9 +200,9 @@ exports.updateStatus = async (businessId, id, status, context) => {
   await auditHelper.logAudit({
     businessId,
     userId: context?.userId || null,
-    entityType: "CUSTOMER",
+    entityType: 'CUSTOMER',
     entityId: id,
-    action: "CUSTOMER_STATUS_UPDATED",
+    action: 'CUSTOMER_STATUS_UPDATED',
     metadata: { status },
   });
 
@@ -227,9 +228,9 @@ exports.updateBlacklist = async (businessId, id, isBlacklisted, context) => {
   await auditHelper.logAudit({
     businessId,
     userId: context?.userId || null,
-    entityType: "CUSTOMER",
+    entityType: 'CUSTOMER',
     entityId: id,
-    action: "CUSTOMER_BLACKLISTED",
+    action: 'CUSTOMER_BLACKLISTED',
     metadata: { isBlacklisted },
   });
 
@@ -243,13 +244,14 @@ exports.updateBlacklist = async (businessId, id, isBlacklisted, context) => {
  */
 exports.importCustomers = async (businessId, req, context) => {
   if (!req.files || !req.files.file) {
-    throw new AppError("customer.file_required", 400);
+    throw new AppError('customer.file_required', 400);
   }
+  await subscriptionAuthority.assertFeature(businessId, 'allowImportCustomers');
 
   const file = req.files.file;
   let rows = [];
 
-  if (file.name.endsWith(".csv")) {
+  if (file.name.endsWith('.csv')) {
     rows = await csv().fromString(file.data.toString());
   } else {
     const workbook = XLSX.read(file.data);
@@ -258,7 +260,7 @@ exports.importCustomers = async (businessId, req, context) => {
   }
 
   if (!rows.length) {
-    throw new AppError("customer.empty_import", 400);
+    throw new AppError('customer.empty_import', 400);
   }
 
   let imported = 0;
@@ -290,7 +292,7 @@ exports.importCustomers = async (businessId, req, context) => {
           phone: r.phone,
           email: r.email,
           nationalId: r.nationalId,
-          status: "ACTIVE",
+          status: 'ACTIVE',
           riskScore: 0,
         },
       });
@@ -312,9 +314,9 @@ exports.importCustomers = async (businessId, req, context) => {
   await auditHelper.logAudit({
     businessId,
     userId: context?.userId || null,
-    entityType: "CUSTOMER",
-    entityId: "BULK",
-    action: "CUSTOMER_IMPORTED",
+    entityType: 'CUSTOMER',
+    entityId: 'BULK',
+    action: 'CUSTOMER_IMPORTED',
     metadata: {
       total: rows.length,
       imported,

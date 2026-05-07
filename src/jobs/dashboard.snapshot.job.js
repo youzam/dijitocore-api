@@ -50,12 +50,12 @@ async function run() {
             _sum: { totalAmount: true },
           });
 
-          const paymentsAgg = await prisma.payment.aggregate({
+          const paymentsAgg = await prisma.installmentPayment.aggregate({
             where: { businessId, reversed: false },
             _sum: { amount: true },
           });
 
-          const overdueAgg = await prisma.paymentSchedule.aggregate({
+          const overdueAgg = await prisma.installmentPaymentSchedule.aggregate({
             where: {
               businessId,
               dueDate: { lt: new Date() },

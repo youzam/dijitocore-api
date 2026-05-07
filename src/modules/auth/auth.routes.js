@@ -1,11 +1,11 @@
-const express = require("express");
+const express = require('express');
 
-const controller = require("./auth.controller");
-const validate = require("../../middlewares/validate.middleware");
-const { authRateLimiter } = require("../../middlewares/rateLimit.middleware");
-const authMiddleware = require("../../middlewares/auth.middleware");
+const controller = require('./auth.controller');
+const validate = require('../../middlewares/validate.middleware');
+const { authRateLimiter } = require('../../middlewares/rateLimit.middleware');
+const authMiddleware = require('../../middlewares/auth.middleware');
 
-const validation = require("./auth.validation");
+const validation = require('./auth.validation');
 
 const router = express.Router();
 
@@ -15,33 +15,33 @@ const router = express.Router();
  * =====================================================
  */
 router.post(
-  "/signup",
+  '/signup',
   authRateLimiter,
   validate(validation.ownerSignup),
   controller.ownerSignup,
 );
 
 router.post(
-  "/verify-email",
+  '/verify-email',
   validate(validation.verifyEmail),
   controller.verifyEmail,
 );
 
 router.post(
-  "/login",
+  '/login',
   authRateLimiter,
   validate(validation.login),
   controller.login,
 );
 
 router.post(
-  "/refresh",
+  '/refresh',
   authRateLimiter,
   validate(validation.refresh),
   controller.refresh,
 );
 
-router.post("/logout", authMiddleware, controller.logout);
+router.post('/logout', authMiddleware, controller.logout);
 
 /**
  * =====================================================
@@ -49,27 +49,45 @@ router.post("/logout", authMiddleware, controller.logout);
  * =====================================================
  */
 router.post(
-  "/password/request-reset",
+  '/password/request-reset',
   authRateLimiter,
   validate(validation.passwordResetRequest),
   controller.requestPasswordReset,
 );
 
 router.post(
-  "/password/reset",
+  '/password/reset',
   authRateLimiter,
   validate(validation.passwordReset),
   controller.resetPassword,
 );
 
 router.post(
-  "/customer/set-pin",
+  '/customer/set-pin',
   validate(validation.setPin),
   controller.setPin,
 );
 
+// =====================================================
+// CUSTOMER OTP AUTH
+// =====================================================
+
 router.post(
-  "/customer/login",
+  '/customer/request-otp',
+  authRateLimiter,
+  validate(validation.customerRequestOtp),
+  controller.requestOtp,
+);
+
+router.post(
+  '/customer/verify-otp',
+  authRateLimiter,
+  validate(validation.customerVerifyOtp),
+  controller.verifyOtp,
+);
+
+router.post(
+  '/customer/login',
   authRateLimiter,
   validate(validation.loginWithPin),
   controller.loginWithPin,

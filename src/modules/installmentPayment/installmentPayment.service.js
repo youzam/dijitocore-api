@@ -598,7 +598,7 @@ exports.rejectReversal = async ({ businessId, approvalId, approverId }) => {
  */
 exports.listPayments = async (req) => {
   return factory.list({
-    model: prisma.payment,
+    model: prisma.installmentPayment,
     query: req.query,
     businessFilter: { businessId: req.user.businessId },
     searchableFields: ["reference"],
@@ -611,7 +611,7 @@ exports.listPayments = async (req) => {
  */
 exports.listReversals = async (req) => {
   return factory.list({
-    model: prisma.paymentReversal,
+    model: prisma.installmentPaymentReversal,
     query: req.query,
     businessFilter: {
       Payment: { businessId: req.user.businessId },
@@ -621,7 +621,7 @@ exports.listReversals = async (req) => {
 };
 
 exports.getCustomerPayments = async ({ customerId }) => {
-  return prisma.payment.findMany({
+  return prisma.installmentPayment.findMany({
     where: {
       customerId,
       status: "POSTED",

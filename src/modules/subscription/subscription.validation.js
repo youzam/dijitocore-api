@@ -1,10 +1,10 @@
-const Joi = require("joi");
+const Joi = require('joi');
 
 /* ===========================
    COMMON
 =========================== */
 
-const billingCycleSchema = Joi.string().valid("MONTHLY", "YEARLY").required();
+const billingCycleSchema = Joi.string().valid('MONTHLY', 'YEARLY').required();
 
 const uuidSchema = Joi.string().uuid().required();
 
@@ -34,7 +34,7 @@ exports.createPackage = Joi.object({
     .pattern(/^[A-Z0-9_]+$/)
     .required(),
 
-  description: Joi.string().allow("", null),
+  description: Joi.string().allow('', null),
 
   priceMonthly: Joi.number().integer().min(0).required(),
 
@@ -53,7 +53,7 @@ exports.createPackage = Joi.object({
 exports.updatePackage = Joi.object({
   name: Joi.string().trim().min(2).optional(),
 
-  description: Joi.string().allow("", null),
+  description: Joi.string().allow('', null),
 
   priceMonthly: Joi.number().integer().min(0).optional(),
 
@@ -69,3 +69,12 @@ exports.updatePackage = Joi.object({
 })
   // Prevent empty PATCH body
   .min(1);
+exports.initiatePayment = Joi.object({
+  paymentMethod: Joi.string().required(),
+  phone: Joi.string().optional(),
+  couponId: Joi.string().optional(),
+});
+
+exports.applyCoupon = Joi.object({
+  couponCode: Joi.string().required(),
+});

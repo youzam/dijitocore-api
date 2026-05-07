@@ -1,13 +1,13 @@
-const express = require("express");
+const express = require('express');
 const router = express.Router();
 
-const subscriptionController = require("./subscription.controller");
-const subscriptionValidation = require("./subscription.validation");
+const subscriptionController = require('./subscription.controller');
+const subscriptionValidation = require('./subscription.validation');
 
-const validate = require("../../middlewares/validate.middleware");
-const auth = require("../../middlewares/auth.middleware");
-const tenant = require("../../middlewares/tenant.middleware");
-const role = require("../../middlewares/role.middleware");
+const validate = require('../../middlewares/validate.middleware');
+const auth = require('../../middlewares/auth.middleware');
+const tenant = require('../../middlewares/tenant.middleware');
+const role = require('../../middlewares/role.middleware');
 
 /* ===========================
    BUSINESS ROUTES
@@ -15,9 +15,9 @@ const role = require("../../middlewares/role.middleware");
 
 /* CREATE SUBSCRIPTION */
 router.post(
-  "/",
+  '/',
   auth,
-  role(["BUSINESS_OWNER"]),
+  role(['BUSINESS_OWNER']),
   tenant,
   validate(subscriptionValidation.createSubscription),
   subscriptionController.createSubscription,
@@ -25,9 +25,9 @@ router.post(
 
 /* UPGRADE SUBSCRIPTION */
 router.post(
-  "/:id/upgrade",
+  '/:id/upgrade',
   auth,
-  role(["BUSINESS_OWNER"]),
+  role(['BUSINESS_OWNER']),
   tenant,
   validate(subscriptionValidation.upgradeSubscription),
   subscriptionController.upgradeSubscription,
@@ -35,18 +35,19 @@ router.post(
 
 /* INITIATE PAYMENT */
 router.post(
-  "/:id/pay",
+  '/:id/pay',
   auth,
-  role(["BUSINESS_OWNER"]),
+  role(['BUSINESS_OWNER']),
   tenant,
+  validate(subscriptionValidation.initiatePayment),
   subscriptionController.initiatePayment,
 );
 
 /* GET CURRENT SUBSCRIPTION */
 router.get(
-  "/current",
+  '/current',
   auth,
-  role(["BUSINESS_OWNER", "MANAGER"]),
+  role(['BUSINESS_OWNER', 'MANAGER']),
   tenant,
   subscriptionController.getCurrentSubscription,
 );
@@ -56,23 +57,24 @@ router.get(
 | PUBLIC PACKAGES
 |--------------------------------------------------------------------------
 */
-router.get("/packages", subscriptionController.getActivePackages);
+router.get('/packages', subscriptionController.getActivePackages);
 
 /* CALCULATE PRICE */
 router.post(
-  "/:id/calculate-price",
+  '/:id/calculate-price',
   auth,
-  role(["BUSINESS_OWNER"]),
+  role(['BUSINESS_OWNER']),
   tenant,
   subscriptionController.calculatePrice,
 );
 
 /* APPLY COUPON */
 router.post(
-  "/:id/apply-coupon",
+  '/:id/apply-coupon',
   auth,
-  role(["BUSINESS_OWNER"]),
+  role(['BUSINESS_OWNER']),
   tenant,
+  validate(subscriptionValidation.applyCoupon),
   subscriptionController.applyCoupon,
 );
 

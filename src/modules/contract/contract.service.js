@@ -1,21 +1,21 @@
-const { PrismaClient } = require("@prisma/client");
+const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
-const dayjs = require("dayjs");
+const dayjs = require('dayjs');
 
-const AppError = require("../../utils/AppError");
-const approvalEngine = require("../../services/approval/approval.engine"); // PATCH
-const { logAudit } = require("../../utils/audit.helper"); // PATCH
+const AppError = require('../../utils/AppError');
+const approvalEngine = require('../../services/approval/approval.engine'); // PATCH
+const { logAudit } = require('../../utils/audit.helper'); // PATCH
 const {
   createNotification,
-} = require("../../services/notifications/notification.service");
-const subscriptionAuthority = require("../subscription/subscription.authority.service");
+} = require('../../services/notifications/notification.service');
+const subscriptionAuthority = require('../subscription/subscription.authority.service');
 
 /* ================= UTILITIES ================= */
 
 const generateContractNumber = async (businessId) => {
   const count = await prisma.contract.count({ where: { businessId } });
   const year = new Date().getFullYear();
-  return `CNT-${year}-${String(count + 1).padStart(5, "0")}`;
+  return `CNT-${year}-${String(count + 1).padStart(5, '0')}`;
 };
 
 const generateScheduleDates = ({ startDate, frequency, customDays, total }) => {
@@ -25,10 +25,10 @@ const generateScheduleDates = ({ startDate, frequency, customDays, total }) => {
   for (let i = 0; i < total; i++) {
     dates.push(current.toDate());
 
-    if (frequency === "DAILY") current = current.add(1, "day");
-    if (frequency === "WEEKLY") current = current.add(1, "week");
-    if (frequency === "MONTHLY") current = current.add(1, "month");
-    if (frequency === "CUSTOM") current = current.add(customDays, "day");
+    if (frequency === 'DAILY') current = current.add(1, 'day');
+    if (frequency === 'WEEKLY') current = current.add(1, 'week');
+    if (frequency === 'MONTHLY') current = current.add(1, 'month');
+    if (frequency === 'CUSTOM') current = current.add(customDays, 'day');
   }
 
   return dates;
@@ -50,35 +50,35 @@ exports.createContract = async ({ businessId, userId, payload }) => {
   } = payload;
 
   await subscriptionAuthority.assertActiveSubscription(businessId);
-  await subscriptionAuthority.assertFeature(businessId, "allowContracts");
+  await subscriptionAuthority.assertFeature(businessId, 'allowContracts');
 
   const activeContractsCount = await prisma.contract.count({
     where: {
       businessId,
-      status: "ACTIVE",
+      status: 'ACTIVE',
       deletedAt: null,
     },
   });
 
   await subscriptionAuthority.assertLimit(
     businessId,
-    "maxActiveContracts",
+    'maxActiveContracts',
     activeContractsCount,
   );
 
-  if (downPayment > totalValue) throw new Error("contract.invalid-downpayment");
-  if (installmentAmount <= 0) throw new Error("contract.invalid-installment");
-  if (frequency === "CUSTOM" && !customDays)
-    throw new Error("contract.custom-days-required");
+  if (downPayment > totalValue) throw new Error('contract.invalid-downpayment');
+  if (installmentAmount <= 0) throw new Error('contract.invalid-installment');
+  if (frequency === 'CUSTOM' && !customDays)
+    throw new Error('contract.custom-days-required');
 
   const customer = await prisma.customer.findFirst({
     where: { id: customerId, businessId },
   });
 
-  if (!customer) throw new Error("contract.customer-not-found");
+  if (!customer) throw new Error('contract.customer-not-found');
 
-  if (customer.status === "INACTIVE" || customer.isBlacklisted) {
-    throw new Error("customer.inactiveBlacklisted");
+  if (customer.status === 'INACTIVE' || customer.isBlacklisted) {
+    throw new Error('customer.inactiveBlacklisted');
   }
 
   const balance = totalValue - downPayment;
@@ -112,7 +112,7 @@ exports.createContract = async ({ businessId, userId, payload }) => {
         frequency,
         customDays,
         startDate: new Date(startDate),
-        status: "ACTIVE",
+        status: 'ACTIVE',
         activatedAt: new Date(),
         createdBy: userId,
         assets: {
@@ -148,9 +148,9 @@ exports.createContract = async ({ businessId, userId, payload }) => {
   await logAudit({
     businessId,
     userId,
-    entityType: "CONTRACT",
+    entityType: 'CONTRACT',
     entityId: contract.id,
-    action: "CONTRACT_CREATED",
+    action: 'CONTRACT_CREATED',
     metadata: {
       contractNumber: contract.contractNumber,
       totalValue: contract.totalValue,
@@ -161,10 +161,10 @@ exports.createContract = async ({ businessId, userId, payload }) => {
     businessId,
     customerId,
     contractId: contract.id,
-    type: "CONTRACT",
-    channel: "IN_APP",
-    titleKey: "notification.contract.active.title",
-    messageKey: "notification.contract.active.body",
+    type: 'CONTRACT',
+    channel: 'IN_APP',
+    titleKey: 'notification.contract.active.title',
+    messageKey: 'notification.contract.active.body',
     templateVars: {
       contract: contract.contractNumber,
       amount: contract.totalValue,
@@ -176,10 +176,10 @@ exports.createContract = async ({ businessId, userId, payload }) => {
     businessId,
     customerId,
     contractId: contract.id,
-    type: "CONTRACT",
-    channel: "SMS",
-    titleKey: "notification.contract.active.title",
-    messageKey: "notification.contract.active.body",
+    type: 'CONTRACT',
+    channel: 'SMS',
+    titleKey: 'notification.contract.active.title',
+    messageKey: 'notification.contract.active.body',
     templateVars: {
       contract: contract.contractNumber,
       amount: contract.totalValue,
@@ -188,7 +188,7 @@ exports.createContract = async ({ businessId, userId, payload }) => {
   });
 
   const businessUsers = await prisma.user.findMany({
-    where: { businessId, status: "ACTIVE" },
+    where: { businessId, status: 'ACTIVE' },
   });
 
   for (const u of businessUsers) {
@@ -196,10 +196,10 @@ exports.createContract = async ({ businessId, userId, payload }) => {
       businessId,
       userId: u.id,
       contractId: contract.id,
-      type: "CONTRACT",
-      channel: "IN_APP",
-      titleKey: "notification.contract.active.staff.title",
-      messageKey: "notification.contract.active.staff.body",
+      type: 'CONTRACT',
+      channel: 'IN_APP',
+      titleKey: 'notification.contract.active.staff.title',
+      messageKey: 'notification.contract.active.staff.body',
       templateVars: {
         customer: customer.fullName,
         amount: contract.totalValue,
@@ -224,7 +224,7 @@ exports.getContracts = async ({ businessId, query = {} }) => {
       skip: (page - 1) * limit,
       take: Number(limit),
       include: { assets: true, schedules: true },
-      orderBy: { createdAt: "desc" },
+      orderBy: { createdAt: 'desc' },
     }),
     prisma.contract.count({ where }),
   ]);
@@ -245,7 +245,7 @@ exports.getContractById = async ({ businessId, id }) => {
     include: { assets: true, schedules: true },
   });
 
-  if (!contract) throw new Error("contract.not-found");
+  if (!contract) throw new Error('contract.not-found');
 
   return contract;
 };
@@ -256,8 +256,8 @@ exports.updateContract = async ({ businessId, id, payload }) => {
   const contract = await exports.getContractById({ businessId, id });
 
   // 🔒 Only DRAFT contracts can be edited
-  if (contract.status !== "DRAFT") {
-    throw new AppError("contract.edit_not_allowed", 400);
+  if (contract.status !== 'DRAFT') {
+    throw new AppError('contract.edit_not_allowed', 400);
   }
 
   const updated = await prisma.contract.update({
@@ -271,9 +271,9 @@ exports.updateContract = async ({ businessId, id, payload }) => {
   await logAudit({
     businessId,
     userId: payload?.userId || null,
-    entityType: "CONTRACT",
+    entityType: 'CONTRACT',
     entityId: id,
-    action: "CONTRACT_UPDATED",
+    action: 'CONTRACT_UPDATED',
   });
 
   return updated;
@@ -285,51 +285,51 @@ exports.terminateContract = async ({ businessId, id, userId, reason }) => {
   await subscriptionAuthority.assertActiveSubscription(businessId);
 
   // 🔒 Ensure contracts feature enabled
-  await subscriptionAuthority.assertFeature(businessId, "allowContracts");
+  await subscriptionAuthority.assertFeature(businessId, 'allowContracts');
 
   // 🔒 Ensure approvals feature enabled
-  await subscriptionAuthority.assertFeature(businessId, "allowApprovals");
+  await subscriptionAuthority.assertFeature(businessId, 'allowApprovals');
 
   const contract = await exports.getContractById({ businessId, id });
 
-  if (["TERMINATED", "COMPLETED"].includes(contract.status)) {
-    throw new AppError("contract.invalid_termination", 400);
+  if (['TERMINATED', 'COMPLETED'].includes(contract.status)) {
+    throw new AppError('contract.invalid_termination', 400);
   }
 
   return prisma.$transaction(async (tx) => {
     const existingPending = await tx.approvalRequest.findFirst({
       where: {
         businessId,
-        entityType: "CONTRACT",
+        entityType: 'CONTRACT',
         entityId: id,
-        status: "PENDING",
+        status: 'PENDING',
       },
     });
 
     if (existingPending) {
-      throw new AppError("approval.already_pending", 400);
+      throw new AppError('approval.already_pending', 400);
     }
 
     // 🔒 Enforce approval limit
     const approvalCount = await tx.approvalRequest.count({
       where: {
         businessId,
-        status: "PENDING",
+        status: 'PENDING',
       },
     });
 
     await subscriptionAuthority.assertLimit(
       businessId,
-      "maxApprovalRequests",
+      'maxApprovalRequests',
       approvalCount,
     );
 
     const approval = await approvalEngine.createApproval({
       tx,
       businessId,
-      entityType: "CONTRACT",
+      entityType: 'CONTRACT',
       entityId: id,
-      type: "CONTRACT_TERMINATION",
+      type: 'CONTRACT_TERMINATION',
       requestedBy: userId,
       reason,
     });
@@ -338,9 +338,9 @@ exports.terminateContract = async ({ businessId, id, userId, reason }) => {
       tx,
       businessId,
       userId,
-      entityType: "CONTRACT",
+      entityType: 'CONTRACT',
       entityId: id,
-      action: "TERMINATION_REQUESTED",
+      action: 'TERMINATION_REQUESTED',
     });
 
     return { approvalId: approval.id };
@@ -353,10 +353,10 @@ exports.approveTermination = async ({ businessId, approvalId, approverId }) => {
   await subscriptionAuthority.assertActiveSubscription(businessId);
 
   // 🔒 Ensure approvals feature enabled
-  await subscriptionAuthority.assertFeature(businessId, "allowApprovals");
+  await subscriptionAuthority.assertFeature(businessId, 'allowApprovals');
 
   // 🔒 Ensure contracts feature enabled
-  await subscriptionAuthority.assertFeature(businessId, "allowContracts");
+  await subscriptionAuthority.assertFeature(businessId, 'allowContracts');
 
   return prisma.$transaction(async (tx) => {
     const approval = await approvalEngine.approveApproval({
@@ -370,12 +370,12 @@ exports.approveTermination = async ({ businessId, approvalId, approverId }) => {
       where: { id: approval.entityId },
     });
 
-    if (!contract) throw new AppError("contract.not-found", 404);
+    if (!contract) throw new AppError('contract.not-found', 404);
 
     await tx.contract.update({
       where: { id: contract.id },
       data: {
-        status: "TERMINATED",
+        status: 'TERMINATED',
         terminatedAt: new Date(),
         terminationReason: approval.reason,
         terminatedBy: approverId,
@@ -396,9 +396,9 @@ exports.approveTermination = async ({ businessId, approvalId, approverId }) => {
       tx,
       businessId,
       userId: approverId,
-      entityType: "CONTRACT",
+      entityType: 'CONTRACT',
       entityId: contract.id,
-      action: "TERMINATION_APPROVED",
+      action: 'TERMINATION_APPROVED',
     });
 
     return true;
@@ -411,10 +411,10 @@ exports.rejectTermination = async ({ businessId, approvalId, approverId }) => {
   await subscriptionAuthority.assertActiveSubscription(businessId);
 
   // 🔒 Ensure approvals feature enabled
-  await subscriptionAuthority.assertFeature(businessId, "allowApprovals");
+  await subscriptionAuthority.assertFeature(businessId, 'allowApprovals');
 
   // 🔒 Ensure contracts feature enabled
-  await subscriptionAuthority.assertFeature(businessId, "allowContracts");
+  await subscriptionAuthority.assertFeature(businessId, 'allowContracts');
 
   return prisma.$transaction(async (tx) => {
     const approval = await approvalEngine.rejectApproval({
@@ -428,9 +428,9 @@ exports.rejectTermination = async ({ businessId, approvalId, approverId }) => {
       tx,
       businessId,
       userId: approverId,
-      entityType: "CONTRACT",
+      entityType: 'CONTRACT',
       entityId: approval.entityId,
-      action: "TERMINATION_REJECTED",
+      action: 'TERMINATION_REJECTED',
     });
 
     return true;
@@ -443,13 +443,13 @@ exports.completeContract = async ({ businessId, id }) => {
   const contract = await exports.getContractById({ businessId, id });
 
   if (contract.outstandingAmount > 0)
-    throw new Error("contract.balance-not-zero");
+    throw new Error('contract.balance-not-zero');
 
   await prisma.$transaction(async (tx) => {
     await tx.contract.update({
       where: { id },
       data: {
-        status: "COMPLETED",
+        status: 'COMPLETED',
         completedAt: new Date(),
       },
     });
@@ -466,10 +466,10 @@ exports.completeContract = async ({ businessId, id }) => {
     businessId,
     customerId: contract.customerId,
     contractId: contract.id,
-    type: "CONTRACT",
-    channel: "IN_APP",
-    titleKey: "notification.contract.completed.title",
-    messageKey: "notification.contract.completed.body",
+    type: 'CONTRACT',
+    channel: 'IN_APP',
+    titleKey: 'notification.contract.completed.title',
+    messageKey: 'notification.contract.completed.body',
     templateVars: {
       contract: contract.contractNumber,
     },
@@ -480,10 +480,10 @@ exports.completeContract = async ({ businessId, id }) => {
     businessId,
     customerId: contract.customerId,
     contractId: contract.id,
-    type: "CONTRACT",
-    channel: "SMS",
-    titleKey: "notification.contract.completed.title",
-    messageKey: "notification.contract.completed.body",
+    type: 'CONTRACT',
+    channel: 'SMS',
+    titleKey: 'notification.contract.completed.title',
+    messageKey: 'notification.contract.completed.body',
     templateVars: {
       contract: contract.contractNumber,
     },
@@ -493,9 +493,9 @@ exports.completeContract = async ({ businessId, id }) => {
   await logAudit({
     businessId,
     userId: contract.createdBy || null,
-    entityType: "CONTRACT",
+    entityType: 'CONTRACT',
     entityId: contract.id,
-    action: "CONTRACT_COMPLETED",
+    action: 'CONTRACT_COMPLETED',
   });
 
   return true;
@@ -503,11 +503,11 @@ exports.completeContract = async ({ businessId, id }) => {
 
 /* ================= SOFT DELETE ================= */
 
-exports.softDeleteContract = async ({ businessId, id }) => {
+exports.deleteContract = async ({ businessId, id }) => {
   const contract = await exports.getContractById({ businessId, id });
 
   const deleted = await prisma.$transaction(async (tx) => {
-    if (contract.status === "ACTIVE") {
+    if (contract.status === 'ACTIVE') {
       await tx.customer.update({
         where: { id: contract.customerId },
         data: {
@@ -526,9 +526,9 @@ exports.softDeleteContract = async ({ businessId, id }) => {
   await logAudit({
     businessId,
     userId: contract.createdBy || null,
-    entityType: "CONTRACT",
+    entityType: 'CONTRACT',
     entityId: id,
-    action: "CONTRACT_DELETED",
+    action: 'CONTRACT_DELETED',
   });
 
   return deleted;
@@ -542,7 +542,7 @@ exports.softDeleteContract = async ({ businessId, id }) => {
 exports.getCustomerContracts = async ({ id }) => {
   const customerId = id;
   if (!customerId) {
-    throw new AppError("auth.unauthorized", 401);
+    throw new AppError('auth.unauthorized', 401);
   }
 
   const contracts = await prisma.contract.findMany({
@@ -551,13 +551,13 @@ exports.getCustomerContracts = async ({ id }) => {
       assets: true,
       schedules: true,
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: 'desc' },
   });
 
-  const payments = await prisma.payment.findMany({
+  const payments = await prisma.installmentPayment.findMany({
     where: {
       customerId,
-      status: "POSTED",
+      status: 'POSTED',
     },
     select: {
       contractId: true,
@@ -587,7 +587,7 @@ exports.getCustomerContracts = async ({ id }) => {
 
 exports.getCustomerContractById = async ({ contractId, customerId }) => {
   if (!customerId) {
-    throw new AppError("auth.unauthorized", 401);
+    throw new AppError('auth.unauthorized', 401);
   }
 
   const contract = await prisma.contract.findFirst({
@@ -603,11 +603,11 @@ exports.getCustomerContractById = async ({ contractId, customerId }) => {
 
   if (!contract) return null;
 
-  const payments = await prisma.payment.findMany({
+  const payments = await prisma.installmentPayment.findMany({
     where: {
       contractId,
       customerId,
-      status: "POSTED",
+      status: 'POSTED',
     },
     select: {
       amount: true,
@@ -631,8 +631,8 @@ exports.getCustomerContractForStatement = async (contractId, user) => {
   if (
     !user.id ||
     user.isBlacklisted ||
-    user.status === "INACTIVE" ||
-    user.status === "SUSPENDED"
+    user.status === 'INACTIVE' ||
+    user.status === 'SUSPENDED'
   )
     return null;
 
@@ -645,13 +645,13 @@ exports.getCustomerContractForStatement = async (contractId, user) => {
 
   if (!contract) return null;
 
-  const payments = await prisma.payment.findMany({
+  const payments = await prisma.installmentPayment.findMany({
     where: {
       contractId,
       customerId: user.customerId,
-      status: "POSTED",
+      status: 'POSTED',
     },
-    orderBy: { createdAt: "asc" },
+    orderBy: { createdAt: 'asc' },
   });
 
   const totalPaid = payments.reduce((s, p) => s + p.amount, 0);
@@ -670,14 +670,14 @@ exports.getCustomerContractForStatement = async (contractId, user) => {
 exports.listTerminationApprovals = async ({ businessId, status }) => {
   const where = {
     businessId,
-    entityType: "CONTRACT",
-    type: "CONTRACT_TERMINATION",
+    entityType: 'CONTRACT',
+    type: 'CONTRACT_TERMINATION',
   };
 
   if (status) where.status = status;
 
   return prisma.approvalRequest.findMany({
     where,
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: 'desc' },
   });
 };

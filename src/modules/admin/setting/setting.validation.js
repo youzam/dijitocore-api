@@ -1,4 +1,4 @@
-const Joi = require("joi");
+const Joi = require('joi');
 
 /*
 |--------------------------------------------------------------------------
@@ -6,7 +6,7 @@ const Joi = require("joi");
 |--------------------------------------------------------------------------
 */
 exports.updateGateway = Joi.object({
-  gateway: Joi.string().required(),
+  gateway: Joi.array().items(Joi.string()).min(1).required(),
 });
 
 /*

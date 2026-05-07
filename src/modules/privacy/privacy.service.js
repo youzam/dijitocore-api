@@ -1,4 +1,5 @@
 const prisma = require('../../config/prisma');
+const AppError = require('../../utils/AppError');
 const auditHelper = require('../../utils/audit.helper');
 
 exports.createDataRequest = async (data, dbUser, dbCustomer) => {
@@ -11,7 +12,7 @@ exports.createDataRequest = async (data, dbUser, dbCustomer) => {
       requestedByUserId = dbUser.id;
 
       if (data.targetType === 'USER' && data.targetId !== dbUser.id) {
-        throw new Error('Users can only request their own data');
+        throw new AppError('Users can only request their own data');
       }
     }
 
@@ -23,7 +24,7 @@ exports.createDataRequest = async (data, dbUser, dbCustomer) => {
         data.targetType !== 'CUSTOMER' ||
         data.targetId !== requestedByCustomerId
       ) {
-        throw new Error('Customers can only request their own data');
+        throw new AppError('Customers can only request their own data');
       }
     }
 
@@ -38,7 +39,7 @@ exports.createDataRequest = async (data, dbUser, dbCustomer) => {
     });
 
     if (existing) {
-      throw new Error('A similar request is already in progress');
+      throw new AppError('A similar request is already in progress');
     }
 
     // 🔥 FIX: Detect self-export
@@ -116,7 +117,7 @@ exports.getMyDataRequestById = async (id, user) => {
   });
 
   if (!request) {
-    throw new Error('Request not found');
+    throw new AppError('Request not found');
   }
 
   return request;
@@ -165,7 +166,7 @@ exports.updateConsent = async (data, user) => {
   });
 
   if (!existing) {
-    throw new Error('Consent not found');
+    throw new AppError('Consent not found');
   }
 
   const consent = await prisma.consentLog.create({

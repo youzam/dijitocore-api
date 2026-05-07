@@ -36,7 +36,7 @@ exports.getTimeComparisons = async (businessId) => {
   const lastMonthStart = monthStart.subtract(1, "month");
 
   return cache(`dash:time:${businessId}`, 300, async () => {
-    const currentDay = await prisma.payment.aggregate({
+    const currentDay = await prisma.installmentPayment.aggregate({
       where: {
         businessId,
         reversals: { none: { status: "APPROVED" } },
@@ -45,7 +45,7 @@ exports.getTimeComparisons = async (businessId) => {
       _sum: { amount: true },
     });
 
-    const previousDay = await prisma.payment.aggregate({
+    const previousDay = await prisma.installmentPayment.aggregate({
       where: {
         businessId,
         reversals: { none: { status: "APPROVED" } },
@@ -57,7 +57,7 @@ exports.getTimeComparisons = async (businessId) => {
       _sum: { amount: true },
     });
 
-    const thisWeek = await prisma.payment.aggregate({
+    const thisWeek = await prisma.installmentPayment.aggregate({
       where: {
         businessId,
         reversals: { none: { status: "APPROVED" } },
@@ -66,7 +66,7 @@ exports.getTimeComparisons = async (businessId) => {
       _sum: { amount: true },
     });
 
-    const lastWeek = await prisma.payment.aggregate({
+    const lastWeek = await prisma.installmentPayment.aggregate({
       where: {
         businessId,
         reversals: { none: { status: "APPROVED" } },
@@ -78,7 +78,7 @@ exports.getTimeComparisons = async (businessId) => {
       _sum: { amount: true },
     });
 
-    const thisMonth = await prisma.payment.aggregate({
+    const thisMonth = await prisma.installmentPayment.aggregate({
       where: {
         businessId,
         reversals: { none: { status: "APPROVED" } },
@@ -87,7 +87,7 @@ exports.getTimeComparisons = async (businessId) => {
       _sum: { amount: true },
     });
 
-    const lastMonth = await prisma.payment.aggregate({
+    const lastMonth = await prisma.installmentPayment.aggregate({
       where: {
         businessId,
         reversals: { none: { status: "APPROVED" } },
@@ -125,7 +125,7 @@ exports.getStaffMetrics = async (businessId) => {
     const result = [];
 
     for (const staff of staffs) {
-      const collected = await prisma.payment.aggregate({
+      const collected = await prisma.installmentPayment.aggregate({
         where: {
           businessId,
           reversals: { none: { status: "APPROVED" } },
@@ -286,7 +286,7 @@ exports.getFunnelMetrics = async (businessId) => {
     const customers = await prisma.customer.count({ where: { businessId } });
     const contracts = await prisma.contract.count({ where: { businessId } });
 
-    const firstPayments = await prisma.payment.groupBy({
+    const firstPayments = await prisma.installmentPayment.groupBy({
       by: ["contractId"],
       where: {
         businessId,
@@ -315,7 +315,7 @@ exports.getFunnelMetrics = async (businessId) => {
  */
 exports.getHealthScore = async (businessId) => {
   return cache(`dash:health:${businessId}`, 300, async () => {
-    const collectedAgg = await prisma.payment.aggregate({
+    const collectedAgg = await prisma.installmentPayment.aggregate({
       where: {
         businessId,
         reversals: { none: { status: "APPROVED" } },

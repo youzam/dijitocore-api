@@ -1,8 +1,8 @@
-const selcomGateway = require("../../utils/paymentGateway/selcom.gateway");
-const paymentService = require("../subscription/subscription.payment.service");
-const AppError = require("../../utils/AppError");
-const catchAsync = require("../../utils/catchAsync");
-const { isJobExecutionAllowed } = require("../../utils/systemState.helper");
+const selcomGateway = require('../../utils/paymentGateway/selcom.gateway');
+const paymentService = require('../subscription/subscription.payment.service');
+const AppError = require('../../utils/AppError');
+const catchAsync = require('../../utils/catchAsync');
+const { isJobExecutionAllowed } = require('../../utils/systemState.helper');
 
 /**
  * =====================================================
@@ -12,39 +12,36 @@ const { isJobExecutionAllowed } = require("../../utils/systemState.helper");
  */
 exports.handlePaymentWebhook = catchAsync(async (req, res) => {
   const now = Date.now();
-  const timestamp = Number(req.headers["x-timestamp"]);
+  const timestamp = Number(req.headers['x-timestamp']);
 
   if (timestamp && Math.abs(now - timestamp) > 5 * 60 * 1000) {
-    throw new AppError("payment.webhook_expired", 403);
+    throw new AppError('payment.webhook_expired', 403);
   }
 
   // 🚨 GLOBAL WEBHOOK SHUTDOWN GUARD
   const allowed = await isJobExecutionAllowed();
   if (!allowed) {
-    return res.status(503).json({
-      status: "error",
-      message: "System is under emergency shutdown",
-    });
+    throw new AppError('system.emergency_shutdown', 503);
   }
 
-  const provider = req.headers["x-provider"];
+  const provider = req.headers['x-provider'];
 
   if (!provider) {
-    throw new AppError("payment.provider_missing", 400);
+    throw new AppError('payment.provider_missing', 400);
   }
 
   switch (provider) {
-    case "SELCOM":
+    case 'SELCOM':
       return handleSelcom(req, res);
 
-    case "MPESA":
+    case 'MPESA':
       return handleMpesa(req, res);
 
-    case "AIRTEL":
+    case 'AIRTEL':
       return handleAirtel(req, res);
 
     default:
-      throw new AppError("payment.invalid_gateway", 400);
+      throw new AppError('payment.invalid_gateway', 400);
   }
 });
 
@@ -54,17 +51,17 @@ exports.handlePaymentWebhook = catchAsync(async (req, res) => {
  * ===============================
  */
 const handleSelcom = async (req, res) => {
-  const signature = req.headers["x-checksum"];
+  const signature = req.headers['x-checksum'];
 
   const isValid = selcomGateway.verifyWebhook(req.body, signature);
 
   if (!isValid) {
-    throw new AppError("payment.invalid_signature", 403);
+    throw new AppError('payment.invalid_signature', 403);
   }
 
   const { order_id, amount, transaction_id, status } = req.body;
 
-  if (status !== "SUCCESS") {
+  if (status !== 'SUCCESS') {
     return res.status(200).json({});
   }
 
@@ -87,7 +84,7 @@ const handleMpesa = async (req, res) => {
   const callback = req.body?.Body?.stkCallback;
 
   if (!callback) {
-    throw new AppError("payment.invalid_payload", 400);
+    throw new AppError('payment.invalid_payload', 400);
   }
 
   if (callback.ResultCode !== 0) {
@@ -102,8 +99,8 @@ const handleMpesa = async (req, res) => {
   };
 
   const reference = callback.AccountReference;
-  const amount = Number(getValue("Amount"));
-  const transactionId = getValue("MpesaReceiptNumber");
+  const amount = Number(getValue('Amount'));
+  const transactionId = getValue('MpesaReceiptNumber');
 
   await paymentService.processGatewayWebhook({
     reference,
@@ -123,7 +120,7 @@ const handleMpesa = async (req, res) => {
 const handleAirtel = async (req, res) => {
   const body = req.body;
 
-  if (!body || body.status !== "SUCCESS") {
+  if (!body || body.status !== 'SUCCESS') {
     return res.status(200).json({});
   }
 

@@ -883,7 +883,7 @@ const RESOURCE_HANDLERS = {
     }),
 
   payments: (search, p) =>
-    prisma.payment.findMany({
+    prisma.installmentPayment.findMany({
       where: buildSearch('reference', search),
       take: p.limit,
       skip: p.skip,
