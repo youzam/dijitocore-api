@@ -1,12 +1,14 @@
-const express = require("express");
+const express = require('express');
 const router = express.Router();
 
-const auth = require("../../../middlewares/auth.middleware");
-const requirePermission = require("../../../middlewares/permission.middleware");
-const validate = require("../../../middlewares/validate.middleware");
+const auth = require('../../../middlewares/auth.middleware');
+const requirePermission = require('../../../middlewares/permission.middleware');
+const validate = require('../../../middlewares/validate.middleware');
 
-const controller = require("./support.controller");
-const validation = require("./support.validation");
+const controller = require('./support.controller');
+const validation = require('./support.validation');
+
+const PERMISSIONS = require('../../../utils/permission.constants');
 
 router.use(auth);
 
@@ -17,36 +19,36 @@ router.use(auth);
 */
 
 router.post(
-  "/tickets",
-  requirePermission({ module: "SUPPORT", action: "CREATE" }),
+  '/tickets',
+  requirePermission(PERMISSIONS.SUPPORT_TICKET_CREATE_SYSTEM),
   validate(validation.createTicket),
   controller.createTicket,
 );
 
 router.get(
-  "/tickets",
-  requirePermission({ module: "SUPPORT", action: "READ" }),
+  '/tickets',
+  requirePermission(PERMISSIONS.SUPPORT_TICKET_READ_SYSTEM),
   validate(validation.getTickets),
   controller.getTickets,
 );
 
 router.get(
-  "/tickets/:id",
-  requirePermission({ module: "SUPPORT", action: "READ" }),
+  '/tickets/:id',
+  requirePermission(PERMISSIONS.SUPPORT_TICKETBYID_READ_SYSTEM),
   validate(validation.ticketIdParam),
   controller.getTicket,
 );
 
 router.patch(
-  "/tickets/:id",
-  requirePermission({ module: "SUPPORT", action: "UPDATE" }),
+  '/tickets/:id',
+  requirePermission(PERMISSIONS.SUPPORT_TICKET_UPDATE_SYSTEM),
   validate(validation.updateTicket),
   controller.updateTicket,
 );
 
 router.delete(
-  "/tickets/:id",
-  requirePermission({ module: "SUPPORT", action: "DELETE" }),
+  '/tickets/:id',
+  requirePermission(PERMISSIONS.SUPPORT_TICKET_DELETE_SYSTEM),
   validate(validation.ticketIdParam),
   controller.deleteTicket,
 );
@@ -58,8 +60,8 @@ router.delete(
 */
 
 router.patch(
-  "/tickets/:id/assign",
-  requirePermission({ module: "SUPPORT", action: "ASSIGN" }),
+  '/tickets/:id/assign',
+  requirePermission(PERMISSIONS.SUPPORT_TICKETASSIGN_EXECUTE_SYSTEM),
   validate(validation.assignTicket),
   controller.assignTicket,
 );
@@ -71,15 +73,15 @@ router.patch(
 */
 
 router.patch(
-  "/tickets/:id/priority",
-  requirePermission({ module: "SUPPORT", action: "UPDATE" }),
+  '/tickets/:id/priority',
+  requirePermission(PERMISSIONS.SUPPORT_TICKET_UPDATE_SYSTEM),
   validate(validation.changePriority),
   controller.changePriority,
 );
 
 router.patch(
-  "/tickets/:id/status",
-  requirePermission({ module: "SUPPORT", action: "UPDATE" }),
+  '/tickets/:id/status',
+  requirePermission(PERMISSIONS.SUPPORT_TICKET_UPDATE_SYSTEM),
   validate(validation.changeStatus),
   controller.changeStatus,
 );
@@ -91,15 +93,15 @@ router.patch(
 */
 
 router.post(
-  "/tickets/:id/notes",
-  requirePermission({ module: "SUPPORT", action: "UPDATE" }),
+  '/tickets/:id/notes',
+  requirePermission(PERMISSIONS.SUPPORT_TICKETNOTE_CREATE_SYSTEM),
   validate(validation.addNote),
   controller.addInternalNote,
 );
 
 router.get(
-  "/tickets/:id/notes",
-  requirePermission({ module: "SUPPORT", action: "READ" }),
+  '/tickets/:id/notes',
+  requirePermission(PERMISSIONS.SUPPORT_TICKETNOTE_READ_SYSTEM),
   controller.getInternalNotes,
 );
 
@@ -110,15 +112,15 @@ router.get(
 */
 
 router.post(
-  "/tickets/:id/messages",
-  requirePermission({ module: "SUPPORT", action: "UPDATE" }),
+  '/tickets/:id/messages',
+  requirePermission(PERMISSIONS.SUPPORT_TICKETMESSAGE_CREATE_SYSTEM),
   validate(validation.addMessage),
   controller.addMessage,
 );
 
 router.get(
-  "/tickets/:id/messages",
-  requirePermission({ module: "SUPPORT", action: "READ" }),
+  '/tickets/:id/messages',
+  requirePermission(PERMISSIONS.SUPPORT_TICKETMESSAGE_READ_SYSTEM),
   controller.getMessages,
 );
 
@@ -129,21 +131,21 @@ router.get(
 */
 
 router.post(
-  "/tickets/:id/attachments",
-  requirePermission({ module: "SUPPORT", action: "UPDATE" }),
+  '/tickets/:id/attachments',
+  requirePermission(PERMISSIONS.SUPPORT_TICKETATTACHMENT_CREATE_SYSTEM),
   validate(validation.addAttachment),
   controller.addAttachment,
 );
 
 router.get(
-  "/tickets/:id/attachments",
-  requirePermission({ module: "SUPPORT", action: "READ" }),
+  '/tickets/:id/attachments',
+  requirePermission(PERMISSIONS.SUPPORT_TICKETATTACHMENT_READ_SYSTEM),
   controller.getAttachments,
 );
 
 router.get(
-  "/tickets/:id/attachments/:attachmentId/download",
-  requirePermission({ module: "SUPPORT", action: "READ" }),
+  '/tickets/:id/attachments/:attachmentId/download',
+  requirePermission(PERMISSIONS.SUPPORT_ATTACHMENTDOWNLOAD_EXECUTE_SYSTEM),
   controller.downloadAttachment,
 );
 
@@ -154,8 +156,8 @@ router.get(
 */
 
 router.get(
-  "/analytics",
-  requirePermission({ module: "SUPPORT", action: "READ" }),
+  '/analytics',
+  requirePermission(PERMISSIONS.SUPPORT_ANALYTICS_READ_SYSTEM),
   controller.getAnalytics,
 );
 
@@ -166,8 +168,8 @@ router.get(
 */
 
 router.get(
-  "/business/:businessId",
-  requirePermission({ module: "SUPPORT", action: "READ" }),
+  '/business/:businessId',
+  requirePermission(PERMISSIONS.SUPPORT_BUSINESS_READ_SYSTEM),
   validate(validation.businessParam),
   controller.getBusinessTickets,
 );

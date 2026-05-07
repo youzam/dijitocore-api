@@ -125,18 +125,6 @@ exports.listUsers = catchAsync(async (req, res) => {
   return response.success(req, res, data, 200, 'governance.user_list');
 });
 
-exports.lockUser = catchAsync(async (req, res) => {
-  const data = await governanceService.lockUser(req.params.userId);
-
-  return response.success(req, res, data, 200, 'governance.user_locked');
-});
-
-exports.unlockUser = catchAsync(async (req, res) => {
-  const data = await governanceService.unlockUser(req.params.userId);
-
-  return response.success(req, res, data, 200, 'governance.user_unlocked');
-});
-
 exports.updateUserStatus = catchAsync(async (req, res) => {
   const { status } = req.body;
 

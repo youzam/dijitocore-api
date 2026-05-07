@@ -21,6 +21,12 @@ const {
 */
 
 exports.bootstrapSystemService = async ({ email, password, currency }) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+  } catch (err) {
+    throw new Error(err, 'Database not ready');
+  }
+
   const existing = await prisma.systemSetting.findFirst();
 
   if (existing && existing.isBootstrapped) {
@@ -955,7 +961,7 @@ exports.getMySessions = async (actor) => {
   });
 };
 
-exports.revokeSession = async (sessionId, actor) => {
+exports.deleteSession = async (sessionId, actor) => {
   const session = await prisma.adminSession.findUnique({
     where: { id: sessionId },
   });
@@ -964,11 +970,8 @@ exports.revokeSession = async (sessionId, actor) => {
     throw new Error('Unauthorized');
   }
 
-  const updated = await prisma.adminSession.update({
-    where: { id: sessionId },
-    data: {
-      isActive: false,
-    },
+  const deleted = await prisma.adminSession.delete({
+    where: { id: sessionId, adminId: actor.id },
   });
 
   await logAudit({
@@ -980,7 +983,7 @@ exports.revokeSession = async (sessionId, actor) => {
     actorType: 'ADMIN',
   });
 
-  return updated;
+  return deleted;
 };
 
 exports.logoutAdmin = async (actor) => {

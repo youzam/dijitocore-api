@@ -1,13 +1,14 @@
-const express = require("express");
+const express = require('express');
 const router = express.Router();
 
-const controller = require("./communication.controller");
-const auth = require("../../../middlewares/auth.middleware");
-const requirePermission = require("../../../middlewares/permission.middleware");
-const validate = require("../../../middlewares/validate.middleware");
-const rateLimitCommunication = require("../../../middlewares/rateLimit.communication");
+const controller = require('./communication.controller');
+const auth = require('../../../middlewares/auth.middleware');
+const requirePermission = require('../../../middlewares/permission.middleware');
+const validate = require('../../../middlewares/validate.middleware');
+const rateLimitCommunication = require('../../../middlewares/rateLimit.communication');
 
-const validation = require("./communication.validation");
+const validation = require('./communication.validation');
+const PERMISSIONS = require('../../../utils/permission.constants');
 
 /*
 |--------------------------------------------------------------------------
@@ -16,59 +17,39 @@ const validation = require("./communication.validation");
 */
 
 router.post(
-  "/announcements",
+  '/announcements',
   auth,
-  requirePermission({
-    module: "communication",
-    action: "create",
-    scope: "GLOBAL",
-  }),
+  requirePermission(PERMISSIONS.COMMUNICATION_ANNOUNCEMENT_CREATE_SYSTEM),
   validate(validation.createAnnouncement),
   controller.createAnnouncement,
 );
 
 router.put(
-  "/announcements/:id",
+  '/announcements/:id',
   auth,
-  requirePermission({
-    module: "communication",
-    action: "update",
-    scope: "GLOBAL",
-  }),
+  requirePermission(PERMISSIONS.COMMUNICATION_ANNOUNCEMENT_UPDATE_SYSTEM),
   validate(validation.updateAnnouncement),
   controller.updateAnnouncement,
 );
 
 router.delete(
-  "/announcements/:id",
+  '/announcements/:id',
   auth,
-  requirePermission({
-    module: "communication",
-    action: "delete",
-    scope: "GLOBAL",
-  }),
+  requirePermission(PERMISSIONS.COMMUNICATION_ANNOUNCEMENT_DELETE_SYSTEM),
   controller.deleteAnnouncement,
 );
 
 router.get(
-  "/announcements",
+  '/announcements',
   auth,
-  requirePermission({
-    module: "communication",
-    action: "view",
-    scope: "GLOBAL",
-  }),
+  requirePermission(PERMISSIONS.COMMUNICATION_ANNOUNCEMENT_READ_SYSTEM),
   controller.getAnnouncements,
 );
 
 router.get(
-  "/announcements/:id",
+  '/announcements/:id',
   auth,
-  requirePermission({
-    module: "communication",
-    action: "view",
-    scope: "GLOBAL",
-  }),
+  requirePermission(PERMISSIONS.COMMUNICATION_ANNOUNCEMENTBYID_READ_SYSTEM),
   controller.getAnnouncementById,
 );
 
@@ -79,51 +60,35 @@ router.get(
 */
 
 router.post(
-  "/messages/broadcast",
+  '/messages/broadcast',
   auth,
-  rateLimitCommunication, // 🔥 PROTECTION
-  requirePermission({
-    module: "communication",
-    action: "send",
-    scope: "GLOBAL",
-  }),
+  rateLimitCommunication,
+  requirePermission(PERMISSIONS.COMMUNICATION_MESSAGEBROADCAST_EXECUTE_SYSTEM),
   validate(validation.sendBroadcast),
   controller.sendBroadcast,
 );
 
 router.post(
-  "/messages/batch",
+  '/messages/batch',
   auth,
-  rateLimitCommunication, // 🔥 PROTECTION
-  requirePermission({
-    module: "communication",
-    action: "send",
-    scope: "GLOBAL",
-  }),
+  rateLimitCommunication,
+  requirePermission(PERMISSIONS.COMMUNICATION_MESSAGEBATCH_EXECUTE_SYSTEM),
   validate(validation.sendBatch),
   controller.sendBatch,
 );
 
 router.post(
-  "/messages/retry",
+  '/messages/retry',
   auth,
-  rateLimitCommunication, // 🔥 PROTECTION
-  requirePermission({
-    module: "communication",
-    action: "send",
-    scope: "GLOBAL",
-  }),
+  rateLimitCommunication,
+  requirePermission(PERMISSIONS.COMMUNICATION_MESSAGERETRY_EXECUTE_SYSTEM),
   controller.retryFailedMessages,
 );
 
 router.get(
-  "/messages/stats/:messageId",
+  '/messages/stats/:messageId',
   auth,
-  requirePermission({
-    module: "communication",
-    action: "view",
-    scope: "GLOBAL",
-  }),
+  requirePermission(PERMISSIONS.COMMUNICATION_MESSAGESTATS_READ_SYSTEM),
   controller.getMessageStats,
 );
 
@@ -134,59 +99,39 @@ router.get(
 */
 
 router.post(
-  "/templates",
+  '/templates',
   auth,
-  requirePermission({
-    module: "communication",
-    action: "create",
-    scope: "GLOBAL",
-  }),
+  requirePermission(PERMISSIONS.COMMUNICATION_TEMPLATE_CREATE_SYSTEM),
   validate(validation.createTemplate),
   controller.createTemplate,
 );
 
 router.put(
-  "/templates/:id",
+  '/templates/:id',
   auth,
-  requirePermission({
-    module: "communication",
-    action: "update",
-    scope: "GLOBAL",
-  }),
+  requirePermission(PERMISSIONS.COMMUNICATION_TEMPLATE_UPDATE_SYSTEM),
   validate(validation.updateTemplate),
   controller.updateTemplate,
 );
 
 router.delete(
-  "/templates/:id",
+  '/templates/:id',
   auth,
-  requirePermission({
-    module: "communication",
-    action: "delete",
-    scope: "GLOBAL",
-  }),
+  requirePermission(PERMISSIONS.COMMUNICATION_TEMPLATE_DELETE_SYSTEM),
   controller.deleteTemplate,
 );
 
 router.get(
-  "/templates",
+  '/templates',
   auth,
-  requirePermission({
-    module: "communication",
-    action: "view",
-    scope: "GLOBAL",
-  }),
+  requirePermission(PERMISSIONS.COMMUNICATION_TEMPLATE_READ_SYSTEM),
   controller.getTemplates,
 );
 
 router.get(
-  "/templates/:id",
+  '/templates/:id',
   auth,
-  requirePermission({
-    module: "communication",
-    action: "view",
-    scope: "GLOBAL",
-  }),
+  requirePermission(PERMISSIONS.COMMUNICATION_TEMPLATEBYID_READ_SYSTEM),
   controller.getTemplateById,
 );
 

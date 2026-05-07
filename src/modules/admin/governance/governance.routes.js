@@ -1,61 +1,47 @@
-const express = require("express");
+const express = require('express');
 
-const governanceController = require("./governance.controller");
-const requirePermission = require("../../../middlewares/permission.middleware");
-const auth = require("../../../middlewares/auth.middleware");
+const governanceController = require('./governance.controller');
+const requirePermission = require('../../../middlewares/permission.middleware');
+const auth = require('../../../middlewares/auth.middleware');
+
+const PERMISSIONS = require('../../../utils/permission.constants');
 
 const router = express.Router();
 
 /*
 |--------------------------------------------------------------------------
-| GLOBAL AUTH PROTECTION
+| GLOBAL AUTH
 |--------------------------------------------------------------------------
-| All governance routes require authentication first
 */
 router.use(auth);
+
 /*
 |--------------------------------------------------------------------------
-| EXISTING BUSINESS STATUS ROUTES (UNCHANGED)
+| BUSINESS STATUS
 |--------------------------------------------------------------------------
 */
 
 router.post(
-  "/businesses/:businessId/activate",
-  requirePermission({
-    module: "GOVERNANCE",
-    action: "EDIT",
-    scope: "BUSINESS",
-  }),
+  '/businesses/:businessId/activate',
+  requirePermission(PERMISSIONS.GOVERNANCE_BUSINESSACTIVATE_EXECUTE_SYSTEM),
   governanceController.activateBusiness,
 );
 
 router.post(
-  "/businesses/:businessId/grace",
-  requirePermission({
-    module: "GOVERNANCE",
-    action: "EDIT",
-    scope: "BUSINESS",
-  }),
+  '/businesses/:businessId/grace',
+  requirePermission(PERMISSIONS.GOVERNANCE_BUSINESSGRACE_EXECUTE_SYSTEM),
   governanceController.moveToGrace,
 );
 
 router.post(
-  "/businesses/:businessId/suspend",
-  requirePermission({
-    module: "GOVERNANCE",
-    action: "EDIT",
-    scope: "BUSINESS",
-  }),
+  '/businesses/:businessId/suspend',
+  requirePermission(PERMISSIONS.GOVERNANCE_BUSINESSSUSPEND_EXECUTE_SYSTEM),
   governanceController.suspendBusiness,
 );
 
 router.post(
-  "/businesses/:businessId/terminate",
-  requirePermission({
-    module: "GOVERNANCE",
-    action: "EDIT",
-    scope: "BUSINESS",
-  }),
+  '/businesses/:businessId/terminate',
+  requirePermission(PERMISSIONS.GOVERNANCE_BUSINESSTERMINATE_EXECUTE_SYSTEM),
   governanceController.terminateBusiness,
 );
 
@@ -66,52 +52,34 @@ router.post(
 */
 
 router.get(
-  "/businesses",
-  requirePermission({
-    module: "GOVERNANCE",
-    action: "VIEW",
-    scope: "BUSINESS",
-  }),
+  '/businesses',
+  requirePermission(PERMISSIONS.GOVERNANCE_BUSINESS_READ_SYSTEM),
   governanceController.listBusinesses,
 );
 
 router.get(
-  "/businesses/:businessId/timeline",
-  requirePermission({
-    module: "GOVERNANCE",
-    action: "VIEW",
-    scope: "BUSINESS",
-  }),
+  '/businesses/:businessId/timeline',
+  requirePermission(PERMISSIONS.GOVERNANCE_BUSINESSTIMELINE_READ_SYSTEM),
   governanceController.getBusinessTimeline,
 );
 
 router.get(
-  "/businesses/:businessId/revenue",
-  requirePermission({
-    module: "GOVERNANCE",
-    action: "VIEW",
-    scope: "BUSINESS",
-  }),
+  '/businesses/:businessId/revenue',
+  requirePermission(PERMISSIONS.GOVERNANCE_BUSINESSREVENUE_READ_SYSTEM),
   governanceController.getBusinessRevenueSummary,
 );
 
 router.patch(
-  "/businesses/:businessId/change-subscription",
-  requirePermission({
-    module: "GOVERNANCE",
-    action: "EDIT",
-    scope: "BUSINESS",
-  }),
+  '/businesses/:businessId/change-subscription',
+  requirePermission(
+    PERMISSIONS.GOVERNANCE_BUSINESSSUBSCRIPTIONCHANGE_EXECUTE_SYSTEM,
+  ),
   governanceController.changeBusinessSubscription,
 );
 
 router.patch(
-  "/businesses/:businessId/extend-grace",
-  requirePermission({
-    module: "GOVERNANCE",
-    action: "EDIT",
-    scope: "BUSINESS",
-  }),
+  '/businesses/:businessId/extend-grace',
+  requirePermission(PERMISSIONS.GOVERNANCE_BUSINESSGRACEEXTEND_EXECUTE_SYSTEM),
   governanceController.extendBusinessGracePeriod,
 );
 
@@ -122,48 +90,44 @@ router.patch(
 */
 
 router.get(
-  "/users",
-  requirePermission({ module: "GOVERNANCE", action: "VIEW", scope: "USER" }),
+  '/users',
+  requirePermission(PERMISSIONS.GOVERNANCE_USER_READ_SYSTEM),
   governanceController.listUsers,
 );
 
 router.patch(
-  "/users/:userId/lock",
-  requirePermission({ module: "GOVERNANCE", action: "EDIT", scope: "USER" }),
+  '/users/:userId/lock',
+  requirePermission(PERMISSIONS.GOVERNANCE_USERLOCK_EXECUTE_SYSTEM),
   governanceController.lockUser,
 );
 
 router.patch(
-  "/users/:userId/unlock",
-  requirePermission({ module: "GOVERNANCE", action: "EDIT", scope: "USER" }),
+  '/users/:userId/unlock',
+  requirePermission(PERMISSIONS.GOVERNANCE_USERUNLOCK_EXECUTE_SYSTEM),
   governanceController.unlockUser,
 );
 
 router.patch(
-  "/users/:userId/status",
-  requirePermission({
-    module: "GOVERNANCE",
-    action: "UPDATE",
-    scope: "USER",
-  }),
+  '/users/:userId/status',
+  requirePermission(PERMISSIONS.GOVERNANCE_USERSTATUS_UPDATE_SYSTEM),
   governanceController.updateUserStatus,
 );
 
 router.post(
-  "/users/:userId/reset-password",
-  requirePermission({ module: "GOVERNANCE", action: "EDIT", scope: "USER" }),
+  '/users/:userId/reset-password',
+  requirePermission(PERMISSIONS.GOVERNANCE_USERPASSWORDRESET_EXECUTE_SYSTEM),
   governanceController.resetUserPassword,
 );
 
 router.post(
-  "/users/:userId/force-logout",
-  requirePermission({ module: "GOVERNANCE", action: "EDIT", scope: "USER" }),
+  '/users/:userId/force-logout',
+  requirePermission(PERMISSIONS.GOVERNANCE_USERFORCELOGOUT_EXECUTE_SYSTEM),
   governanceController.forceLogoutUser,
 );
 
 router.post(
-  "/users/:userId/impersonate",
-  requirePermission({ module: "GOVERNANCE", action: "EDIT", scope: "USER" }),
+  '/users/:userId/impersonate',
+  requirePermission(PERMISSIONS.GOVERNANCE_USERIMPERSONATE_EXECUTE_SYSTEM),
   governanceController.impersonateUser,
 );
 
@@ -174,84 +138,68 @@ router.post(
 */
 
 router.get(
-  "/customers/:customerId",
-  requirePermission({
-    module: "GOVERNANCE",
-    action: "VIEW",
-    scope: "CUSTOMER",
-  }),
+  '/customers/:customerId',
+  requirePermission(PERMISSIONS.GOVERNANCE_CUSTOMER_READ_SYSTEM),
   governanceController.getCustomerSummary,
 );
 
 router.patch(
-  "/customers/:customerId/blacklist",
-  requirePermission({
-    module: "GOVERNANCE",
-    action: "EDIT",
-    scope: "CUSTOMER",
-  }),
+  '/customers/:customerId/blacklist',
+  requirePermission(PERMISSIONS.GOVERNANCE_CUSTOMERBLACKLIST_EXECUTE_SYSTEM),
   governanceController.blacklistCustomer,
 );
 
 router.patch(
-  "/customers/:customerId/unblacklist",
-  requirePermission({
-    module: "GOVERNANCE",
-    action: "EDIT",
-    scope: "CUSTOMER",
-  }),
+  '/customers/:customerId/unblacklist',
+  requirePermission(PERMISSIONS.GOVERNANCE_CUSTOMERUNBLACKLIST_EXECUTE_SYSTEM),
   governanceController.unblacklistCustomer,
 );
 
 router.get(
-  "/businesses/:businessId",
-  requirePermission({
-    module: "GOVERNANCE",
-    action: "VIEW",
-    scope: "BUSINESS",
-  }),
+  '/businesses/:businessId',
+  requirePermission(PERMISSIONS.GOVERNANCE_BUSINESSPROFILE_READ_SYSTEM),
   governanceController.getBusinessProfile,
 );
 
+/*
+|--------------------------------------------------------------------------
+| SYSTEM GOVERNANCE
+|--------------------------------------------------------------------------
+*/
+
 router.get(
-  "/audit-logs",
-  requirePermission({
-    module: "GOVERNANCE",
-    action: "VIEW",
-    scope: "AUDIT",
-  }),
+  '/audit-logs',
+  requirePermission(PERMISSIONS.GOVERNANCE_AUDITLOG_READ_SYSTEM),
   governanceController.listAdminAuditLogs,
 );
 
 router.get(
-  "/risk-flags",
-  requirePermission({
-    module: "GOVERNANCE",
-    action: "VIEW",
-    scope: "RISK",
-  }),
+  '/risk-flags',
+  requirePermission(PERMISSIONS.GOVERNANCE_RISK_READ_SYSTEM),
   governanceController.getRiskFlags,
 );
 
 router.get(
-  "/search",
-  requirePermission({
-    module: "GOVERNANCE",
-    action: "VIEW",
-    scope: "SEARCH",
-  }),
+  '/search',
+  requirePermission(PERMISSIONS.GOVERNANCE_SEARCH_READ_SYSTEM),
   governanceController.globalSearch,
 );
 
+/*
+|--------------------------------------------------------------------------
+| BULK USER ACTIONS
+|--------------------------------------------------------------------------
+*/
+
 router.post(
-  "/users/lock",
-  requirePermission({ module: "GOVERNANCE", action: "EDIT", scope: "USER" }),
+  '/users/lock',
+  requirePermission(PERMISSIONS.GOVERNANCE_USERLOCK_EXECUTE_SYSTEM),
   governanceController.lockUser,
 );
 
 router.post(
-  "/users/unlock",
-  requirePermission({ module: "GOVERNANCE", action: "EDIT", scope: "USER" }),
+  '/users/unlock',
+  requirePermission(PERMISSIONS.GOVERNANCE_USERUNLOCK_EXECUTE_SYSTEM),
   governanceController.unlockUser,
 );
 

@@ -1,4 +1,3 @@
-const prisma = require('../config/prisma');
 const response = require('../utils/response');
 const { handleSecurityIncident } = require('../utils/incidentEngine');
 
@@ -12,26 +11,20 @@ const permissionCache = new Map();
 
 /*
 |--------------------------------------------------------------------------
-| Build Permission Key
+| Log Violation
 |--------------------------------------------------------------------------
 */
 
-function buildPermissionKey(module, action, scope) {
-  return `${module}_${action}_${scope}`;
-}
-
-async function logPermissionViolation(req, user, module, action, scope) {
+async function logPermissionViolation(req, user, permission) {
   try {
     await handleSecurityIncident({
       type: 'PRIVILEGE_ESCALATION_ATTEMPT',
       title: 'Permission violation',
-      description: `User role ${user?.role} attempted unauthorized action`,
+      description: `User role ${user?.role} attempted ${permission}`,
       source: 'API',
       referenceId: user?.id || null,
       metadata: {
-        module,
-        action,
-        scope,
+        permission,
         path: req.originalUrl,
         method: req.method,
         role: user?.role,
@@ -39,22 +32,22 @@ async function logPermissionViolation(req, user, module, action, scope) {
       },
     });
   } catch (err) {
-    // usivunje flow kama logging imefail
     console.error('Incident logging failed:', err.message);
   }
 }
+
 /*
 |--------------------------------------------------------------------------
-| Require Permission Middleware
+| Require Permission Middleware (NEW)
 |--------------------------------------------------------------------------
 */
 
-module.exports = function requirePermission({ module, action, scope }) {
+module.exports = function requirePermission(requiredPermission) {
   return async (req, res, next) => {
     try {
       /*
       |--------------------------------------------------------------------------
-      | AUTH USER CHECK
+      | AUTH CHECK
       |--------------------------------------------------------------------------
       */
 
@@ -76,131 +69,47 @@ module.exports = function requirePermission({ module, action, scope }) {
 
       /*
       |--------------------------------------------------------------------------
-      | BUILD PERMISSION KEYS
+      | USER PERMISSIONS CHECK
       |--------------------------------------------------------------------------
       */
 
-      const permissionKey = buildPermissionKey(module, action, scope);
-      const globalPermissionKey = buildPermissionKey(module, action, 'GLOBAL');
+      if (!user.permissions || !Array.isArray(user.permissions)) {
+        return response.error(req, res, null, 403, 'auth.forbidden');
+      }
 
-      /*
-      |--------------------------------------------------------------------------
-      | CHECK PERMISSIONS FROM JWT
-      |--------------------------------------------------------------------------
-      */
-
-      if (user.permissions && Array.isArray(user.permissions)) {
-        if (user.permissions.includes(permissionKey)) {
-          return next();
-        }
-
-        // 🔥 GLOBAL FALLBACK (JWT LEVEL)
-        if (user.permissions.includes(globalPermissionKey)) {
-          return next();
-        }
+      if (user.permissions.includes(requiredPermission)) {
+        return next();
       }
 
       /*
       |--------------------------------------------------------------------------
-      | CACHE KEY
+      | CACHE CHECK
       |--------------------------------------------------------------------------
       */
 
-      const cacheKey = `${user.role}_${permissionKey}`;
+      const cacheKey = `${user.role}_${requiredPermission}`;
 
       if (permissionCache.has(cacheKey)) {
         const allowed = permissionCache.get(cacheKey);
 
-        if (allowed) {
-          return next();
-        }
+        if (allowed) return next();
 
-        await logPermissionViolation(req, user, module, action, scope);
+        await logPermissionViolation(req, user, requiredPermission);
         return response.error(req, res, null, 403, 'auth.forbidden');
       }
 
       /*
       |--------------------------------------------------------------------------
-      | FIND PERMISSION (EXACT)
+      | CACHE MISS → DENY
       |--------------------------------------------------------------------------
       */
 
-      let permission = await prisma.permission.findUnique({
-        where: {
-          module_action_scope: {
-            module,
-            action,
-            scope,
-          },
-        },
-      });
+      permissionCache.set(cacheKey, false);
 
-      /*
-      |--------------------------------------------------------------------------
-      | GLOBAL FALLBACK (DB LEVEL)
-      |--------------------------------------------------------------------------
-      */
+      await logPermissionViolation(req, user, requiredPermission);
 
-      if (!permission) {
-        permission = await prisma.permission.findUnique({
-          where: {
-            module_action_scope: {
-              module,
-              action,
-              scope: 'GLOBAL',
-            },
-          },
-        });
-      }
-
-      if (!permission) {
-        permissionCache.set(cacheKey, false);
-
-        return response.error(req, res, null, 403, 'auth.permission_not_found');
-      }
-
-      /*
-      |--------------------------------------------------------------------------
-      | CHECK ROLE PERMISSION
-      |--------------------------------------------------------------------------
-      */
-
-      const rolePermission = await prisma.rolePermission.findFirst({
-        where: {
-          role: user.role,
-          permissionId: permission.id,
-        },
-      });
-
-      const allowed = !!rolePermission;
-
-      /*
-      |--------------------------------------------------------------------------
-      | CACHE RESULT
-      |--------------------------------------------------------------------------
-      */
-
-      permissionCache.set(cacheKey, allowed);
-
-      if (!allowed) {
-        await logPermissionViolation(req, user, module, action, scope);
-        return response.error(req, res, null, 403, 'auth.forbidden');
-      }
-
-      /*
-      |--------------------------------------------------------------------------
-      | PERMISSION GRANTED
-      |--------------------------------------------------------------------------
-      */
-
-      return next();
-    } catch (error)  {
-      /*
-      |--------------------------------------------------------------------------
-      | ERROR HANDLER
-      |--------------------------------------------------------------------------
-      */
-
+      return response.error(req, res, null, 403, 'auth.forbidden');
+    } catch (error) {
       next(error);
     }
   };

@@ -1,8 +1,8 @@
-const catchAsync = require("../../../utils/catchAsync");
-const response = require("../../../utils/response");
+const catchAsync = require('../../../utils/catchAsync');
+const response = require('../../../utils/response');
 
-const accessService = require("./access.service");
-const handlerFactory = require("../../../utils/handlerFactory");
+const accessService = require('./access.service');
+const handlerFactory = require('../../../utils/handlerFactory');
 
 /*
 |--------------------------------------------------------------------------
@@ -13,7 +13,7 @@ const handlerFactory = require("../../../utils/handlerFactory");
 exports.bootstrapSystem = catchAsync(async (req, res) => {
   const data = await accessService.bootstrapSystemService(req.body);
 
-  return response.success(req, res, data, 201, "access.system_bootstrapped");
+  return response.success(req, res, data, 201, 'access.system_bootstrapped');
 });
 
 /*
@@ -25,7 +25,7 @@ exports.bootstrapSystem = catchAsync(async (req, res) => {
 exports.runSeed = catchAsync(async (req, res) => {
   const data = await accessService.runSystemSeed();
 
-  return response.success(req, res, data, 200, "access.system_seed_completed");
+  return response.success(req, res, data, 200, 'access.system_seed_completed');
 });
 
 /*
@@ -36,7 +36,7 @@ exports.runSeed = catchAsync(async (req, res) => {
 exports.setupAdminMFA = catchAsync(async (req, res) => {
   const data = await accessService.setupAdminMFA(req.user.id);
 
-  return response.success(req, res, data, 200, "access.mfa_setup");
+  return response.success(req, res, data, 200, 'access.mfa_setup');
 });
 
 exports.verifyAdminMFASetup = catchAsync(async (req, res) => {
@@ -45,25 +45,25 @@ exports.verifyAdminMFASetup = catchAsync(async (req, res) => {
     req.body.token,
   );
 
-  return response.success(req, res, data, 200, "access.mfa_enabled");
+  return response.success(req, res, data, 200, 'access.mfa_enabled');
 });
 
 exports.disableAdminMFA = catchAsync(async (req, res) => {
   const data = await accessService.disableAdminMFA(req.user.id, req.body.token);
 
-  return response.success(req, res, data, 200, "access.mfa_disabled");
+  return response.success(req, res, data, 200, 'access.mfa_disabled');
 });
 
 exports.adminLogin = catchAsync(async (req, res) => {
   const data = await accessService.adminLogin(req.body, req);
 
-  return response.success(req, res, data, 200, "access.login_success");
+  return response.success(req, res, data, 200, 'access.login_success');
 });
 
 exports.logoutAdmin = catchAsync(async (req, res) => {
   const data = await accessService.logoutAdmin(req.user.id);
 
-  return response.success(req, res, data, 200, "access.logout_success");
+  return response.success(req, res, data, 200, 'access.logout_success');
 });
 
 /*
@@ -75,10 +75,10 @@ exports.logoutAdmin = catchAsync(async (req, res) => {
 exports.createAdmin = catchAsync(async (req, res) => {
   const data = await accessService.createAdmin(req.body, req.user);
 
-  return response.success(req, res, data, 201, "access.admin_created");
+  return response.success(req, res, data, 201, 'access.admin_created');
 });
 
-exports.listAdmins = handlerFactory.getAll("systemAdmin");
+exports.listAdmins = handlerFactory.getAll('systemAdmin');
 
 exports.getAdmin = catchAsync(async (req, res) => {
   const data = await accessService.getAdmin(req.params.id);
@@ -93,13 +93,13 @@ exports.updateAdmin = catchAsync(async (req, res) => {
     req.user,
   );
 
-  return response.success(req, res, data, 200, "access.admin_updated");
+  return response.success(req, res, data, 200, 'access.admin_updated');
 });
 
 exports.suspendAdmin = catchAsync(async (req, res) => {
   const data = await accessService.suspendAdmin(req.params.id, req.user);
 
-  return response.success(req, res, data, 200, "access.admin_suspended");
+  return response.success(req, res, data, 200, 'access.admin_suspended');
 });
 
 /*
@@ -121,7 +121,7 @@ exports.changeAdminRole = catchAsync(async (req, res) => {
     req.user,
   );
 
-  return response.success(req, res, data, 200, "access.admin_role_updated");
+  return response.success(req, res, data, 200, 'access.admin_role_updated');
 });
 
 /*
@@ -139,7 +139,7 @@ exports.getMyProfile = catchAsync(async (req, res) => {
 exports.updateMyProfile = catchAsync(async (req, res) => {
   const data = await accessService.updateMyProfile(req.user.id, req.body);
 
-  return response.success(req, res, data, 200, "access.profile_updated");
+  return response.success(req, res, data, 200, 'access.profile_updated');
 });
 
 /*
@@ -155,7 +155,7 @@ exports.changePassword = catchAsync(async (req, res) => {
     req.body.newPassword,
   );
 
-  return response.success(req, res, data, 200, "access.password_changed");
+  return response.success(req, res, data, 200, 'access.password_changed');
 });
 
 exports.resetAdminPassword = catchAsync(async (req, res) => {
@@ -164,7 +164,7 @@ exports.resetAdminPassword = catchAsync(async (req, res) => {
     req.body.newPassword,
   );
 
-  return response.success(req, res, data, 200, "access.password_reset");
+  return response.success(req, res, data, 200, 'access.password_reset');
 });
 
 /*
@@ -179,10 +179,10 @@ exports.getMySessions = catchAsync(async (req, res) => {
   return response.success(req, res, data);
 });
 
-exports.revokeSession = catchAsync(async (req, res) => {
-  const data = await accessService.revokeSession(req.params.id);
+exports.deleteSession = catchAsync(async (req, res) => {
+  const data = await accessService.deleteSession(req.params.id);
 
-  return response.success(req, res, data, 200, "access.session_revoked");
+  return response.success(req, res, data, 200, 'access.session_revoked');
 });
 
 /*
@@ -194,13 +194,13 @@ exports.revokeSession = catchAsync(async (req, res) => {
 exports.getRole = catchAsync(async (req, res) => {
   const data = await accessService.getRole(req.params.id);
 
-  return response.success(req, res, data, 200, "access.role_fetched");
+  return response.success(req, res, data, 200, 'access.role_fetched');
 });
 
 exports.createRole = catchAsync(async (req, res) => {
   const data = await accessService.createRoleFromEnum(req.body.name, req.user);
 
-  return response.success(req, res, data, 201, "access.role_created");
+  return response.success(req, res, data, 201, 'access.role_created');
 });
 
 exports.updateRole = catchAsync(async (req, res) => {
@@ -210,19 +210,19 @@ exports.updateRole = catchAsync(async (req, res) => {
     req.user,
   );
 
-  return response.success(req, res, data, 200, "access.role_updated");
+  return response.success(req, res, data, 200, 'access.role_updated');
 });
 
 exports.activateRole = catchAsync(async (req, res) => {
   const data = await accessService.activateRole(req.params.id, req.user);
 
-  return response.success(req, res, data, 200, "access.role_activated");
+  return response.success(req, res, data, 200, 'access.role_activated');
 });
 
 exports.deactivateRole = catchAsync(async (req, res) => {
   const data = await accessService.deactivateRole(req.params.id, req.user);
 
-  return response.success(req, res, data, 200, "access.role_deactivated");
+  return response.success(req, res, data, 200, 'access.role_deactivated');
 });
 
 /*
@@ -234,5 +234,5 @@ exports.deactivateRole = catchAsync(async (req, res) => {
 exports.refreshToken = catchAsync(async (req, res) => {
   const data = await accessService.refreshToken(req.body);
 
-  return response.success(req, res, data, 200, "access.token_refreshed");
+  return response.success(req, res, data, 200, 'access.token_refreshed');
 });

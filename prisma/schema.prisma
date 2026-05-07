@@ -994,7 +994,7 @@ model Notification {
   message String
 
   metadata Json?
-  
+
   status String
 
   retryCount       Int   @default(0)
@@ -1172,24 +1172,28 @@ model PaymentReversal {
 //////////////////////////////////////////////////////
 // PERMISSION — System permissions
 //////////////////////////////////////////////////////
-
 model Permission {
   id String @id @default(uuid())
 
-  module String
-  action String
-  scope  String
+  // 🔥 CORE (NEW)
+  name String @unique
 
+  // optional metadata
+  description String?
+
+  // relations
   rolePermissions RolePermission[]
 
+  // 🔁 SOFT DELETE (PRESERVED)
   isDeleted Boolean   @default(false)
   deletedAt DateTime?
   deletedBy String?
 
+  // 🧾 AUDIT (PRESERVED)
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
 
-  @@unique([module, action, scope])
+  @@index([name])
 }
 
 //////////////////////////////////////////////////////
@@ -1311,17 +1315,21 @@ model RolePermission {
 
   permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
 
+  // 🔥 KEEP EXISTING RELATION (NO BREAK)
   systemAdminRoleId String?
   systemAdminRole   SystemAdminRole? @relation(fields: [systemAdminRoleId], references: [id])
 
+  // 🔁 SOFT DELETE (PRESERVED)
   isDeleted Boolean   @default(false)
   deletedAt DateTime?
   deletedBy String?
 
+  // 🧾 AUDIT (PRESERVED)
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
 
   @@unique([role, permissionId])
+  @@index([role])
 }
 
 //////////////////////////////////////////////////////

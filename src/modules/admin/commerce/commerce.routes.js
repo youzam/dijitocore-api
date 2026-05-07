@@ -1,12 +1,14 @@
-const express = require("express");
+const express = require('express');
 const router = express.Router();
 
-const controller = require("./commerce.controller");
-const validation = require("./commerce.validation");
+const controller = require('./commerce.controller');
+const validation = require('./commerce.validation');
 
-const auth = require("../../../middlewares/auth.middleware");
-const requirePermission = require("../../../middlewares/permission.middleware");
-const validate = require("../../../middlewares/validate.middleware");
+const auth = require('../../../middlewares/auth.middleware');
+const requirePermission = require('../../../middlewares/permission.middleware');
+const validate = require('../../../middlewares/validate.middleware');
+
+const PERMISSIONS = require('../../../utils/permission.constants');
 
 // 🔐 GLOBAL AUTH
 router.use(auth);
@@ -18,21 +20,21 @@ router.use(auth);
  */
 
 router.get(
-  "/transactions",
-  requirePermission({ module: "COMMERCE", action: "READ" }),
+  '/transactions',
+  requirePermission(PERMISSIONS.COMMERCE_TRANSACTION_READ_SYSTEM),
   validate(validation.getTransactions),
   controller.getTransactions,
 );
 
 router.get(
-  "/transactions/:id",
-  requirePermission({ module: "COMMERCE", action: "READ" }),
+  '/transactions/:id',
+  requirePermission(PERMISSIONS.COMMERCE_TRANSACTIONBYID_READ_SYSTEM),
   controller.getTransaction,
 );
 
 router.get(
-  "/transactions/:id/drilldown",
-  requirePermission({ module: "COMMERCE", action: "READ" }),
+  '/transactions/:id/drilldown',
+  requirePermission(PERMISSIONS.COMMERCE_TRANSACTIONDRILLDOWN_READ_SYSTEM),
   controller.getTransactionDrilldown,
 );
 
@@ -43,20 +45,20 @@ router.get(
  */
 
 router.post(
-  "/transactions/:id/refund",
-  requirePermission({ module: "COMMERCE", action: "WRITE" }),
+  '/transactions/:id/refund',
+  requirePermission(PERMISSIONS.COMMERCE_TRANSACTIONREFUND_EXECUTE_SYSTEM),
   controller.refundTransaction,
 );
 
 router.post(
-  "/transactions/:id/invoice",
-  requirePermission({ module: "COMMERCE", action: "WRITE" }),
+  '/transactions/:id/invoice',
+  requirePermission(PERMISSIONS.COMMERCE_INVOICEREGENERATE_EXECUTE_SYSTEM),
   controller.regenerateInvoice,
 );
 
 router.post(
-  "/adjustments",
-  requirePermission({ module: "COMMERCE", action: "WRITE" }),
+  '/adjustments',
+  requirePermission(PERMISSIONS.COMMERCE_TRANSACTIONADJUSTMENT_EXECUTE_SYSTEM),
   validate(validation.createAdjustment),
   controller.createAdjustment,
 );
@@ -68,21 +70,21 @@ router.post(
  */
 
 router.post(
-  "/coupons",
-  requirePermission({ module: "COMMERCE", action: "WRITE" }),
+  '/coupons',
+  requirePermission(PERMISSIONS.COMMERCE_COUPON_CREATE_SYSTEM),
   validate(validation.createCoupon),
   controller.createCoupon,
 );
 
 router.get(
-  "/coupons",
-  requirePermission({ module: "COMMERCE", action: "READ" }),
+  '/coupons',
+  requirePermission(PERMISSIONS.COMMERCE_COUPON_READ_SYSTEM),
   controller.getCoupons,
 );
 
 router.patch(
-  "/coupons/:id",
-  requirePermission({ module: "COMMERCE", action: "WRITE" }),
+  '/coupons/:id',
+  requirePermission(PERMISSIONS.COMMERCE_COUPON_UPDATE_SYSTEM),
   validate(validation.updateCoupon),
   controller.updateCoupon,
 );
@@ -94,41 +96,41 @@ router.patch(
  */
 
 router.post(
-  "/packages",
-  requirePermission({ module: "COMMERCE", action: "WRITE" }),
+  '/packages',
+  requirePermission(PERMISSIONS.COMMERCE_PACKAGE_CREATE_SYSTEM),
   validate(validation.createPackage),
   controller.createPackage,
 );
 
 router.get(
-  "/packages",
-  requirePermission({ module: "COMMERCE", action: "READ" }),
+  '/packages',
+  requirePermission(PERMISSIONS.COMMERCE_PACKAGE_READ_SYSTEM),
   controller.getPackages,
 );
 
 router.get(
-  "/packages/:id",
-  requirePermission({ module: "COMMERCE", action: "READ" }),
+  '/packages/:id',
+  requirePermission(PERMISSIONS.COMMERCE_PACKAGEBYID_READ_SYSTEM),
   controller.getPackage,
 );
 
 router.patch(
-  "/packages/:id",
-  requirePermission({ module: "COMMERCE", action: "WRITE" }),
+  '/packages/:id',
+  requirePermission(PERMISSIONS.COMMERCE_PACKAGE_UPDATE_SYSTEM),
   validate(validation.updatePackage),
   controller.updatePackage,
 );
 
 router.patch(
-  "/packages/:id/config",
-  requirePermission({ module: "COMMERCE", action: "WRITE" }),
+  '/packages/:id/config',
+  requirePermission(PERMISSIONS.COMMERCE_PACKAGECONFIGURATION_UPDATE_SYSTEM),
   validate(validation.updatePackageConfiguration),
   controller.updatePackageConfiguration,
 );
 
 router.patch(
-  "/packages/:id/deactivate",
-  requirePermission({ module: "COMMERCE", action: "WRITE" }),
+  '/packages/:id/deactivate',
+  requirePermission(PERMISSIONS.COMMERCE_PACKAGEDEACTIVATE_EXECUTE_SYSTEM),
   controller.deactivatePackage,
 );
 
@@ -139,34 +141,36 @@ router.patch(
  */
 
 router.post(
-  "/subscriptions/:id/change-plan",
-  requirePermission({ module: "COMMERCE", action: "WRITE" }),
+  '/subscriptions/:id/change-plan',
+  requirePermission(PERMISSIONS.COMMERCE_SUBSCRIPTIONPLANCHANGE_EXECUTE_SYSTEM),
   validate(validation.changePlan),
   controller.changeSubscriptionPlan,
 );
 
 router.post(
-  "/subscriptions/:id/cancel",
-  requirePermission({ module: "COMMERCE", action: "WRITE" }),
+  '/subscriptions/:id/cancel',
+  requirePermission(PERMISSIONS.COMMERCE_SUBSCRIPTIONCANCEL_EXECUTE_SYSTEM),
   controller.cancelSubscription,
 );
 
 router.post(
-  "/subscriptions/:id/extend",
-  requirePermission({ module: "COMMERCE", action: "WRITE" }),
+  '/subscriptions/:id/extend',
+  requirePermission(PERMISSIONS.COMMERCE_SUBSCRIPTIONEXTEND_EXECUTE_SYSTEM),
   validate(validation.extendSubscription),
   controller.extendSubscription,
 );
 
 router.get(
-  "/subscriptions/:id/grace",
-  requirePermission({ module: "COMMERCE", action: "READ" }),
+  '/subscriptions/:id/grace',
+  requirePermission(PERMISSIONS.COMMERCE_SUBSCRIPTIONGRACE_READ_SYSTEM),
   controller.getGraceStatus,
 );
 
 router.post(
-  "/subscriptions/:id/grace/extend",
-  requirePermission({ module: "COMMERCE", action: "WRITE" }),
+  '/subscriptions/:id/grace/extend',
+  requirePermission(
+    PERMISSIONS.COMMERCE_SUBSCRIPTIONGRACEEXTEND_EXECUTE_SYSTEM,
+  ),
   validate(validation.extendGrace),
   controller.extendGracePeriod,
 );

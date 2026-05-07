@@ -1,16 +1,18 @@
-const express = require("express");
+const express = require('express');
 
 const router = express.Router();
 
-const validate = require("../../../middlewares/validate.middleware");
+const validate = require('../../../middlewares/validate.middleware');
 const {
   authRateLimiter,
-} = require("../../../middlewares/rateLimit.middleware");
+} = require('../../../middlewares/rateLimit.middleware');
 
-const auth = require("../../../middlewares/auth.middleware");
-const requirePermission = require("../../../middlewares/permission.middleware");
+const auth = require('../../../middlewares/auth.middleware');
+const requirePermission = require('../../../middlewares/permission.middleware');
 
-const accessController = require("./access.controller");
+const PERMISSIONS = require('../../../utils/permission.constants');
+
+const accessController = require('./access.controller');
 
 const {
   bootstrapSchema,
@@ -20,7 +22,7 @@ const {
   changePasswordSchema,
   updateProfileSchema,
   changeRoleSchema,
-} = require("./access.validation");
+} = require('./access.validation');
 
 /*
 |--------------------------------------------------------------------------
@@ -29,7 +31,7 @@ const {
 */
 
 router.post(
-  "/bootstrap",
+  '/bootstrap',
   validate(bootstrapSchema),
   accessController.bootstrapSystem,
 );
@@ -41,13 +43,9 @@ router.post(
 */
 
 router.post(
-  "/seed",
+  '/seed',
   auth,
-  requirePermission({
-    module: "ACCESS",
-    action: "EXECUTE",
-    scope: "SYSTEM",
-  }),
+  requirePermission(PERMISSIONS.ACCESS_ADMIN_EXECUTE_SYSTEM),
   accessController.runSeed,
 );
 
@@ -58,13 +56,13 @@ router.post(
 */
 
 router.post(
-  "/login",
+  '/login',
   authRateLimiter,
   validate(adminLoginSchema),
   accessController.adminLogin,
 );
 
-router.post("/refresh-token", accessController.refreshToken);
+router.post('/refresh-token', accessController.refreshToken);
 
 /*
 |--------------------------------------------------------------------------
@@ -79,65 +77,46 @@ router.use(auth);
 | ADMIN MANAGEMENT
 |--------------------------------------------------------------------------
 */
-router.post("/mfa/setup", accessController.setupAdminMFA);
 
-router.post("/mfa/verify", accessController.verifyAdminMFASetup);
+router.post('/mfa/setup', accessController.setupAdminMFA);
 
-router.post("/mfa/disable", accessController.disableAdminMFA);
+router.post('/mfa/verify', accessController.verifyAdminMFASetup);
+
+router.post('/mfa/disable', accessController.disableAdminMFA);
 
 router.post(
-  "/admins",
-  requirePermission({
-    module: "ACCESS",
-    action: "CREATE",
-    scope: "SYSTEM",
-  }),
+  '/admins',
+  requirePermission(PERMISSIONS.ACCESS_ADMIN_CREATE_SYSTEM),
   validate(createAdminSchema),
   accessController.createAdmin,
 );
 
 router.get(
-  "/admins",
-  requirePermission({
-    module: "ACCESS",
-    action: "READ",
-    scope: "SYSTEM",
-  }),
+  '/admins',
+  requirePermission(PERMISSIONS.ACCESS_ADMIN_READ_SYSTEM),
   accessController.listAdmins,
 );
 
 router.get(
-  "/admins/:id",
-  requirePermission({
-    module: "ACCESS",
-    action: "READ",
-    scope: "SYSTEM",
-  }),
+  '/admins/:id',
+  requirePermission(PERMISSIONS.ACCESS_ADMIN_READ_SYSTEM),
   accessController.getAdmin,
 );
 
 router.patch(
-  "/admins/:id",
-  requirePermission({
-    module: "ACCESS",
-    action: "UPDATE",
-    scope: "SYSTEM",
-  }),
+  '/admins/:id',
+  requirePermission(PERMISSIONS.ACCESS_ADMIN_UPDATE_SYSTEM),
   validate(updateAdminSchema),
   accessController.updateAdmin,
 );
 
 router.patch(
-  "/admins/:id/suspend",
-  requirePermission({
-    module: "ACCESS",
-    action: "EXECUTE",
-    scope: "SYSTEM",
-  }),
+  '/admins/:id/suspend',
+  requirePermission(PERMISSIONS.ACCESS_ADMINSUSPEND_EXECUTE_SYSTEM),
   accessController.suspendAdmin,
 );
 
-router.post("/logout", accessController.logoutAdmin);
+router.post('/logout', accessController.logoutAdmin);
 
 /*
 |--------------------------------------------------------------------------
@@ -146,22 +125,14 @@ router.post("/logout", accessController.logoutAdmin);
 */
 
 router.get(
-  "/roles",
-  requirePermission({
-    module: "ACCESS",
-    action: "READ",
-    scope: "SYSTEM",
-  }),
+  '/roles',
+  requirePermission(PERMISSIONS.ACCESS_ROLE_READ_SYSTEM),
   accessController.listRoles,
 );
 
 router.patch(
-  "/admins/:id/role",
-  requirePermission({
-    module: "ACCESS",
-    action: "UPDATE",
-    scope: "SYSTEM",
-  }),
+  '/admins/:id/role',
+  requirePermission(PERMISSIONS.ACCESS_ROLE_UPDATE_SYSTEM),
   validate(changeRoleSchema),
   accessController.changeAdminRole,
 );
@@ -172,10 +143,10 @@ router.patch(
 |--------------------------------------------------------------------------
 */
 
-router.get("/me", accessController.getMyProfile);
+router.get('/me', accessController.getMyProfile);
 
 router.patch(
-  "/me",
+  '/me',
   validate(updateProfileSchema),
   accessController.updateMyProfile,
 );
@@ -187,18 +158,14 @@ router.patch(
 */
 
 router.patch(
-  "/change-password",
+  '/change-password',
   validate(changePasswordSchema),
   accessController.changePassword,
 );
 
 router.patch(
-  "/admins/:id/reset-password",
-  requirePermission({
-    module: "ACCESS",
-    action: "EXECUTE",
-    scope: "SYSTEM",
-  }),
+  '/admins/:id/reset-password',
+  requirePermission(PERMISSIONS.ACCESS_ADMINPASSWORDRESET_EXECUTE_SYSTEM),
   accessController.resetAdminPassword,
 );
 
@@ -208,9 +175,9 @@ router.patch(
 |--------------------------------------------------------------------------
 */
 
-router.get("/sessions", accessController.getMySessions);
+router.get('/sessions', accessController.getMySessions);
 
-router.delete("/sessions/:id", accessController.revokeSession);
+router.delete('/sessions/:id', accessController.deleteSession);
 
 /*
 |--------------------------------------------------------------------------
@@ -219,52 +186,32 @@ router.delete("/sessions/:id", accessController.revokeSession);
 */
 
 router.get(
-  "/roles/:id",
-  requirePermission({
-    module: "ACCESS",
-    action: "READ",
-    scope: "SYSTEM",
-  }),
+  '/roles/:id',
+  requirePermission(PERMISSIONS.ACCESS_ROLE_READ_SYSTEM),
   accessController.getRole,
 );
 
 router.post(
-  "/roles",
-  requirePermission({
-    module: "ACCESS",
-    action: "CREATE",
-    scope: "SYSTEM",
-  }),
+  '/roles',
+  requirePermission(PERMISSIONS.ACCESS_ROLE_CREATE_SYSTEM),
   accessController.createRole,
 );
 
 router.patch(
-  "/roles/:id",
-  requirePermission({
-    module: "ACCESS",
-    action: "UPDATE",
-    scope: "SYSTEM",
-  }),
+  '/roles/:id',
+  requirePermission(PERMISSIONS.ACCESS_ROLE_UPDATE_SYSTEM),
   accessController.updateRole,
 );
 
 router.patch(
-  "/roles/:id/activate",
-  requirePermission({
-    module: "ACCESS",
-    action: "EXECUTE",
-    scope: "SYSTEM",
-  }),
+  '/roles/:id/activate',
+  requirePermission(PERMISSIONS.ACCESS_ROLEACTIVATE_EXECUTE_SYSTEM),
   accessController.activateRole,
 );
 
 router.patch(
-  "/roles/:id/deactivate",
-  requirePermission({
-    module: "ACCESS",
-    action: "EXECUTE",
-    scope: "SYSTEM",
-  }),
+  '/roles/:id/deactivate',
+  requirePermission(PERMISSIONS.ACCESS_ROLEDEACTIVATE_EXECUTE_SYSTEM),
   accessController.deactivateRole,
 );
 

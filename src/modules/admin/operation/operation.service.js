@@ -5,6 +5,7 @@ const os = require('os');
 const prisma = require('../../../config/prisma');
 const { logAudit } = require('../../../utils/audit.helper');
 const env = require('../../../config/env');
+const checkPermissionIntegrity = require('../../../utils/permissionIntegrity.check');
 
 let storageCache = {
   value: null,
@@ -492,4 +493,13 @@ exports.getJobPerformance = async () => {
   });
 
   return jobs;
+};
+
+exports.syncPermissions = async () => {
+  const result = await checkPermissionIntegrity();
+
+  return {
+    message: 'Permission sync completed',
+    ...result,
+  };
 };

@@ -1,12 +1,14 @@
-const express = require("express");
+const express = require('express');
 const router = express.Router();
 
-const auth = require("../../../middlewares/auth.middleware");
-const requirePermission = require("../../../middlewares/permission.middleware");
-const validate = require("../../../middlewares/validate.middleware");
+const auth = require('../../../middlewares/auth.middleware');
+const requirePermission = require('../../../middlewares/permission.middleware');
+const validate = require('../../../middlewares/validate.middleware');
 
-const controller = require("./compliance.controller");
-const validation = require("./compliance.validation");
+const controller = require('./compliance.controller');
+const validation = require('./compliance.validation');
+
+const PERMISSIONS = require('../../../utils/permission.constants');
 
 /*
 |--------------------------------------------------------------------------
@@ -23,46 +25,38 @@ router.use(auth);
 */
 
 router.post(
-  "/retention",
-  requirePermission({
-    module: "compliance",
-    action: "create",
-    scope: "global",
-  }),
+  '/retention',
+  requirePermission(PERMISSIONS.COMPLIANCE_RETENTIONPOLICY_CREATE_SYSTEM),
   validate(validation.createRetentionPolicy),
   controller.createRetentionPolicy,
 );
 
 router.put(
-  "/retention/:id",
-  requirePermission({
-    module: "compliance",
-    action: "update",
-    scope: "global",
-  }),
+  '/retention/:id',
+  requirePermission(PERMISSIONS.COMPLIANCE_RETENTIONPOLICY_UPDATE_SYSTEM),
   validate(validation.updateRetentionPolicy),
   controller.updateRetentionPolicy,
 );
 
 router.get(
-  "/retention",
-  requirePermission({ module: "compliance", action: "read", scope: "global" }),
+  '/retention',
+  requirePermission(PERMISSIONS.COMPLIANCE_RETENTIONPOLICY_READ_SYSTEM),
   controller.listRetentionPolicies,
 );
 
 router.get(
-  "/retention/resource",
-  requirePermission({ module: "compliance", action: "read", scope: "global" }),
+  '/retention/resource',
+  requirePermission(
+    PERMISSIONS.COMPLIANCE_RETENTIONPOLICYBYRESOURCE_READ_SYSTEM,
+  ),
   controller.getRetentionPolicyByResource,
 );
 
 router.patch(
-  "/retention/:id/toggle",
-  requirePermission({
-    module: "compliance",
-    action: "update",
-    scope: "global",
-  }),
+  '/retention/:id/toggle',
+  requirePermission(
+    PERMISSIONS.COMPLIANCE_RETENTIONPOLICYTOGGLE_EXECUTE_SYSTEM,
+  ),
   validate(validation.toggleRetentionPolicy),
   controller.toggleRetentionPolicy,
 );
@@ -74,14 +68,14 @@ router.patch(
 */
 
 router.get(
-  "/retention/:policyId/versions",
-  requirePermission({ module: "compliance", action: "read", scope: "global" }),
+  '/retention/:policyId/versions',
+  requirePermission(PERMISSIONS.COMPLIANCE_POLICYVERSION_READ_SYSTEM),
   controller.listPolicyVersions,
 );
 
 router.get(
-  "/versions/:id",
-  requirePermission({ module: "compliance", action: "read", scope: "global" }),
+  '/versions/:id',
+  requirePermission(PERMISSIONS.COMPLIANCE_POLICYVERSIONBYID_READ_SYSTEM),
   controller.getPolicyVersionById,
 );
 
@@ -92,34 +86,26 @@ router.get(
 */
 
 router.get(
-  "/requests",
-  requirePermission({ module: "compliance", action: "read", scope: "global" }),
+  '/requests',
+  requirePermission(PERMISSIONS.COMPLIANCE_DATAREQUEST_READ_SYSTEM),
   controller.listDataRequests,
 );
 
 router.get(
-  "/requests/:id",
-  requirePermission({ module: "compliance", action: "read", scope: "global" }),
+  '/requests/:id',
+  requirePermission(PERMISSIONS.COMPLIANCE_DATAREQUESTBYID_READ_SYSTEM),
   controller.getDataRequestById,
 );
 
 router.patch(
-  "/requests/:id/approve",
-  requirePermission({
-    module: "compliance",
-    action: "approve",
-    scope: "global",
-  }),
+  '/requests/:id/approve',
+  requirePermission(PERMISSIONS.COMPLIANCE_DATAREQUESTAPPROVE_EXECUTE_SYSTEM),
   controller.approveDataRequest,
 );
 
 router.patch(
-  "/requests/:id/reject",
-  requirePermission({
-    module: "compliance",
-    action: "approve",
-    scope: "global",
-  }),
+  '/requests/:id/reject',
+  requirePermission(PERMISSIONS.COMPLIANCE_DATAREQUESTREJECT_EXECUTE_SYSTEM),
   controller.rejectDataRequest,
 );
 
@@ -130,24 +116,20 @@ router.patch(
 */
 
 router.get(
-  "/purge",
-  requirePermission({ module: "compliance", action: "read", scope: "global" }),
+  '/purge',
+  requirePermission(PERMISSIONS.COMPLIANCE_PURGEJOB_READ_SYSTEM),
   controller.listPurgeQueue,
 );
 
 router.get(
-  "/purge/:id",
-  requirePermission({ module: "compliance", action: "read", scope: "global" }),
+  '/purge/:id',
+  requirePermission(PERMISSIONS.COMPLIANCE_PURGEJOBBYID_READ_SYSTEM),
   controller.getPurgeQueueItem,
 );
 
 router.patch(
-  "/purge/:id/retry",
-  requirePermission({
-    module: "compliance",
-    action: "update",
-    scope: "global",
-  }),
+  '/purge/:id/retry',
+  requirePermission(PERMISSIONS.COMPLIANCE_PURGEJOBRETRY_EXECUTE_SYSTEM),
   controller.retryPurgeJob,
 );
 
@@ -158,20 +140,20 @@ router.patch(
 */
 
 router.get(
-  "/consent",
-  requirePermission({ module: "compliance", action: "read", scope: "global" }),
+  '/consent',
+  requirePermission(PERMISSIONS.COMPLIANCE_CONSENTLOG_READ_SYSTEM),
   controller.listConsentLogs,
 );
 
 router.get(
-  "/consent/:id",
-  requirePermission({ module: "compliance", action: "read", scope: "global" }),
+  '/consent/:id',
+  requirePermission(PERMISSIONS.COMPLIANCE_CONSENTLOGBYID_READ_SYSTEM),
   controller.getConsentLogById,
 );
 
 router.get(
-  "/requests/:id/download",
-  requirePermission({ module: "compliance", action: "read", scope: "global" }),
+  '/requests/:id/download',
+  requirePermission(PERMISSIONS.COMPLIANCE_EXPORTDOWNLOAD_EXECUTE_SYSTEM),
   controller.downloadExport,
 );
 

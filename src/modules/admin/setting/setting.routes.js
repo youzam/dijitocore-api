@@ -1,9 +1,11 @@
-const express = require("express");
-const controller = require("./setting.controller");
-const validate = require("../../../middlewares/validate.middleware");
-const auth = require("../../../middlewares/auth.middleware");
-const requirePermission = require("../../../middlewares/permission.middleware");
-const validation = require("./setting.validation");
+const express = require('express');
+const controller = require('./setting.controller');
+const validate = require('../../../middlewares/validate.middleware');
+const auth = require('../../../middlewares/auth.middleware');
+const requirePermission = require('../../../middlewares/permission.middleware');
+const validation = require('./setting.validation');
+
+const PERMISSIONS = require('../../../utils/permission.constants');
 
 const router = express.Router();
 
@@ -20,12 +22,8 @@ router.use(auth);
 |--------------------------------------------------------------------------
 */
 router.get(
-  "/",
-  requirePermission({
-    module: "SETTINGS",
-    action: "VIEW",
-    scope: "SYSTEM",
-  }),
+  '/',
+  requirePermission(PERMISSIONS.SETTING_SYSTEM_READ_SYSTEM),
   controller.getSettings,
 );
 
@@ -35,12 +33,8 @@ router.get(
 |--------------------------------------------------------------------------
 */
 router.get(
-  "/history",
-  requirePermission({
-    module: "SETTINGS",
-    action: "VIEW",
-    scope: "SYSTEM",
-  }),
+  '/history',
+  requirePermission(PERMISSIONS.SETTING_HISTORY_READ_SYSTEM),
   controller.getSettingsHistory,
 );
 
@@ -50,12 +44,8 @@ router.get(
 |--------------------------------------------------------------------------
 */
 router.patch(
-  "/gateways",
-  requirePermission({
-    module: "SETTINGS",
-    action: "EDIT",
-    scope: "SYSTEM",
-  }),
+  '/gateways',
+  requirePermission(PERMISSIONS.SETTING_GATEWAY_UPDATE_SYSTEM),
   validate(validation.updateGateway),
   controller.updateActiveGateways,
 );
@@ -66,12 +56,8 @@ router.patch(
 |--------------------------------------------------------------------------
 */
 router.patch(
-  "/security",
-  requirePermission({
-    module: "SETTINGS",
-    action: "EDIT",
-    scope: "SYSTEM",
-  }),
+  '/security',
+  requirePermission(PERMISSIONS.SETTING_SECURITY_UPDATE_SYSTEM),
   validate(validation.updateSecurityConfig),
   controller.updateSecurityConfig,
 );

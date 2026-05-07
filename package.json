@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "src/server.js",
   "scripts": {
-    "dev": "npm run prisma:format && npm run prisma:validate && npm run prisma:generate && npm run prisma:migrate:dev && nodemon src/server.js",
+    "dev": "npm run prisma:format && npm run prisma:validate && npm run prisma:generate && npm run prisma:migrate:dev && npm run scan:permissions && nodemon src/server.js",
     "start": "npm run prisma:format && npm run prisma:validate && npm run prisma:generate && npm run prisma:migrate:deploy && node src/server.js",
     "prisma:format": "prisma format",
     "prisma:validate": "prisma validate",
@@ -17,7 +17,8 @@
     "check:env-unused": "node scripts/check-missing-env.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "scan:permissions": "node scripts/scanPermissions.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1015.0",

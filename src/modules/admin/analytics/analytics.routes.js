@@ -1,11 +1,14 @@
-const express = require("express");
+const express = require('express');
 
-const analyticsController = require("./analytics.controller");
-const analyticsValidation = require("./analytics.validation");
+const analyticsController = require('./analytics.controller');
+const analyticsValidation = require('./analytics.validation');
 
-const auth = require("../../../middlewares/auth.middleware");
-const requirePermission = require("../../../middlewares/permission.middleware");
-const validate = require("../../../middlewares/validate.middleware");
+const auth = require('../../../middlewares/auth.middleware');
+const requirePermission = require('../../../middlewares/permission.middleware');
+const validate = require('../../../middlewares/validate.middleware');
+
+// 🔥 NEW
+const PERMISSIONS = require('../../../utils/permission.constants');
 
 const router = express.Router();
 
@@ -14,19 +17,13 @@ const router = express.Router();
 // =============================
 router.use(auth);
 
-router.use(
-  requirePermission({
-    module: "analytics",
-    action: "read",
-    scope: "global",
-  }),
-);
+router.use(requirePermission(PERMISSIONS.ANALYTICS_DASHBOARD_READ_SYSTEM));
 
 // =============================
 // DASHBOARD
 // =============================
 router.get(
-  "/dashboard",
+  '/dashboard',
   validate(analyticsValidation.query),
   analyticsController.getDashboard,
 );
@@ -35,19 +32,19 @@ router.get(
 // REVENUE
 // =============================
 router.get(
-  "/revenue/trends",
+  '/revenue/trends',
   validate(analyticsValidation.query),
   analyticsController.getRevenueTrends,
 );
 
 router.get(
-  "/revenue/country",
+  '/revenue/country',
   validate(analyticsValidation.query),
   analyticsController.getRevenueByCountry,
 );
 
 router.get(
-  "/revenue/package",
+  '/revenue/package',
   validate(analyticsValidation.query),
   analyticsController.getRevenueByPackage,
 );
@@ -55,19 +52,23 @@ router.get(
 // =============================
 // SUBSCRIPTIONS
 // =============================
-router.get("/subscriptions", analyticsController.getSubscriptionMetrics);
+router.get(
+  '/subscriptions',
+  validate(analyticsValidation.query),
+  analyticsController.getSubscriptionMetrics,
+);
 
 // =============================
 // GROWTH
 // =============================
 router.get(
-  "/growth/business",
+  '/growth/business',
   validate(analyticsValidation.query),
   analyticsController.getBusinessGrowth,
 );
 
 router.get(
-  "/growth/users",
+  '/growth/users',
   validate(analyticsValidation.query),
   analyticsController.getUserGrowth,
 );
@@ -75,62 +76,59 @@ router.get(
 // =============================
 // COHORT
 // =============================
-router.get("/cohort", analyticsController.getCohortAnalysis);
+router.get(
+  '/cohort',
+  validate(analyticsValidation.query),
+  analyticsController.getCohortAnalysis,
+);
 
 // =============================
 // TENANT HEALTH
 // =============================
-router.get("/tenant-health", analyticsController.getTenantHealth);
+router.get(
+  '/tenant-health',
+  validate(analyticsValidation.query),
+  analyticsController.getTenantHealth,
+);
 
 // =============================
 // ADVANCED ANALYTICS
 // =============================
 
 router.get(
-  "/cohort",
-  validate(analyticsValidation.query),
-  analyticsController.getCohortAnalysis,
-);
-
-router.get(
-  "/tenant-health",
-  validate(analyticsValidation.query),
-  analyticsController.getTenantHealth,
-);
-
-router.get(
-  "/cohort-retention",
+  '/cohort-retention',
   validate(analyticsValidation.query),
   analyticsController.getCohortRetention,
 );
 
 router.get(
-  "/usage",
+  '/usage',
   validate(analyticsValidation.query),
   analyticsController.getUsageAnalytics,
 );
 
 router.get(
-  "/expansion-revenue",
+  '/expansion-revenue',
   validate(analyticsValidation.query),
   analyticsController.getExpansionRevenue,
 );
 
 router.get(
-  "/renewal-rate",
+  '/renewal-rate',
   validate(analyticsValidation.query),
   analyticsController.getRenewalRate,
 );
 
 router.get(
-  "/conversion-rate",
+  '/conversion-rate',
   validate(analyticsValidation.query),
   analyticsController.getConversionRate,
 );
 
 router.get(
-  "/tenant-health-advanced",
+  '/tenant-health-advanced',
   validate(analyticsValidation.query),
   analyticsController.getTenantHealthAdvanced,
 );
+
 module.exports = router;

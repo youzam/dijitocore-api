@@ -1,7 +1,7 @@
-const catchAsync = require("../../../utils/catchAsync");
-const response = require("../../../utils/response");
-const handlerFactory = require("../../../utils/handlerFactory");
-const operationService = require("./operation.service");
+const catchAsync = require('../../../utils/catchAsync');
+const response = require('../../../utils/response');
+const handlerFactory = require('../../../utils/handlerFactory');
+const operationService = require('./operation.service');
 
 /*
 |--------------------------------------------------------------------------
@@ -12,7 +12,7 @@ const operationService = require("./operation.service");
 exports.getSystemHealth = catchAsync(async (req, res) => {
   const data = await operationService.getSystemHealth();
 
-  return response.success(req, res, data, 200, "operations.health_fetched");
+  return response.success(req, res, data, 200, 'operations.health_fetched');
 });
 
 /*
@@ -24,7 +24,7 @@ exports.getSystemHealth = catchAsync(async (req, res) => {
 exports.getDbUsage = catchAsync(async (req, res) => {
   const data = await operationService.getDbUsage();
 
-  return response.success(req, res, data, 200, "operations.db_usage_fetched");
+  return response.success(req, res, data, 200, 'operations.db_usage_fetched');
 });
 
 /*
@@ -41,7 +41,7 @@ exports.getStorageUsage = catchAsync(async (req, res) => {
     res,
     data,
     200,
-    "operations.storage_usage_fetched",
+    'operations.storage_usage_fetched',
   );
 });
 
@@ -59,7 +59,7 @@ exports.getApiMetrics = catchAsync(async (req, res) => {
     res,
     data,
     200,
-    "operations.api_metrics_fetched",
+    'operations.api_metrics_fetched',
   );
 });
 
@@ -69,12 +69,12 @@ exports.getApiMetrics = catchAsync(async (req, res) => {
 |--------------------------------------------------------------------------
 */
 
-exports.getJobLogs = handlerFactory.getAll("systemJobLog");
+exports.getJobLogs = handlerFactory.getAll('systemJobLog');
 
 exports.retryFailedJob = catchAsync(async (req, res) => {
   const data = await operationService.retryFailedJob(Number(req.params.jobId));
 
-  return response.success(req, res, data, 200, "operations.job_retried");
+  return response.success(req, res, data, 200, 'operations.job_retried');
 });
 
 /*
@@ -91,7 +91,7 @@ exports.getWebhookStats = catchAsync(async (req, res) => {
     res,
     data,
     200,
-    "operations.webhook_stats_fetched",
+    'operations.webhook_stats_fetched',
   );
 });
 
@@ -109,7 +109,7 @@ exports.getGatewayStats = catchAsync(async (req, res) => {
     res,
     data,
     200,
-    "operations.gateway_stats_fetched",
+    'operations.gateway_stats_fetched',
   );
 });
 
@@ -129,8 +129,8 @@ exports.setMaintenanceMode = catchAsync(async (req, res) => {
     data,
     200,
     enabled
-      ? "operations.maintenance_enabled"
-      : "operations.maintenance_disabled",
+      ? 'operations.maintenance_enabled'
+      : 'operations.maintenance_disabled',
   );
 });
 
@@ -144,7 +144,7 @@ exports.setEmergencyShutdown = catchAsync(async (req, res) => {
     res,
     data,
     200,
-    enabled ? "operations.system_shutdown" : "operations.system_restored",
+    enabled ? 'operations.system_shutdown' : 'operations.system_restored',
   );
 });
 
@@ -158,7 +158,7 @@ exports.setPaymentEnabled = catchAsync(async (req, res) => {
     res,
     data,
     200,
-    "operations.payment_flag_updated",
+    'operations.payment_flag_updated',
   );
 });
 
@@ -172,7 +172,7 @@ exports.setApiWriteEnabled = catchAsync(async (req, res) => {
     res,
     data,
     200,
-    "operations.api_write_flag_updated",
+    'operations.api_write_flag_updated',
   );
 });
 
@@ -181,7 +181,7 @@ exports.setAuthEnabled = catchAsync(async (req, res) => {
 
   const data = await operationService.setAuthEnabled(enabled);
 
-  return response.success(req, res, data, 200, "operations.auth_flag_updated");
+  return response.success(req, res, data, 200, 'operations.auth_flag_updated');
 });
 
 /*
@@ -193,15 +193,21 @@ exports.setAuthEnabled = catchAsync(async (req, res) => {
 exports.getOperationsOverview = catchAsync(async (req, res) => {
   const data = await operationService.getOperationsOverview();
 
-  return response.success(req, res, data, 200, "operations.dashboard_overview");
+  return response.success(req, res, data, 200, 'operations.dashboard_overview');
 });
 
 exports.getJobPerformance = catchAsync(async (req, res) => {
   const data = await operationService.getJobPerformance();
 
-  return response.success(req, res, data, 200, "operations.job_performance");
+  return response.success(req, res, data, 200, 'operations.job_performance');
 });
 
-exports.getRecentJobs = handlerFactory.getAll("systemJobLog");
+exports.getRecentJobs = handlerFactory.getAll('systemJobLog');
 
-exports.getDeadJobs = handlerFactory.getAll("deadJob");
+exports.getDeadJobs = handlerFactory.getAll('deadJob');
+
+exports.syncPermissions = catchAsync(async (req, res) => {
+  const result = await operationService.syncPermissions();
+
+  return response.success(req, res, result, 200);
+});

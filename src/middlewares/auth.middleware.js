@@ -190,7 +190,15 @@ const authMiddleware = async (req, res, next) => {
     const admin = await prisma.systemAdmin.findUnique({
       where: { id: payload.sub },
       include: {
-        role: true,
+        role: {
+          include: {
+            rolePermissions: {
+              include: {
+                permission: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -208,6 +216,7 @@ const authMiddleware = async (req, res, next) => {
       id: admin.id,
       role: admin.role.name,
       identityType: 'system',
+      permissions: admin.role.rolePermissions.map((rp) => rp.permission.name),
     };
 
     return next();
