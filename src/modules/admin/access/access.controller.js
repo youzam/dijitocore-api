@@ -25,7 +25,7 @@ exports.bootstrapSystem = catchAsync(async (req, res) => {
 exports.runSeed = catchAsync(async (req, res) => {
   const data = await accessService.runSystemSeed();
 
-  return response.success(req, res, data, 200, 'access.system_seed_completed');
+  return response.success(req, res, data, 200, 'system.system_seed_completed');
 });
 
 /*

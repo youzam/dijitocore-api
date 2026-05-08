@@ -30,7 +30,6 @@ exports.assignPermissionsToRoles = async (db) => {
     */
     Object.values(PERMISSIONS).forEach((perm) => {
       rolePermissions.push({
-        role: 'SUPER_ADMIN',
         permissionId: map[perm],
         systemAdminRoleId: roleMap['SUPER_ADMIN'],
       });
@@ -84,7 +83,6 @@ exports.assignPermissionsToRoles = async (db) => {
       PERMISSIONS.SUPPORT_BUSINESSTICKET_READ_SYSTEM,
     ].forEach((perm) => {
       rolePermissions.push({
-        role: 'SUPPORT_ADMIN',
         permissionId: map[perm],
         systemAdminRoleId: roleMap['SUPPORT_ADMIN'],
       });
@@ -135,7 +133,6 @@ exports.assignPermissionsToRoles = async (db) => {
       PERMISSIONS.REPORTING_EXPORTDOWNLOAD_EXECUTE_SYSTEM,
     ].forEach((perm) => {
       rolePermissions.push({
-        role: 'FINANCE_ADMIN',
         permissionId: map[perm],
         systemAdminRoleId: roleMap['FINANCE_ADMIN'],
       });
@@ -207,7 +204,6 @@ exports.assignPermissionsToRoles = async (db) => {
       PERMISSIONS.SECURITY_INCIDENT_UPDATE_SYSTEM,
     ].forEach((perm) => {
       rolePermissions.push({
-        role: 'SECURITY_ADMIN',
         permissionId: map[perm],
         systemAdminRoleId: roleMap['SECURITY_ADMIN'],
       });
@@ -249,7 +245,6 @@ exports.assignPermissionsToRoles = async (db) => {
       PERMISSIONS.OPERATION_DEADJOBS_READ_SYSTEM,
     ].forEach((perm) => {
       rolePermissions.push({
-        role: 'OPERATIONS_ADMIN',
         permissionId: map[perm],
         systemAdminRoleId: roleMap['OPERATIONS_ADMIN'],
       });
@@ -264,7 +259,6 @@ exports.assignPermissionsToRoles = async (db) => {
       .filter((p) => p.endsWith('_READ_SYSTEM'))
       .forEach((perm) => {
         rolePermissions.push({
-          role: 'READ_ONLY_AUDITOR',
           permissionId: map[perm],
           systemAdminRoleId: roleMap['READ_ONLY_AUDITOR'],
         });

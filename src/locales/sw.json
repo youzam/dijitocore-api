@@ -198,7 +198,8 @@
     "invalid_gateway": "Gateway ya malipo si sahihi.",
     "settings_not_found": "Mipangilio ya mfumo haijapatikana.",
     "gateway_switch_blocked": "Haiwezekani kubadilisha gateway wakati kuna malipo yanayosubiri.",
-    "settings_missing": "Mipangilio ya mfumo haijawekwa."
+    "settings_missing": "Mipangilio ya mfumo haijawekwa.",
+    "system_seed_completed": "Mfumo umeanzishwa kikamilifu"
   },
 
   "subscription": {

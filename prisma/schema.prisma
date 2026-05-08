@@ -930,7 +930,7 @@ model InstallmentSchedule {
 //////////////////////////////////////////////////////
 
 model JobLock {
-  id String @id @default(cuid())
+  id String @id @default(uuid())
 
   jobName     String   @unique
   lockedAt    DateTime
@@ -953,7 +953,7 @@ model JobLock {
 //////////////////////////////////////////////////////
 
 model LedgerEntry {
-  id String @id @default(cuid())
+  id String @id @default(uuid())
 
   scopeType LedgerScopeType
 
@@ -1362,30 +1362,29 @@ model ReportExport {
 //////////////////////////////////////////////////////
 // ROLE PERMISSION — Role mapping
 //////////////////////////////////////////////////////
-
 model RolePermission {
   id String @id @default(uuid())
 
-  role         AdminRole
-  permissionId String
+  systemAdminRoleId String
+  permissionId      String
 
   permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
 
-  // 🔥 KEEP EXISTING RELATION (NO BREAK)
-  systemAdminRoleId String?
-  systemAdminRole   SystemAdminRole? @relation(fields: [systemAdminRoleId], references: [id])
+  systemAdminRole SystemAdminRole @relation(fields: [systemAdminRoleId], references: [id], onDelete: Cascade)
 
-  // 🔁 SOFT DELETE (PRESERVED)
-  isDeleted Boolean   @default(false)
+  isDeleted Boolean @default(false)
+
   deletedAt DateTime?
+
   deletedBy String?
 
-  // 🧾 AUDIT (PRESERVED)
   createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
 
-  @@unique([role, permissionId])
-  @@index([role])
+  updatedAt DateTime @updatedAt
+
+  @@unique([systemAdminRoleId, permissionId])
+  @@index([systemAdminRoleId])
+  @@index([permissionId])
 }
 
 //////////////////////////////////////////////////////
@@ -1826,13 +1825,13 @@ model SystemSeedLog {
 //////////////////////////////////////////////////////
 
 model SystemSetting {
-  id String @id @default("SYSTEM")
+  id String @id @default(uuid())
 
   activePaymentGateways String[] @default(["SELCOM"])
 
   // 🧠 System lifecycle
   isBootstrapped Boolean @default(false)
-  currency String
+  currency       String
 
   // 🔐 Security config
   maxLoginAttempts Int @default(5)

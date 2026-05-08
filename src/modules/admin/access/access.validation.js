@@ -8,6 +8,8 @@ const bootstrapSchema = Joi.object({
   email: Joi.string().email().required(),
 
   password: Joi.string().min(8).max(64).required(),
+
+  currency: Joi.string().required(),
 });
 
 /**

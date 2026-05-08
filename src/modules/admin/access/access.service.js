@@ -6,13 +6,10 @@ const { runSeeders } = require('../../../database/seeders/seedManager');
 const { seedRegistry } = require('../../../database/seeders/seedRegistry');
 const { logAudit } = require('../../../utils/audit.helper');
 const coreAuth = require('../../auth/core.auth.service');
-const securityService = require('../../../utils/security.helper');
+const { detectLoginAnomaly } = require('../security/security.service');
 
 const speakeasy = require('speakeasy');
 const QRCode = require('qrcode');
-const {
-  SUPPORTED_PAYMENT_GATEWAYS,
-} = require('../../../utils/paymentGateway/supportedGateways');
 
 /*
 |--------------------------------------------------------------------------
@@ -20,7 +17,10 @@ const {
 |--------------------------------------------------------------------------
 */
 
-exports.bootstrapSystemService = async ({ email, password, currency }) => {
+exports.bootstrapSystemService = async (inputBody) => {
+  const { email, password, currency, maxLoginAttempts, lockTimeMinutes } =
+    inputBody;
+
   try {
     await prisma.$queryRaw`SELECT 1`;
   } catch (err) {
@@ -39,10 +39,9 @@ exports.bootstrapSystemService = async ({ email, password, currency }) => {
     const settings = await tx.systemSetting.create({
       data: {
         currency,
-        activePaymentGateways: SUPPORTED_PAYMENT_GATEWAYS,
         isBootstrapped: true,
-        maxLoginAttempts: 5,
-        lockTimeMinutes: 30,
+        maxLoginAttempts: maxLoginAttempts || 5,
+        lockTimeMinutes: lockTimeMinutes || 30,
       },
     });
 
@@ -121,41 +120,89 @@ exports.runSystemSeed = async () => {
 | AUTH
 |--------------------------------------------------------------------------
 */
-
 exports.adminLogin = async ({ email, password, mfaToken }, req) => {
   const settings = await prisma.systemSetting.findFirst();
 
+  /**
+   * =====================================================
+   * 1. LOAD & VALIDATE ADMIN
+   * =====================================================
+   */
+  const admin = await validateAdminLogin({
+    email,
+    password,
+    req,
+    settings,
+  });
+
+  /**
+   * =====================================================
+   * 2. MFA VALIDATION
+   * =====================================================
+   */
+  await validateAdminMfa(admin, mfaToken);
+
+  /**
+   * =====================================================
+   * 3. BUILD AUTH CONTEXT
+   * =====================================================
+   */
+
+  const tokens = coreAuth.generateAuthTokens({
+    sub: admin.id,
+    identity_type: 'system',
+    role: admin.role?.name || admin.role,
+    tokenVersion: admin.tokenVersion,
+    businessId: null,
+  });
+
+  /**
+   * =====================================================
+   * 4. FINALIZE SUCCESS LOGIN
+   * =====================================================
+   */
+  await finalizeAdminLogin({
+    admin,
+    refreshToken: tokens.refreshToken,
+    req,
+  });
+
+  return {
+    accessToken: tokens.accessToken,
+    refreshToken: tokens.refreshToken,
+
+    requirePasswordChange: admin.forcePasswordChange,
+
+    admin: {
+      id: admin.id,
+      email: admin.email,
+      adminRoleId: admin.roleId,
+      status: admin.status,
+    },
+  };
+};
+
+/**
+ * =====================================================
+ * LOGIN VALIDATION HELPER
+ * =====================================================
+ */
+
+const validateAdminLogin = async ({ email, password, req, settings }) => {
   const admin = await prisma.systemAdmin.findUnique({
     where: { email },
-    include: { role: true }, // ✅ FIX
+    include: { role: true },
   });
 
   const genericError = 'Invalid credentials';
 
   if (!admin) {
     await new Promise((resolve) => setTimeout(resolve, 500));
-    await logAudit({
-      userId: admin?.id || null,
-      entityType: 'AUTH',
-      entityId: email,
-      action: 'ADMIN_LOGIN_FAILED',
-      metadata: { reason: 'INVALID_CREDENTIALS' },
-      module: 'ACCESS',
-      actorType: 'ADMIN',
-    });
+
     throw new Error(genericError);
   }
 
   if (admin.lockUntil && admin.lockUntil > new Date()) {
-    await logAudit({
-      userId: admin?.id || null,
-      entityType: 'AUTH',
-      entityId: email,
-      action: 'ADMIN_LOGIN_FAILED',
-      metadata: { reason: 'INVALID_CREDENTIALS' },
-      module: 'ACCESS',
-      actorType: 'ADMIN',
-    });
     throw new Error('Account temporarily locked');
   }
 
@@ -166,6 +213,7 @@ exports.adminLogin = async ({ email, password, mfaToken }, req) => {
    * FAILED LOGIN
    * =====================================================
    */
+
   if (!passwordMatch) {
     const attempts = admin.loginAttempts + 1;
 
@@ -176,8 +224,6 @@ exports.adminLogin = async ({ email, password, mfaToken }, req) => {
         ipAddress: req.ip,
       },
     });
-
-    await securityService.detectLoginAnomaly(admin.id);
 
     if (attempts >= settings.maxLoginAttempts) {
       const lockUntil = new Date(
@@ -197,7 +243,9 @@ exports.adminLogin = async ({ email, password, mfaToken }, req) => {
 
     await prisma.systemAdmin.update({
       where: { id: admin.id },
-      data: { loginAttempts: attempts },
+      data: {
+        loginAttempts: attempts,
+      },
     });
 
     throw new Error(genericError);
@@ -207,22 +255,46 @@ exports.adminLogin = async ({ email, password, mfaToken }, req) => {
     throw new Error('Admin account suspended');
   }
 
-  if (admin.mfaEnabled) {
-    if (!mfaToken) {
-      throw new Error('MFA token required');
-    }
+  return admin;
+};
 
-    const verified = speakeasy.totp.verify({
-      secret: admin.mfaSecret,
-      encoding: 'base32',
-      token: mfaToken,
-      window: 1,
-    });
+/**
+ * =====================================================
+ * MFA HELPER
+ * =====================================================
+ */
 
-    if (!verified) {
-      throw new Error('Invalid MFA token');
-    }
+const validateAdminMfa = async (admin, mfaToken) => {
+  if (!admin.mfaEnabled) {
+    return;
   }
+
+  if (!mfaToken) {
+    throw new Error('MFA token required');
+  }
+
+  const verified = speakeasy.totp.verify({
+    secret: admin.mfaSecret,
+    encoding: 'base32',
+    token: mfaToken,
+    window: 1,
+  });
+
+  if (!verified) {
+    throw new Error('Invalid MFA token');
+  }
+};
+
+/**
+ * =====================================================
+ * SUCCESS LOGIN FINALIZER
+ * =====================================================
+ */
+
+const finalizeAdminLogin = async ({ admin, refreshToken, req }) => {
+  /**
+   * RESET LOGIN STATE
+   */
 
   await prisma.systemAdmin.update({
     where: { id: admin.id },
@@ -233,9 +305,7 @@ exports.adminLogin = async ({ email, password, mfaToken }, req) => {
   });
 
   /**
-   * =====================================================
-   * SUCCESS LOGIN
-   * =====================================================
+   * LOGIN ACTIVITY
    */
 
   await prisma.loginActivity.create({
@@ -246,29 +316,15 @@ exports.adminLogin = async ({ email, password, mfaToken }, req) => {
     },
   });
 
-  await securityService.detectLoginAnomaly(admin.id);
+  /**
+   * LOGIN ANOMALY
+   */
 
-  const rolePermissions = await prisma.rolePermission.findMany({
-    where: { roleId: admin.roleId }, // ✅ FIX
-    include: { permission: true },
-  });
+  await detectLoginAnomaly(admin.id);
 
-  const permissions = rolePermissions.map(
-    (p) =>
-      `${p.permission.module}_${p.permission.action}_${p.permission.scope}`,
-  );
-
-  const tokens = coreAuth.generateAuthTokens({
-    sub: admin.id,
-    identity_type: 'system',
-    role: admin.role?.name || admin.role,
-    tokenVersion: admin.tokenVersion,
-    permissions,
-    businessId: null,
-  });
-
-  const accessToken = tokens.accessToken;
-  const refreshToken = tokens.refreshToken;
+  /**
+   * DEVICE FINGERPRINT
+   */
 
   const rawFingerprint = `${req.ip}-${req.headers['user-agent']}`;
 
@@ -277,20 +333,40 @@ exports.adminLogin = async ({ email, password, mfaToken }, req) => {
     .update(rawFingerprint)
     .digest('hex');
 
-  const sessions = await prisma.adminSession.findMany({
-    where: { adminId: admin.id },
-    orderBy: { createdAt: 'asc' },
-  });
+  /**
+   * SESSION LIMIT
+   */
 
   const MAX_SESSIONS = 3;
 
-  if (sessions.length >= MAX_SESSIONS) {
-    const oldestSession = sessions[0];
+  const sessionCount = await prisma.adminSession.count({
+    where: {
+      adminId: admin.id,
+    },
+  });
 
-    await prisma.adminSession.delete({
-      where: { id: oldestSession.id },
+  if (sessionCount >= MAX_SESSIONS) {
+    const oldestSession = await prisma.adminSession.findFirst({
+      where: {
+        adminId: admin.id,
+      },
+      orderBy: {
+        createdAt: 'asc',
+      },
     });
+
+    if (oldestSession) {
+      await prisma.adminSession.delete({
+        where: {
+          id: oldestSession.id,
+        },
+      });
+    }
   }
+
+  /**
+   * CREATE SESSION
+   */
 
   await prisma.adminSession.create({
     data: {
@@ -303,27 +379,21 @@ exports.adminLogin = async ({ email, password, mfaToken }, req) => {
     },
   });
 
+  /**
+   * AUDIT LOG
+   */
+
   await logAudit({
     userId: admin.id,
     entityType: 'AUTH',
     entityId: admin.id,
     action: 'ADMIN_LOGIN_SUCCESS',
-    metadata: { ip: req.ip },
+    metadata: {
+      ip: req.ip,
+    },
     module: 'ACCESS',
     actorType: 'ADMIN',
   });
-
-  return {
-    accessToken,
-    refreshToken,
-    requirePasswordChange: admin.forcePasswordChange,
-    admin: {
-      id: admin.id,
-      email: admin.email,
-      role: admin.role.name, // ✅ FIX
-      status: admin.status,
-    },
-  };
 };
 
 exports.refreshToken = async ({ refreshToken }) => {
@@ -344,22 +414,11 @@ exports.refreshToken = async ({ refreshToken }) => {
     throw new Error('Session revoked');
   }
 
-  const rolePermissions = await prisma.rolePermission.findMany({
-    where: { roleId: admin.roleId },
-    include: { permission: true },
-  });
-
-  const permissions = rolePermissions.map(
-    (p) =>
-      `${p.permission.module}_${p.permission.action}_${p.permission.scope}`,
-  );
-
   const tokens = coreAuth.generateAuthTokens({
     sub: admin.id,
     identity_type: 'system',
     role: admin.role?.name || admin.role,
     tokenVersion: admin.tokenVersion,
-    permissions,
     businessId: null,
   });
 
@@ -443,7 +502,7 @@ exports.changePassword = async (adminId, currentPassword, newPassword) => {
   });
 
   const rolePermissions = await prisma.rolePermission.findMany({
-    where: { roleId: admin.roleId }, // ✅ FIX
+    where: { systemAdminRoleId: admin.roleId }, // ✅ FIX
     include: { permission: true },
   });
 

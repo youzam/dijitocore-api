@@ -200,7 +200,8 @@
     "invalid_gateway": "Invalid payment gateway selected.",
     "settings_not_found": "System settings not found.",
     "gateway_switch_blocked": "Cannot switch gateway while there are pending payments.",
-    "settings_missing": "System settings are not configured."
+    "settings_missing": "System settings are not configured.",
+    "system_seed_completed": "System bootstrapped successfully"
   },
 
   "subscription": {

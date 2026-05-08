@@ -1,22 +1,22 @@
-const isObject = (val) => val && typeof val === "object" && !Array.isArray(val);
+const isObject = (val) => val && typeof val === 'object' && !Array.isArray(val);
 
 // =========================
 // 🔥 MODEL DETECTION (CONTROLLED)
 // =========================
 const detectModel = (obj) => {
-  if (!obj || typeof obj !== "object") return null;
+  if (!obj || typeof obj !== 'object') return null;
 
   // Customer
-  if ("customerId" in obj && "phone" in obj) return "Customer";
+  if ('customerId' in obj && 'phone' in obj) return 'Customer';
 
   // User
-  if ("role" in obj && "email" in obj) return "User";
+  if ('role' in obj && 'email' in obj) return 'User';
 
   // Business
-  if ("name" in obj && "email" in obj && "phone" in obj) return "Business";
+  if ('name' in obj && 'email' in obj && 'phone' in obj) return 'Business';
 
   // Contract (embedded)
-  if ("customerName" in obj && "customerPhone" in obj) return "Contract";
+  if ('customerName' in obj && 'customerPhone' in obj) return 'Contract';
 
   return null;
 };
@@ -31,10 +31,10 @@ const applyAnonymization = (obj) => {
   // =========================
   // CUSTOMER
   // =========================
-  if (model === "Customer" && obj.isDeleted) {
+  if (model === 'Customer' && obj.isDeleted) {
     return {
       ...obj,
-      name: "Deleted Customer",
+      name: 'Deleted Customer',
       phone: null,
       email: null,
     };
@@ -43,10 +43,10 @@ const applyAnonymization = (obj) => {
   // =========================
   // USER
   // =========================
-  if (model === "User" && obj.isDeleted) {
+  if (model === 'User' && obj.isDeleted) {
     return {
       ...obj,
-      name: "Deleted User",
+      name: 'Deleted User',
       email: null,
       phone: null,
     };
@@ -55,10 +55,10 @@ const applyAnonymization = (obj) => {
   // =========================
   // BUSINESS
   // =========================
-  if (model === "Business" && obj.isDeleted) {
+  if (model === 'Business' && obj.isDeleted) {
     return {
       ...obj,
-      name: "Deleted Business",
+      name: 'Deleted Business',
       email: null,
       phone: null,
     };
@@ -67,11 +67,11 @@ const applyAnonymization = (obj) => {
   // =========================
   // CONTRACT (EMBEDDED PII)
   // =========================
-  if (model === "Contract") {
+  if (model === 'Contract') {
     if (obj.customer?.isDeleted || obj.isDeleted) {
       return {
         ...obj,
-        customerName: "Deleted Customer",
+        customerName: 'Deleted Customer',
         customerPhone: null,
       };
     }
@@ -85,6 +85,11 @@ const applyAnonymization = (obj) => {
 // =========================
 const autoAnonymize = (data) => {
   if (!data) return data;
+
+  // ✅ HANDLE DATE FIRST
+  if (data instanceof Date) {
+    return data.toISOString();
+  }
 
   if (Array.isArray(data)) {
     return data.map(autoAnonymize);

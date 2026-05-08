@@ -42,12 +42,7 @@ router.post(
 |--------------------------------------------------------------------------
 */
 
-router.post(
-  '/seed',
-  auth,
-  requirePermission(PERMISSIONS.ACCESS_ADMIN_EXECUTE_SYSTEM),
-  accessController.runSeed,
-);
+router.post('/seed', accessController.runSeed);
 
 /*
 |--------------------------------------------------------------------------

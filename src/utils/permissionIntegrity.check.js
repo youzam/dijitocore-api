@@ -1,7 +1,4 @@
 const db = require('../config/prisma');
-const {
-  assignPermissionsToRoles,
-} = require('../database/seeders/rolePermissionSeeder');
 const PERMISSIONS = require('../utils/permission.constants');
 
 module.exports = async function checkPermissionIntegrity() {
@@ -21,39 +18,41 @@ module.exports = async function checkPermissionIntegrity() {
     // =============================
     // 2. GET DB PERMISSIONS
     // =============================
-    const dbPermissions = await db.permission.findMany();
+    const dbPermissions = await db.permission.findMany({
+      select: {
+        name: true,
+      },
+    });
+
     const dbNames = dbPermissions.map((p) => p.name);
 
     const constantNames = Object.values(PERMISSIONS);
 
     // =============================
-    // 3. FIND NEW PERMISSIONS
+    // 3. FIND MISSING
     // =============================
     const missing = constantNames.filter((p) => !dbNames.includes(p));
 
+    // =============================
+    // 4. REPORT ONLY
+    // =============================
     if (missing.length === 0) {
-      console.log('✅ No new permissions found');
+      console.log('✅ Permission integrity OK');
       return;
     }
 
-    console.log(`⚡ Found ${missing.length} new permissions`);
+    console.log(`⚠️ Found ${missing.length} missing permissions\n`);
 
-    // =============================
-    // 4. SEED NEW PERMISSIONS
-    // =============================
-    await db.permission.createMany({
-      data: missing.map((name) => ({ name })),
-      skipDuplicates: true,
+    missing.forEach((permission, index) => {
+      console.log(`${index + 1}. ${permission}`);
     });
 
-    console.log('✅ New permissions seeded');
+    console.log('\n🛑 No permissions were inserted automatically');
 
-    // =============================
-    // 5. RE-ASSIGN USING SEEDER
-    // =============================
-    await assignPermissionsToRoles(db);
-
-    console.log('🔁 Roles re-synced with new permissions');
+    return {
+      missingCount: missing.length,
+      missingPermissions: missing,
+    };
   } catch (err) {
     console.error('❌ Permission integrity failed:', err.message);
   }

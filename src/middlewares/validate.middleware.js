@@ -12,13 +12,11 @@ const validate = (schema) => {
     | 2. { body, params, query }             → full validation (new)
     */
 
-    if (schema instanceof Joi.ObjectSchema) {
-      // legacy (body only)
+    if (Joi.isSchema(schema)) {
       validationSchema = Joi.object({
         body: schema,
       });
     } else {
-      // new enterprise pattern
       validationSchema = Joi.object({
         body: schema.body || Joi.object({}),
         params: schema.params || Joi.object({}),
