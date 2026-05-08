@@ -11,34 +11,61 @@ const subscriptionControlService = require('./subscription-control.service');
 
 /**
  * =========================
- * TRANSACTIONS
+ * LEDGER
  * =========================
  */
 
-exports.getTransactions = catchAsync(async (req, res) => {
-  const data = await ledgerService.getTransactions(req.query);
+exports.getLedger = catchAsync(async (req, res) => {
+  const data = await ledgerService.getLedger(req.query);
 
-  return response.success(req, res, data, 200, 'commerce.transactions_fetched');
+  return response.success(req, res, data, 200, 'commerce.ledger_fetched');
 });
 
-exports.getTransaction = catchAsync(async (req, res) => {
-  const data = await ledgerService.getTransactionById(req.params.id);
+exports.getLedgerEntry = catchAsync(async (req, res) => {
+  const data = await ledgerService.getLedgerEntry({
+    id: req.params.id,
+  });
 
-  return response.success(req, res, data, 200, 'commerce.transaction_fetched');
+  return response.success(req, res, data, 200, 'commerce.ledger_entry_fetched');
 });
 
-exports.getTransactionDrilldown = catchAsync(async (req, res) => {
-  const data = await ledgerService.getTransactionDrilldown(req.params.id);
+exports.getLedgerDrilldown = catchAsync(async (req, res) => {
+  const data = await ledgerService.getLedgerDrilldown({
+    id: req.params.id,
+  });
 
   return response.success(
     req,
     res,
     data,
     200,
-    'commerce.transaction_drilldown_fetched',
+    'commerce.ledger_drilldown_fetched',
   );
 });
 
+exports.getLedgerBalance = catchAsync(async (req, res) => {
+  const data = await ledgerService.getLedgerBalance();
+
+  return response.success(
+    req,
+    res,
+    data,
+    200,
+    'commerce.ledger_balance_fetched',
+  );
+});
+
+exports.getLedgerAnalytics = catchAsync(async (req, res) => {
+  const data = await ledgerService.getLedgerAnalytics(req.query);
+
+  return response.success(
+    req,
+    res,
+    data,
+    200,
+    'commerce.ledger_analytics_fetched',
+  );
+});
 /**
  * =========================
  * FINANCIAL

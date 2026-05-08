@@ -1,14 +1,15 @@
-const prisma = require("../../config/prisma");
-const factory = require("../../utils/handlerFactory");
-const { logAudit } = require("../../utils/audit.helper");
+const prisma = require('../../config/prisma');
+const factory = require('../../utils/handlerFactory');
+const { logAudit } = require('../../utils/audit.helper');
 
 const {
   createNotification,
-} = require("../../services/notifications/notification.service");
-const approvalEngine = require("../../services/approval/approval.engine");
-const subscriptionAuthority = require("../subscription/subscription.authority.service");
-const { handleSecurityIncident } = require("../../utils/incidentEngine");
-const AppError = require("../../utils/AppError");
+} = require('../../services/notifications/notification.service');
+const approvalEngine = require('../../services/approval/approval.engine');
+const subscriptionAuthority = require('../subscription/subscription.authority.service');
+const { handleSecurityIncident } = require('../../utils/incidentEngine');
+const AppError = require('../../utils/AppError');
+const ledgerService = require('../../services/ledger.service');
 
 /**
  * Guard: Payment update allowed only via reversal flow.
@@ -25,14 +26,14 @@ async function guardPaymentMutation({
   attemptedChanges,
 }) {
   // ✅ ALLOW ONLY REVERSAL FLOW
-  if (flow === "REVERSAL") return;
+  if (flow === 'REVERSAL') return;
 
   // 🔴 BLOCK ANY OTHER ATTEMPT
   await handleSecurityIncident({
-    type: "PAYMENT_TAMPERING_ATTEMPT",
-    title: "Unauthorized payment mutation attempt",
+    type: 'PAYMENT_TAMPERING_ATTEMPT',
+    title: 'Unauthorized payment mutation attempt',
     description: `User ${user?.id} attempted direct payment modification`,
-    source: "API",
+    source: 'API',
     referenceId: paymentId,
     metadata: {
       userId: user?.id,
@@ -41,7 +42,7 @@ async function guardPaymentMutation({
     },
   });
 
-  throw new AppError("payment.update_forbidden", 403);
+  throw new AppError('payment.update_forbidden', 403);
 }
 
 /**
@@ -62,32 +63,45 @@ exports.recordPayment = async ({
 }) => {
   // 🔒 SUBSCRIPTION ENFORCEMENT (SAFE INJECTION)
   await subscriptionAuthority.assertActiveSubscription(businessId);
-  await subscriptionAuthority.assertFeature(businessId, "allowPayments");
+  await subscriptionAuthority.assertFeature(businessId, 'allowPayments');
 
-  const payment = await prisma.$transaction(async (tx) => {
+  const { payment, ledgerContext } = await prisma.$transaction(async (tx) => {
     /* =====================================================
-       IDEMPOTENCY CHECK
-       ===================================================== */
+         IDEMPOTENCY CHECK
+         ===================================================== */
     if (idempotencyKey) {
       const existing = await tx.installmentPayment.findFirst({
-        where: { businessId, idempotencyKey },
+        where: {
+          businessId,
+          idempotencyKey,
+        },
       });
 
       if (existing) {
         await logAudit({
           businessId,
           userId,
-          entityType: "PAYMENT",
+          entityType: 'PAYMENT',
           entityId: existing.id,
-          action: "PAYMENT_IDEMPOTENT_HIT",
+          action: 'PAYMENT_IDEMPOTENT_HIT',
         });
 
-        return existing;
+        return {
+          payment: existing,
+
+          ledgerContext: {
+            businessId,
+            contractId,
+            customerId,
+            businessName: null,
+            country: null,
+          },
+        };
       }
     }
 
     if (reference) {
-      const duplicate = await tx.payment.findFirst({
+      const duplicate = await tx.installmentPayment.findFirst({
         where: {
           businessId,
           contractId,
@@ -98,9 +112,12 @@ exports.recordPayment = async ({
 
       if (duplicate) {
         await handleSecurityIncident({
-          type: "DUPLICATE_PAYMENT_ATTEMPT",
-          source: "API",
+          type: 'DUPLICATE_PAYMENT_ATTEMPT',
+
+          source: 'API',
+
           referenceId: contractId,
+
           metadata: {
             reference,
             amount,
@@ -109,74 +126,82 @@ exports.recordPayment = async ({
           },
         });
 
-        throw new Error("payment.duplicate_detected");
+        throw new Error('payment.duplicate_detected');
       }
     }
 
     /* =====================================================
-       VALIDATE CUSTOMER
-       ===================================================== */
+         VALIDATE CUSTOMER
+         ===================================================== */
     const customer = await tx.customer.findFirst({
-      where: { id: customerId, businessId },
+      where: {
+        id: customerId,
+        businessId,
+      },
     });
 
-    if (!customer) throw new Error("customer.not_found");
+    if (!customer) throw new Error('customer.not_found');
 
-    if (customer.status === "INACTIVE" || customer.isBlacklisted) {
-      throw new Error("customer.inactiveBlacklisted");
+    if (customer.status === 'INACTIVE' || customer.isBlacklisted) {
+      throw new Error('customer.inactiveBlacklisted');
     }
 
     /* =====================================================
-       VALIDATE CONTRACT
-       ===================================================== */
+         VALIDATE CONTRACT
+         ===================================================== */
     const contract = await tx.contract.findFirst({
-      where: { id: contractId, businessId },
+      where: {
+        id: contractId,
+        businessId,
+      },
+
       include: {
         schedules: true,
+
         business: {
           include: {
             users: {
-              where: { status: "ACTIVE" },
+              where: {
+                status: 'ACTIVE',
+              },
             },
           },
         },
       },
     });
 
-    if (!contract) throw new Error("contract.not_found");
+    if (!contract) throw new Error('contract.not_found');
 
     if (contract.customerId !== customerId) {
-      throw new Error("payment.customer_mismatch");
+      throw new Error('payment.customer_mismatch');
     }
 
-    if (["TERMINATED", "COMPLETED"].includes(contract.status)) {
-      throw new Error("contract.closed");
+    if (['TERMINATED', 'COMPLETED'].includes(contract.status)) {
+      throw new Error('contract.closed');
     }
 
     /* =====================================================
-       CALCULATE PAYABLE
-       ===================================================== */
-    /* =====================================================
-   VALIDATE PAYMENT AMOUNT (STRICT)
-   ===================================================== */
+         VALIDATE PAYMENT AMOUNT
+         ===================================================== */
 
     if (amount > contract.outstandingAmount) {
-      throw new Error("payment.exceeds_outstanding_amount");
+      throw new Error('payment.exceeds_outstanding_amount');
     }
 
     if (amount <= 0) {
-      throw new Error("payment.invalid_amount");
+      throw new Error('payment.invalid_amount');
     }
 
     /* =====================================================
-   CALCULATE PAYABLE
-   ===================================================== */
+         CALCULATE PAYABLE
+         ===================================================== */
 
     const payable = amount;
+
     let remaining = payable;
 
     const schedules = contract.schedules
-      .filter((s) => s.status === "DUE")
+      .filter((s) => s.status === 'DUE')
       .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
 
     for (const s of schedules) {
@@ -184,31 +209,43 @@ exports.recordPayment = async ({
 
       await tx.installmentSchedule.update({
         where: { id: s.id },
-        data: { status: "PAID", paidAt: new Date() },
+
+        data: {
+          status: 'PAID',
+          paidAt: new Date(),
+        },
       });
 
       remaining -= s.amount;
     }
 
     const newPaidAmount = contract.paidAmount + payable;
+
     const newOutstanding = Math.max(contract.totalValue - newPaidAmount, 0);
 
     await tx.contract.update({
-      where: { id: contractId },
+      where: {
+        id: contractId,
+      },
+
       data: {
         paidAmount: newPaidAmount,
+
         outstandingAmount: newOutstanding,
+
         ...(newOutstanding === 0 && {
           completedAt: new Date(),
-          status: "COMPLETED",
+
+          status: 'COMPLETED',
         }),
       },
     });
 
     /* =====================================================
-       CREATE PAYMENT ENTRY (EXPLICIT STATUS)
-       ===================================================== */
-    return tx.installmentPayment.create({
+         CREATE PAYMENT ENTRY
+         ===================================================== */
+
+    const createdPayment = await tx.installmentPayment.create({
       data: {
         businessId,
         contractId,
@@ -219,21 +256,108 @@ exports.recordPayment = async ({
         reference,
         idempotencyKey,
         attachments,
+
         receivedAt: receivedAt ? new Date(receivedAt) : new Date(),
+
         balanceBefore: contract.outstandingAmount,
+
         balanceAfter: newOutstanding,
+
         recordedBy: userId,
-        status: "POSTED",
+
+        status: 'POSTED',
       },
     });
+
+    return {
+      payment: createdPayment,
+
+      ledgerContext: {
+        businessId,
+
+        contractId,
+
+        customerId,
+
+        businessName: contract.business?.name || null,
+
+        country: contract.business?.country || null,
+      },
+    };
+  });
+
+  /* =====================================================
+     TENANT LEDGER ENTRY
+     ===================================================== */
+
+  const snapshots = ledgerService.buildSnapshots({
+    business: {
+      name: ledgerContext.businessName,
+
+      country: ledgerContext.country,
+    },
+
+    packageData: null,
+  });
+
+  await ledgerService.recordDoubleEntry({
+    scopeType: ledgerService.SCOPE_TYPES.TENANT,
+
+    businessId: ledgerContext.businessId,
+
+    customerId: ledgerContext.customerId,
+
+    contractId: ledgerContext.contractId,
+
+    referenceId: payment.id,
+
+    referenceType: ledgerService.REFERENCE_TYPES.CUSTOMER_PAYMENT,
+
+    transactionType: 'PAYMENT',
+
+    amount: payment.amount,
+
+    currency: payment.currency || 'TZS',
+
+    status: 'POSTED',
+
+    businessNameSnapshot: snapshots.businessNameSnapshot,
+
+    countrySnapshot: snapshots.countrySnapshot,
+
+    metadata: {
+      paymentMethod: payment.channel,
+
+      source: payment.source,
+
+      reference: payment.reference,
+
+      recordedBy: payment.recordedBy,
+
+      createdAt: new Date().toISOString(),
+    },
+
+    entries: [
+      {
+        accountType: ledgerService.ACCOUNT_TYPES.TENANT_CASH,
+
+        direction: ledgerService.DIRECTIONS.DEBIT,
+      },
+
+      {
+        accountType: ledgerService.ACCOUNT_TYPES.TENANT_RECEIVABLE,
+
+        direction: ledgerService.DIRECTIONS.CREDIT,
+      },
+    ],
   });
 
   await logAudit({
     businessId,
     userId,
-    entityType: "PAYMENT",
+    entityType: 'PAYMENT',
     entityId: payment.id,
-    action: "PAYMENT_RECORDED",
+    action: 'PAYMENT_RECORDED',
     metadata: {
       amount: payment.amount,
       contractId,
@@ -244,17 +368,17 @@ exports.recordPayment = async ({
   });
 
   /* =====================================================
-     NOTIFICATIONS (UNCHANGED STRUCTURE)
+     NOTIFICATIONS
      ===================================================== */
 
   await createNotification({
     businessId,
     customerId,
     contractId,
-    type: "PAYMENT",
-    channel: "SMS",
-    titleKey: "notification.payment.title",
-    messageKey: "notification.payment.body",
+    type: 'PAYMENT',
+    channel: 'SMS',
+    titleKey: 'notification.payment.title',
+    messageKey: 'notification.payment.body',
     templateVars: {
       amount: payment.amount,
       reference: payment.reference,
@@ -266,10 +390,10 @@ exports.recordPayment = async ({
     businessId,
     customerId,
     contractId,
-    type: "PAYMENT",
-    channel: "IN_APP",
-    titleKey: "notification.payment.title",
-    messageKey: "notification.payment.body",
+    type: 'PAYMENT',
+    channel: 'IN_APP',
+    titleKey: 'notification.payment.title',
+    messageKey: 'notification.payment.body',
     templateVars: {
       amount: payment.amount,
       reference: payment.reference,
@@ -280,7 +404,7 @@ exports.recordPayment = async ({
   const businessUsers = await prisma.user.findMany({
     where: {
       businessId,
-      status: "ACTIVE",
+      status: 'ACTIVE',
     },
   });
 
@@ -289,10 +413,10 @@ exports.recordPayment = async ({
       businessId,
       userId: u.id,
       contractId,
-      type: "PAYMENT",
-      channel: "IN_APP",
-      titleKey: "notification.payment.staff.title",
-      messageKey: "notification.payment.staff.body",
+      type: 'PAYMENT',
+      channel: 'IN_APP',
+      titleKey: 'notification.payment.staff.title',
+      messageKey: 'notification.payment.staff.body',
       templateVars: {
         amount: payment.amount,
         reference: payment.reference,
@@ -316,49 +440,49 @@ exports.requestReversal = async ({
 }) => {
   // 🔒 SUBSCRIPTION ENFORCEMENT (SAFE INJECTION)
   await subscriptionAuthority.assertActiveSubscription(businessId);
-  await subscriptionAuthority.assertFeature(businessId, "allowReversal");
-  await subscriptionAuthority.assertFeature(businessId, "allowApprovals");
+  await subscriptionAuthority.assertFeature(businessId, 'allowReversal');
+  await subscriptionAuthority.assertFeature(businessId, 'allowApprovals');
 
   return prisma.$transaction(async (tx) => {
     const payment = await tx.installmentPayment.findFirst({
       where: { id: paymentId, businessId },
     });
 
-    if (!payment) throw new Error("payment.not_found");
+    if (!payment) throw new Error('payment.not_found');
 
-    if (payment.status === "REVERSED") {
-      throw new Error("payment.already_reversed");
+    if (payment.status === 'REVERSED') {
+      throw new Error('payment.already_reversed');
     }
 
     const existingPending = await tx.approvalRequest.findFirst({
       where: {
         businessId,
-        entityType: "PAYMENT",
+        entityType: 'PAYMENT',
         entityId: paymentId,
-        status: "PENDING",
+        status: 'PENDING',
       },
     });
 
     if (existingPending) {
-      throw new Error("approval.already_pending");
+      throw new Error('approval.already_pending');
     }
 
     // 🔒 LIMIT ENFORCEMENT (SAFE INJECTION)
     const pendingApprovalsCount = await tx.approvalRequest.count({
       where: {
         businessId,
-        status: "PENDING",
+        status: 'PENDING',
       },
     });
 
     await subscriptionAuthority.assertLimit(
       businessId,
-      "maxApprovalRequests",
+      'maxApprovalRequests',
       pendingApprovalsCount,
     );
 
     // OWNER AUTO APPROVAL
-    if (role === "BUSINESS_OWNER") {
+    if (role === 'BUSINESS_OWNER') {
       const reversal = await tx.paymentReversal.create({
         data: {
           paymentId,
@@ -366,7 +490,7 @@ exports.requestReversal = async ({
           requestedBy: userId,
           approvedBy: userId,
           approvedAt: new Date(),
-          status: "APPROVED",
+          status: 'APPROVED',
         },
       });
 
@@ -382,9 +506,9 @@ exports.requestReversal = async ({
         tx,
         businessId,
         userId,
-        entityType: "PAYMENT_REVERSAL",
+        entityType: 'PAYMENT_REVERSAL',
         entityId: reversal.id,
-        action: "REVERSAL_REQUESTED",
+        action: 'REVERSAL_REQUESTED',
       });
 
       return { reversal, autoApproved: true };
@@ -395,16 +519,16 @@ exports.requestReversal = async ({
         paymentId,
         reason,
         requestedBy: userId,
-        status: "PENDING",
+        status: 'PENDING',
       },
     });
 
     const approval = await approvalEngine.createApproval({
       tx,
       businessId,
-      entityType: "PAYMENT",
+      entityType: 'PAYMENT',
       entityId: reversal.id,
-      type: "PAYMENT_REVERSAL",
+      type: 'PAYMENT_REVERSAL',
       requestedBy: userId,
       reason,
     });
@@ -439,48 +563,51 @@ exports.approveReversal = async ({
         approverId,
       });
 
-      reversal = await trx.paymentReversal.findFirst({
+      reversal = await trx.installmentPaymentReversal.findFirst({
         where: { id: approval.entityId },
         include: { Payment: true },
       });
 
-      if (!reversal) throw new Error("payment.reversal_not_found");
+      if (!reversal) throw new Error('payment.reversal_not_found');
 
       payment = reversal.Payment;
     }
 
-    if (payment.status === "REVERSED") {
-      throw new Error("payment.already_reversed");
+    if (payment.status === 'REVERSED') {
+      throw new Error('payment.already_reversed');
     }
 
     await logAudit({
       tx: trx,
       businessId,
       userId: approverId,
-      entityType: "PAYMENT_REVERSAL",
+      entityType: 'PAYMENT_REVERSAL',
       entityId: reversal.id,
-      action: "REVERSAL_APPROVED",
+      action: 'REVERSAL_APPROVED',
     });
 
     const contract = await trx.contract.findFirst({
       where: { id: payment.contractId },
-      include: { schedules: true },
+      include: {
+        schedules: true,
+        business: true,
+      },
     });
 
-    if (!contract) throw new Error("contract.not_found");
+    if (!contract) throw new Error('contract.not_found');
 
     if (contract.completedAt) {
-      throw new Error("contract.closed");
+      throw new Error('contract.closed');
     }
 
     if (payment.amount <= 0) {
-      throw new Error("payment.invalid_reversal_amount");
+      throw new Error('payment.invalid_reversal_amount');
     }
 
     let rollback = payment.amount;
 
     const paidSchedules = contract.schedules
-      .filter((s) => s.status === "PAID")
+      .filter((s) => s.status === 'PAID')
       .sort((a, b) => new Date(b.dueDate) - new Date(a.dueDate));
 
     for (const s of paidSchedules) {
@@ -488,7 +615,7 @@ exports.approveReversal = async ({
 
       await trx.installmentSchedule.update({
         where: { id: s.id },
-        data: { status: "DUE", paidAt: null },
+        data: { status: 'DUE', paidAt: null },
       });
 
       rollback -= s.amount;
@@ -507,45 +634,100 @@ exports.approveReversal = async ({
         paidAmount: newPaidAmount,
         outstandingAmount: newOutstanding,
         completedAt: null,
-        status: "ACTIVE",
+        status: 'ACTIVE',
       },
     });
 
     await guardPaymentMutation({
-      flow: "REVERSAL",
+      flow: 'REVERSAL',
       user: {
         id: approverId,
-        role: "TENANT", // kama una role halisi tumia hiyo
+        role: 'TENANT',
       },
       paymentId: payment.id,
-      attemptedChanges: { status: "REVERSED" },
+      attemptedChanges: { status: 'REVERSED' },
     });
 
-    await trx.payment.create({
+    const reversalPayment = await trx.installmentPayment.create({
       data: {
         businessId,
         contractId: payment.contractId,
         customerId: payment.customerId,
         amount: -payment.amount,
-        channel: "REVERSAL",
-        source: "SYSTEM",
+        channel: 'REVERSAL',
+        source: 'SYSTEM',
         balanceBefore: payment.balanceAfter,
         balanceAfter: newOutstanding,
         recordedBy: approverId,
         receivedAt: new Date(),
-        status: "POSTED",
+        status: 'POSTED',
       },
     });
 
-    await trx.payment.update({
-      where: { id: payment.id },
-      data: { status: "REVERSED" },
+    const snapshots = ledgerService.buildSnapshots({
+      business: {
+        name: contract.business?.name || null,
+        country: contract.business?.country || null,
+      },
+      packageData: null,
     });
 
-    await trx.paymentReversal.update({
+    await ledgerService.recordDoubleEntryTx(trx, {
+      scopeType: ledgerService.SCOPE_TYPES.TENANT,
+
+      businessId,
+
+      customerId: payment.customerId,
+
+      contractId: payment.contractId,
+
+      referenceId: reversalPayment.id,
+
+      referenceType: ledgerService.REFERENCE_TYPES.CUSTOMER_PAYMENT_REVERSAL,
+
+      transactionType: 'REVERSAL',
+
+      amount: payment.amount,
+
+      currency: payment.currency || 'TZS',
+
+      status: 'POSTED',
+
+      businessNameSnapshot: snapshots.businessNameSnapshot,
+
+      countrySnapshot: snapshots.countrySnapshot,
+
+      metadata: {
+        originalPaymentId: payment.id,
+        reversalId: reversal.id,
+        approvedBy: approverId,
+        approvedAt: new Date().toISOString(),
+      },
+
+      entries: [
+        {
+          accountType: ledgerService.ACCOUNT_TYPES.TENANT_RECEIVABLE,
+
+          direction: ledgerService.DIRECTIONS.DEBIT,
+        },
+
+        {
+          accountType: ledgerService.ACCOUNT_TYPES.TENANT_CASH,
+
+          direction: ledgerService.DIRECTIONS.CREDIT,
+        },
+      ],
+    });
+
+    await trx.installmentPayment.update({
+      where: { id: payment.id },
+      data: { status: 'REVERSED' },
+    });
+
+    await trx.installmentPaymentReversal.update({
       where: { id: reversal.id },
       data: {
-        status: "APPROVED",
+        status: 'APPROVED',
         approvedBy: approverId,
         approvedAt: new Date(),
       },
@@ -561,15 +743,15 @@ exports.approveReversal = async ({
 exports.rejectReversal = async ({ businessId, approvalId, approverId }) => {
   return prisma.$transaction(async (tx) => {
     const approval = await tx.approvalRequest.findFirst({
-      where: { id: approvalId, businessId, status: "PENDING" },
+      where: { id: approvalId, businessId, status: 'PENDING' },
     });
 
-    if (!approval) throw new Error("payment.approval_not_found");
+    if (!approval) throw new Error('payment.approval_not_found');
 
     await tx.approvalRequest.update({
       where: { id: approvalId },
       data: {
-        status: "REJECTED",
+        status: 'REJECTED',
         approvedBy: approverId,
         resolvedAt: new Date(),
       },
@@ -577,16 +759,16 @@ exports.rejectReversal = async ({ businessId, approvalId, approverId }) => {
 
     await tx.paymentReversal.update({
       where: { id: approval.entityId },
-      data: { status: "REJECTED", approvedBy: approverId },
+      data: { status: 'REJECTED', approvedBy: approverId },
     });
 
     await logAudit({
       tx,
       businessId,
       userId: approverId,
-      entityType: "PAYMENT_REVERSAL",
+      entityType: 'PAYMENT_REVERSAL',
       entityId: approval.entityId,
-      action: "REVERSAL_REJECTED",
+      action: 'REVERSAL_REJECTED',
     });
 
     return true;
@@ -601,8 +783,8 @@ exports.listPayments = async (req) => {
     model: prisma.installmentPayment,
     query: req.query,
     businessFilter: { businessId: req.user.businessId },
-    searchableFields: ["reference"],
-    filterableFields: ["contractId", "customerId", "status"],
+    searchableFields: ['reference'],
+    filterableFields: ['contractId', 'customerId', 'status'],
   });
 };
 
@@ -616,7 +798,7 @@ exports.listReversals = async (req) => {
     businessFilter: {
       Payment: { businessId: req.user.businessId },
     },
-    filterableFields: ["status"],
+    filterableFields: ['status'],
   });
 };
 
@@ -624,8 +806,8 @@ exports.getCustomerPayments = async ({ customerId }) => {
   return prisma.installmentPayment.findMany({
     where: {
       customerId,
-      status: "POSTED",
+      status: 'POSTED',
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: 'desc' },
   });
 };

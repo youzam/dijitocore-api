@@ -1,14 +1,14 @@
-const Joi = require("joi");
+const Joi = require('joi');
 
 exports.recordPayment = Joi.object({
   contractId: Joi.string().uuid().required(),
   customerId: Joi.string().uuid().required(),
   amount: Joi.number().integer().positive().required(),
 
-  channel: Joi.string().valid("CASH", "MOBILE", "BANK").required(),
-  source: Joi.string().valid("POS", "WEB", "IMPORT", "API").required(),
+  channel: Joi.string().valid('CASH', 'MOBILE', 'BANK').required(),
+  source: Joi.string().valid('POS', 'WEB', 'IMPORT', 'API').required(),
 
-  reference: Joi.string().allow(null, ""),
+  reference: Joi.string().allow(null, ''),
   attachments: Joi.array().items(Joi.object()).optional(),
   receivedAt: Joi.date().optional(),
 });
@@ -24,14 +24,48 @@ exports.listPayments = Joi.object({
   contractId: Joi.string().uuid().optional(),
   customerId: Joi.string().uuid().optional(),
   reference: Joi.string().optional(),
-  status: Joi.string().valid("POSTED", "REVERSED").optional(),
+  status: Joi.string().valid('POSTED', 'REVERSED').optional(),
 
-  sortBy: Joi.string().valid("createdAt", "amount", "receivedAt").optional(),
-  sortOrder: Joi.string().valid("asc", "desc").optional(),
+  sortBy: Joi.string().valid('createdAt', 'amount', 'receivedAt').optional(),
+  sortOrder: Joi.string().valid('asc', 'desc').optional(),
 });
 
 exports.listReversals = Joi.object({
   page: Joi.number().integer().min(1).optional(),
   limit: Joi.number().integer().min(1).max(100).optional(),
-  status: Joi.string().valid("PENDING", "APPROVED", "REJECTED").optional(),
+  status: Joi.string().valid('PENDING', 'APPROVED', 'REJECTED').optional(),
+});
+
+exports.getLedger = Joi.object({
+  page: Joi.number().integer().min(1).optional(),
+
+  limit: Joi.number().integer().min(1).max(100).optional(),
+
+  customerId: Joi.string().uuid().optional(),
+
+  contractId: Joi.string().uuid().optional(),
+
+  referenceType: Joi.string().optional(),
+
+  status: Joi.string().optional(),
+
+  startDate: Joi.date().optional(),
+
+  endDate: Joi.date().optional(),
+
+  search: Joi.string().optional(),
+
+  orderBy: Joi.string().valid('createdAt', 'amount').optional(),
+
+  order: Joi.string().valid('asc', 'desc').optional(),
+});
+
+exports.getLedgerAnalytics = Joi.object({
+  customerId: Joi.string().uuid().optional(),
+
+  contractId: Joi.string().uuid().optional(),
+
+  startDate: Joi.date().optional(),
+
+  endDate: Joi.date().optional(),
 });

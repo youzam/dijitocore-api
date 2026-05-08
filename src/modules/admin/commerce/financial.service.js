@@ -1,76 +1,176 @@
-const prisma = require("../../../config/prisma");
-const AppError = require("../../../utils/AppError");
-const { logAudit } = require("../../../utils/audit.helper");
+const prisma = require('../../../config/prisma');
+const AppError = require('../../../utils/AppError');
+const { logAudit } = require('../../../utils/audit.helper');
+const ledgerService = require('../../../services/ledger.service');
 
 /**
  * Refund Transaction (Enterprise)
  */
 exports.refundTransaction = async (transactionId, actor) => {
-  const payment = await prisma.subscriptionPayment.findUnique({
-    where: { id: transactionId },
-  });
+  return prisma.$transaction(async (tx) => {
+    const payment = await tx.subscriptionPayment.findUnique({
+      where: { id: transactionId },
+    });
 
-  if (!payment) {
-    throw new AppError("commerce.transaction_not_found", 404);
-  }
+    if (!payment) {
+      throw new AppError('commerce.transaction_not_found', 404);
+    }
 
-  // 🔥 ADD VALIDATION (NEW)
-  if (payment.status === "REFUNDED") {
-    throw new AppError("commerce.already_refunded", 400);
-  }
+    if (payment.status === 'REFUNDED') {
+      throw new AppError('commerce.already_refunded', 400);
+    }
 
-  if (payment.status !== "CONFIRMED") {
-    throw new AppError("commerce.invalid_refund_state", 400);
-  }
+    if (payment.status !== 'CONFIRMED') {
+      throw new AppError('commerce.invalid_refund_state', 400);
+    }
 
-  // 🔥 STEP 5: MARK PAYMENT AS REFUNDED
-  await prisma.subscriptionPayment.update({
-    where: { id: transactionId },
-    data: {
-      status: "REFUNDED",
-    },
-  });
+    await tx.subscriptionPayment.update({
+      where: { id: transactionId },
 
-  // 🔥 STEP 6: LOAD SUBSCRIPTION
-  const subscription = await prisma.subscription.findUnique({
-    where: { id: payment.subscriptionId },
-  });
+      data: {
+        status: 'REFUNDED',
+      },
+    });
 
-  if (!subscription) {
-    throw new AppError("subscription.not_found", 404);
-  }
+    const subscription = await tx.subscription.findUnique({
+      where: {
+        id: payment.subscriptionId,
+      },
+    });
 
-  // 🔥 STEP 7: APPLY 2-DAY GRACE PERIOD
-  const graceUntil = new Date();
-  graceUntil.setDate(graceUntil.getDate() + 2);
+    if (!subscription) {
+      throw new AppError('subscription.not_found', 404);
+    }
 
-  await prisma.subscription.update({
-    where: { id: subscription.id },
-    data: {
-      graceUntil, // kutumia existing field
-    },
-  });
+    const graceUntil = new Date();
 
-  await logAudit({
-    userId: actor?.id || null,
-    entityType: "PAYMENT",
-    entityId: transactionId,
-    action: "PAYMENT_REFUNDED",
-    metadata: {
-      subscriptionId: payment.subscriptionId,
+    graceUntil.setDate(graceUntil.getDate() + 2);
+
+    await tx.subscription.update({
+      where: {
+        id: subscription.id,
+      },
+
+      data: {
+        graceUntil,
+      },
+    });
+
+    const business = await tx.business.findUnique({
+      where: {
+        id: subscription.businessId,
+      },
+
+      select: {
+        name: true,
+        country: true,
+      },
+    });
+
+    const pkg = await tx.subscriptionPackage.findUnique({
+      where: {
+        id: subscription.packageId,
+      },
+
+      select: {
+        name: true,
+      },
+    });
+
+    const snapshots = ledgerService.buildSnapshots({
+      business,
+      packageData: pkg,
+    });
+
+    await ledgerService.recordDoubleEntryTx(tx, {
+      scopeType: ledgerService.SCOPE_TYPES.SYSTEM,
+
+      businessId: subscription.businessId,
+
+      referenceId: payment.id,
+
+      referenceType: ledgerService.REFERENCE_TYPES.SYSTEM_REFUND,
+
+      transactionType: 'REFUND',
+
       amount: payment.amount,
-      previousStatus: payment.status,
-      newStatus: "REFUNDED",
-      graceUntil,
-    },
-    module: "COMMERCE",
-    actorType: "ADMIN",
-  });
 
-  return {
-    refunded: true,
-    graceUntil,
-  };
+      currency: payment.currency,
+
+      status: 'POSTED',
+
+      gateway: payment.gateway,
+
+      retryCount: payment.retryCount || 0,
+
+      subscriptionAmount: payment.subscriptionAmount || 0,
+
+      setupFeeAmount: payment.setupFeeAmount || 0,
+
+      subscriptionId: subscription.id,
+
+      packageId: subscription.packageId,
+
+      businessNameSnapshot: snapshots.businessNameSnapshot,
+
+      packageNameSnapshot: snapshots.packageNameSnapshot,
+
+      countrySnapshot: snapshots.countrySnapshot,
+
+      metadata: {
+        refundedBy: actor?.id || null,
+
+        refundedAt: new Date().toISOString(),
+
+        originalStatus: payment.status,
+      },
+
+      entries: [
+        {
+          accountType: ledgerService.ACCOUNT_TYPES.SYSTEM_REFUND,
+
+          direction: ledgerService.DIRECTIONS.DEBIT,
+        },
+
+        {
+          accountType: ledgerService.ACCOUNT_TYPES.SYSTEM_CASH,
+
+          direction: ledgerService.DIRECTIONS.CREDIT,
+        },
+      ],
+    });
+
+    await logAudit({
+      userId: actor?.id || null,
+
+      entityType: 'PAYMENT',
+
+      entityId: transactionId,
+
+      action: 'PAYMENT_REFUNDED',
+
+      metadata: {
+        subscriptionId: payment.subscriptionId,
+
+        amount: payment.amount,
+
+        previousStatus: payment.status,
+
+        newStatus: 'REFUNDED',
+
+        graceUntil,
+      },
+
+      module: 'COMMERCE',
+
+      actorType: 'ADMIN',
+    });
+
+    return {
+      refunded: true,
+      graceUntil,
+    };
+  });
 };
 
 /**
@@ -79,48 +179,125 @@ exports.refundTransaction = async (transactionId, actor) => {
 exports.createAdjustment = async (data, actor) => {
   const { businessId, amount, reason, type, createdBy } = data;
 
-  // 🔥 REQUIRED FIELDS
   if (!businessId) {
-    throw new AppError("commerce.business_required", 400);
+    throw new AppError('commerce.business_required', 400);
   }
 
   if (!amount || Number(amount) === 0) {
-    throw new AppError("commerce.invalid_amount", 400);
+    throw new AppError('commerce.invalid_amount', 400);
   }
 
   if (!reason) {
-    throw new AppError("commerce.adjustment_reason_required", 400);
+    throw new AppError('commerce.adjustment_reason_required', 400);
   }
 
   if (!type) {
-    throw new AppError("commerce.adjustment_type_required", 400);
+    throw new AppError('commerce.adjustment_type_required', 400);
   }
 
   if (!createdBy) {
-    throw new AppError("commerce.created_by_required", 400);
+    throw new AppError('commerce.created_by_required', 400);
   }
 
-  // 🔥 PRESERVE ORIGINAL DATA (NO FIELD LOSS)
-  const adjustment = await prisma.financialAdjustment.create({
-    data,
-  });
+  return prisma.$transaction(async (tx) => {
+    const adjustment = await tx.financialAdjustment.create({
+      data,
+    });
 
-  await logAudit({
-    userId: actor?.id || null,
-    entityType: "FINANCIAL_ADJUSTMENT",
-    entityId: adjustment.id,
-    action: "FINANCIAL_ADJUSTMENT_CREATED",
-    metadata: {
+    const business = await tx.business.findUnique({
+      where: {
+        id: businessId,
+      },
+
+      select: {
+        name: true,
+        country: true,
+      },
+    });
+
+    const snapshots = ledgerService.buildSnapshots({
+      business,
+      packageData: null,
+    });
+
+    const isCredit = type === 'CREDIT';
+
+    const systemSetting = await tx.systemSetting.findFirst({
+      select: {
+        currency: true,
+      },
+    });
+
+    await ledgerService.recordDoubleEntryTx(tx, {
+      scopeType: ledgerService.SCOPE_TYPES.SYSTEM,
+
       businessId,
-      amount,
-      type,
-      reason,
-    },
-    module: "COMMERCE",
-    actorType: "ADMIN",
-  });
 
-  return adjustment;
+      referenceId: adjustment.id,
+
+      referenceType: ledgerService.REFERENCE_TYPES.SYSTEM_ADJUSTMENT,
+
+      transactionType: 'ADJUSTMENT',
+
+      amount,
+
+      currency: systemSetting?.currency || 'TZS',
+
+      status: 'POSTED',
+
+      businessNameSnapshot: snapshots.businessNameSnapshot,
+
+      countrySnapshot: snapshots.countrySnapshot,
+
+      metadata: {
+        reason,
+        type,
+        createdBy,
+        actorId: actor?.id || null,
+      },
+
+      entries: [
+        {
+          accountType: ledgerService.ACCOUNT_TYPES.SYSTEM_ADJUSTMENT,
+
+          direction: isCredit
+            ? ledgerService.DIRECTIONS.CREDIT
+            : ledgerService.DIRECTIONS.DEBIT,
+        },
+
+        {
+          accountType: ledgerService.ACCOUNT_TYPES.SYSTEM_CASH,
+
+          direction: isCredit
+            ? ledgerService.DIRECTIONS.DEBIT
+            : ledgerService.DIRECTIONS.CREDIT,
+        },
+      ],
+    });
+
+    await logAudit({
+      userId: actor?.id || null,
+
+      entityType: 'FINANCIAL_ADJUSTMENT',
+
+      entityId: adjustment.id,
+
+      action: 'FINANCIAL_ADJUSTMENT_CREATED',
+
+      metadata: {
+        businessId,
+        amount,
+        type,
+        reason,
+      },
+
+      module: 'COMMERCE',
+
+      actorType: 'ADMIN',
+    });
+
+    return adjustment;
+  });
 };
 
 /**
@@ -128,28 +305,34 @@ exports.createAdjustment = async (data, actor) => {
  */
 exports.regenerateInvoice = async (transactionId, actor) => {
   const payment = await prisma.subscriptionPayment.findUnique({
-    where: { id: transactionId },
+    where: {
+      id: transactionId,
+    },
   });
 
   if (!payment) {
-    throw new AppError("commerce.transaction_not_found", 404);
+    throw new AppError('commerce.transaction_not_found', 404);
   }
 
-  // 🔥 ADD VALIDATION
   if (!transactionId) {
-    throw new AppError("commerce.transaction_id_required", 400);
+    throw new AppError('commerce.transaction_id_required', 400);
   }
 
-  // Simulate invoice regeneration (can be replaced with real service)
   const newInvoiceUrl = `https://invoices.DijitoPay.com/${payment.id}`;
 
   const updated = await prisma.subscriptionPayment.update({
-    where: { id: transactionId },
+    where: {
+      id: transactionId,
+    },
+
     data: {
       invoiceUrl: newInvoiceUrl,
+
       adminOverride: true,
+
       metadata: {
         ...(payment.metadata || {}),
+
         invoiceRegeneratedAt: new Date(),
       },
     },
@@ -157,14 +340,20 @@ exports.regenerateInvoice = async (transactionId, actor) => {
 
   await logAudit({
     userId: actor?.id || null,
-    entityType: "PAYMENT",
+
+    entityType: 'PAYMENT',
+
     entityId: transactionId,
-    action: "INVOICE_REGENERATED",
+
+    action: 'INVOICE_REGENERATED',
+
     metadata: {
       invoiceUrl: updated.invoiceUrl,
     },
-    module: "COMMERCE",
-    actorType: "ADMIN",
+
+    module: 'COMMERCE',
+
+    actorType: 'ADMIN',
   });
 
   return {

@@ -1,4 +1,4 @@
-const Joi = require("joi");
+const Joi = require('joi');
 
 /* ===========================
    COMMON
@@ -10,18 +10,52 @@ const uuidSchema = Joi.string().uuid().required();
    TRANSACTIONS
 =========================== */
 
-exports.getTransactions = Joi.object({
+/* ===========================
+   LEDGER
+=========================== */
+
+exports.getLedger = Joi.object({
   page: Joi.number().integer().min(1).optional(),
+
   limit: Joi.number().integer().min(1).max(100).optional(),
 
   status: Joi.string().optional(),
-  type: Joi.string().optional(),
+
+  referenceType: Joi.string().optional(),
+
   gateway: Joi.string().optional(),
+
+  packageId: Joi.string().optional(),
+
+  subscriptionId: Joi.string().optional(),
 
   startDate: Joi.date().optional(),
   endDate: Joi.date().optional(),
 
   businessId: Joi.string().optional(),
+
+  search: Joi.string().optional(),
+
+  orderBy: Joi.string()
+    .valid('createdAt', 'amount', 'status', 'gateway')
+    .optional(),
+
+  order: Joi.string().valid('asc', 'desc').optional(),
+});
+
+exports.getLedgerEntry = Joi.object({
+  id: uuidSchema,
+});
+
+exports.getLedgerDrilldown = Joi.object({
+  id: uuidSchema,
+});
+
+exports.getLedgerAnalytics = Joi.object({
+  businessId: Joi.string().optional(),
+
+  startDate: Joi.date().optional(),
+  endDate: Joi.date().optional(),
 });
 
 /* ===========================
@@ -31,8 +65,8 @@ exports.getTransactions = Joi.object({
 exports.createAdjustment = Joi.object({
   businessId: uuidSchema,
   amount: Joi.number().required(),
-  type: Joi.string().valid("CREDIT", "DEBIT").required(),
-  reason: Joi.string().allow("", null),
+  type: Joi.string().valid('CREDIT', 'DEBIT').required(),
+  reason: Joi.string().allow('', null),
 });
 
 /* ===========================
@@ -42,7 +76,7 @@ exports.createAdjustment = Joi.object({
 exports.createCoupon = Joi.object({
   code: Joi.string().trim().required(),
 
-  type: Joi.string().valid("PERCENTAGE", "FIXED").required(),
+  type: Joi.string().valid('PERCENTAGE', 'FIXED').required(),
 
   value: Joi.number().positive().required(),
 
@@ -57,7 +91,7 @@ exports.createCoupon = Joi.object({
 exports.updateCoupon = Joi.object({
   code: Joi.string().trim().optional(),
 
-  type: Joi.string().valid("PERCENTAGE", "FIXED").optional(),
+  type: Joi.string().valid('PERCENTAGE', 'FIXED').optional(),
 
   value: Joi.number().positive().optional(),
 

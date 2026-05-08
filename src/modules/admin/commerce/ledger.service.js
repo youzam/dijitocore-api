@@ -1,419 +1,232 @@
-const prisma = require("../../../config/prisma");
-const AppError = require("../../../utils/AppError");
+const ledgerCoreService = require('../../../services/ledger.service');
 
-/**
- * Normalize transaction type
- */
-const normalizeTransactionType = (type) => {
-  const allowed = [
-    "SUBSCRIPTION",
-    "SETUP_FEE",
-    "RENEWAL",
-    "REFUND",
-    "MANUAL_ADJUSTMENT",
-  ];
+const { SCOPE_TYPES } = ledgerCoreService;
 
-  return allowed.includes(type) ? type : "SUBSCRIPTION";
+const formatLedgerEntry = (entry) => {
+  return {
+    id: entry.id,
+
+    referenceId: entry.referenceId,
+    referenceType: entry.referenceType,
+
+    transactionType: entry.transactionType,
+
+    scopeType: entry.scopeType,
+
+    businessId: entry.businessId,
+
+    businessName: entry.businessNameSnapshot,
+
+    packageName: entry.packageNameSnapshot,
+
+    country: entry.countrySnapshot,
+
+    amount: Number(entry.amount),
+
+    subscriptionAmount: entry.subscriptionAmount
+      ? Number(entry.subscriptionAmount)
+      : 0,
+
+    setupFeeAmount: entry.setupFeeAmount ? Number(entry.setupFeeAmount) : 0,
+
+    currency: entry.currency,
+
+    accountType: entry.accountType,
+
+    direction: entry.direction,
+
+    status: entry.status,
+
+    gateway: entry.gateway,
+
+    retryCount: entry.retryCount,
+
+    subscriptionId: entry.subscriptionId,
+
+    packageId: entry.packageId,
+
+    metadata: entry.metadata,
+
+    createdAt: entry.createdAt,
+    updatedAt: entry.updatedAt,
+  };
 };
 
-/**
- * Build filters (UPDATED — FULL)
- */
-const buildWhereClause = (filters) => {
+const getLedger = async (query) => {
   const {
     businessId,
+    referenceType,
     status,
-    type,
     gateway,
+    packageId,
+    subscriptionId,
     startDate,
     endDate,
-    packageId,
-    country,
-  } = filters;
-
-  return {
-    ...(status && { status }),
-    ...(type && { type }),
-    ...(gateway && { gateway }),
-
-    ...(startDate || endDate
-      ? {
-          createdAt: {
-            ...(startDate && { gte: new Date(startDate) }),
-            ...(endDate && { lte: new Date(endDate) }),
-          },
-        }
-      : {}),
-
-    ...(businessId && {
-      subscription: {
-        businessId,
-      },
-    }),
-
-    ...(packageId && {
-      subscription: {
-        packageId,
-      },
-    }),
-
-    ...(country && {
-      subscription: {
-        business: {
-          country,
-        },
-      },
-    }),
-  };
-};
-
-/**
- * GET TRANSACTIONS (UPDATED — FULL ENTERPRISE)
- */
-exports.getTransactions = async (query) => {
-  const {
-    page = 1,
-    limit = 20,
-    sortBy = "createdAt",
-    order = "desc",
-
-    // 🔥 NEW FILTERS (from query)
-    country,
-    packageId,
-    gateway,
-    startDate,
-    endDate,
+    search,
+    page,
+    limit,
+    orderBy,
+    order,
   } = query;
 
-  const skip = (Number(page) - 1) * Number(limit);
+  const result = await ledgerCoreService.getEntriesRaw({
+    scopeType: SCOPE_TYPES.SYSTEM,
 
-  // 🔹 EXISTING BASE WHERE
-  const where = buildWhereClause(query);
+    businessId,
+    referenceType,
+    status,
+    gateway,
+    packageId,
+    subscriptionId,
+    startDate,
+    endDate,
+    search,
 
-  /**
-   * 🔥 SAFE EXTENSION (NO OVERWRITE)
-   */
-  if (!where.subscription) {
-    where.subscription = {};
-  }
+    page,
+    limit,
 
-  if (packageId) {
-    where.subscription.packageId = packageId;
-  }
-
-  if (country) {
-    where.subscription.business = {
-      ...(where.subscription.business || {}),
-      country,
-    };
-  }
-
-  if (gateway) {
-    where.gateway = gateway;
-  }
-
-  if (startDate || endDate) {
-    where.createdAt = {
-      ...(where.createdAt || {}),
-    };
-
-    if (startDate) {
-      where.createdAt.gte = new Date(startDate);
-    }
-
-    if (endDate) {
-      where.createdAt.lte = new Date(endDate);
-    }
-  }
-
-  // 🔥 FETCH PAYMENTS + ADJUSTMENTS
-  const [paymentCount, payments, adjustments] = await Promise.all([
-    prisma.subscriptionPayment.count({ where }),
-
-    prisma.subscriptionPayment.findMany({
-      where,
-      skip,
-      take: Number(limit),
-      orderBy: {
-        [sortBy]: order,
-      },
-      include: {
-        subscription: {
-          include: {
-            business: true,
-            package: true,
-          },
-        },
-      },
-    }),
-
-    prisma.financialAdjustment.findMany({
-      orderBy: { createdAt: "desc" },
-    }),
-  ]);
-
-  /**
-   * 🔥 MAP PAYMENTS
-   */
-  const paymentTransactions = payments.map((payment) => ({
-    id: payment.id,
-
-    businessId: payment.subscription.businessId,
-    businessName: payment.subscription.business?.name || null,
-    country: payment.subscription.business?.country || null,
-
-    packageId: payment.subscription.packageId,
-    packageName: payment.subscription.package?.name || null,
-
-    subscriptionAmount: payment.type === "SUBSCRIPTION" ? payment.amount : null,
-
-    setupFeeAmount: payment.type === "SETUP_FEE" ? payment.amount : null,
-
-    amount: payment.amount,
-    currency: payment.currency,
-
-    type: normalizeTransactionType(payment.type),
-    status: payment.status,
-
-    gateway: payment.gateway || null,
-
-    invoiceUrl: payment.invoiceUrl || null,
-    webhookStatus: payment.webhookStatus || null,
-    adminOverride: payment.adminOverride,
-
-    paidAt: payment.paidAt,
-    createdAt: payment.createdAt,
-
-    retryCount: payment.retryCount || 0,
-    hasAuditLog: !!payment.metadata,
-  }));
-
-  /**
-   * 🔥 MAP ADJUSTMENTS
-   */
-  const adjustmentTransactions = adjustments.map((adj) => ({
-    id: adj.id,
-
-    businessId: adj.businessId,
-    businessName: null,
-    country: null,
-
-    packageId: null,
-    packageName: null,
-
-    subscriptionAmount: null,
-    setupFeeAmount: null,
-
-    amount: adj.amount,
-    currency: null,
-
-    type: "MANUAL_ADJUSTMENT",
-    status: "SUCCESS",
-
-    gateway: null,
-
-    invoiceUrl: null,
-    webhookStatus: null,
-    adminOverride: true,
-
-    paidAt: adj.createdAt,
-    createdAt: adj.createdAt,
-
-    retryCount: 0,
-    hasAuditLog: false,
-  }));
-
-  /**
-   * 🔥 MERGE + SORT (UNCHANGED)
-   */
-  const allTransactions = [...paymentTransactions, ...adjustmentTransactions]
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-    .slice(skip, skip + Number(limit));
+    orderBy,
+    order,
+  });
 
   return {
-    data: allTransactions,
-    meta: {
-      total: paymentCount + adjustments.length,
-      page: Number(page),
-      limit: Number(limit),
-    },
+    ...result,
+
+    data: result.data.map(formatLedgerEntry),
   };
 };
 
-/**
- * Get single transaction by ID
- */
-/**
- * Get single transaction by ID (SAFE — NO ASSUMPTIONS)
- */
-exports.getTransactionById = async (id) => {
-  if (!id) {
-    throw new AppError("commerce.transaction_id_required", 400);
-  }
-
-  // 🔍 1. Check subscription payments
-  const payment = await prisma.subscriptionPayment.findUnique({
-    where: { id },
-    include: {
-      subscription: {
-        include: {
-          business: true,
-          package: true,
-        },
-      },
-    },
+const getLedgerEntry = async ({ id }) => {
+  const entry = await ledgerCoreService.getEntryById({
+    id,
+    scopeType: SCOPE_TYPES.SYSTEM,
   });
 
-  if (payment) {
-    return {
-      id: payment.id,
-
-      businessId: payment.subscription.businessId,
-      businessName: payment.subscription.business?.name || null,
-      country: payment.subscription.business?.country || null,
-
-      packageId: payment.subscription.packageId,
-      packageName: payment.subscription.package?.name || null,
-
-      subscriptionAmount:
-        payment.type === "SUBSCRIPTION" ? payment.amount : null,
-
-      setupFeeAmount: payment.type === "SETUP_FEE" ? payment.amount : null,
-
-      amount: payment.amount,
-      currency: payment.currency,
-
-      type: normalizeTransactionType(payment.type),
-      status: payment.status,
-
-      gateway: payment.gateway || null,
-
-      invoiceUrl: payment.invoiceUrl || null,
-      webhookStatus: payment.webhookStatus || null,
-      adminOverride: payment.adminOverride,
-
-      paidAt: payment.paidAt,
-      createdAt: payment.createdAt,
-
-      retryCount: payment.retryCount || 0,
-      hasAuditLog: !!payment.metadata,
-    };
+  if (!entry) {
+    return null;
   }
 
-  // 🔍 2. Check financial adjustments
-  const adjustment = await prisma.financialAdjustment.findUnique({
-    where: { id },
-  });
-
-  if (adjustment) {
-    return {
-      id: adjustment.id,
-
-      businessId: adjustment.businessId,
-      businessName: null,
-      country: null,
-
-      packageId: null,
-      packageName: null,
-
-      subscriptionAmount: null,
-      setupFeeAmount: null,
-
-      amount: adjustment.amount,
-      currency: null,
-
-      type: "MANUAL_ADJUSTMENT",
-      status: "SUCCESS",
-
-      gateway: null,
-
-      invoiceUrl: null,
-      webhookStatus: null,
-      adminOverride: true,
-
-      paidAt: adjustment.createdAt,
-      createdAt: adjustment.createdAt,
-
-      retryCount: 0,
-      hasAuditLog: false,
-    };
-  }
-
-  // ❌ Not found
-  throw new AppError("commerce.transaction_not_found", 404);
+  return formatLedgerEntry(entry);
 };
 
-/**
- * 🔥 DRILLDOWN (UPDATED)
- */
-exports.getTransactionDrilldown = async (id) => {
-  if (!id) {
-    throw new AppError("commerce.transaction_id_required", 400);
-  }
-
-  const payment = await prisma.subscriptionPayment.findUnique({
-    where: { id },
-    include: {
-      subscription: {
-        include: {
-          business: true,
-          package: true,
-        },
-      },
-    },
+const getLedgerDrilldown = async ({ id }) => {
+  const entry = await ledgerCoreService.getLedgerDrilldown({
+    id,
+    scopeType: SCOPE_TYPES.SYSTEM,
   });
 
-  if (!payment) {
-    throw new AppError("commerce.transaction_not_found", 404);
+  if (!entry) {
+    return null;
   }
 
   return {
-    id: payment.id,
+    transaction: formatLedgerEntry(entry),
 
-    // 🔹 BUSINESS
-    business: {
-      id: payment.subscription?.businessId || null,
-      name: payment.subscription?.business?.name || null,
-      country: payment.subscription?.business?.country || null,
-    },
-
-    // 🔹 PACKAGE
-    package: {
-      id: payment.subscription?.packageId || null,
-      name: payment.subscription?.package?.name || null,
-    },
-
-    // 🔹 FINANCIAL
     financial: {
-      amount: payment.amount,
-      currency: payment.currency,
-      type: normalizeTransactionType(payment.type),
-      status: payment.status,
-      gateway: payment.gateway || null,
+      amount: Number(entry.amount),
+
+      subscriptionAmount: entry.subscriptionAmount
+        ? Number(entry.subscriptionAmount)
+        : 0,
+
+      setupFeeAmount: entry.setupFeeAmount ? Number(entry.setupFeeAmount) : 0,
+
+      currency: entry.currency,
+
+      direction: entry.direction,
+
+      accountType: entry.accountType,
     },
 
-    // 🔹 LIFECYCLE
+    business: {
+      businessId: entry.businessId,
+
+      businessName: entry.businessNameSnapshot,
+
+      country: entry.countrySnapshot,
+    },
+
+    package: {
+      packageId: entry.packageId,
+
+      packageName: entry.packageNameSnapshot,
+    },
+
+    gateway: {
+      gateway: entry.gateway,
+
+      retryCount: entry.retryCount,
+    },
+
     lifecycle: {
-      paidAt: payment.paidAt,
-      createdAt: payment.createdAt,
-      webhookStatus: payment.webhookStatus || null,
-      retryCount: payment.retryCount || 0,
-      adminOverride: payment.adminOverride || false,
+      status: entry.status,
+
+      createdAt: entry.createdAt,
+
+      updatedAt: entry.updatedAt,
     },
 
-    // 🔥 RAW GATEWAY PAYLOAD
-    gatewayPayload: payment.metadata || null,
-
-    // 🔥 REAL AUDIT (DERIVED — NOT FAKE)
-    audit: {
-      hasAudit: !!payment.metadata,
-      source: payment.metadata ? "PAYMENT_METADATA" : null,
-    },
-
-    // 🔹 DEBUG
-    debug: {
-      hasMetadata: !!payment.metadata,
-      hasRetries: (payment.retryCount || 0) > 0,
-    },
+    audit: entry.metadata || {},
   };
+};
+
+const getLedgerBalance = async () => {
+  const [systemCash, systemRevenue, systemRefund, systemAdjustment] =
+    await Promise.all([
+      ledgerCoreService.getBalance({
+        scopeType: SCOPE_TYPES.SYSTEM,
+
+        accountType: 'SYSTEM_CASH',
+      }),
+
+      ledgerCoreService.getBalance({
+        scopeType: SCOPE_TYPES.SYSTEM,
+
+        accountType: 'SYSTEM_REVENUE',
+      }),
+
+      ledgerCoreService.getBalance({
+        scopeType: SCOPE_TYPES.SYSTEM,
+
+        accountType: 'SYSTEM_REFUND',
+      }),
+
+      ledgerCoreService.getBalance({
+        scopeType: SCOPE_TYPES.SYSTEM,
+
+        accountType: 'SYSTEM_ADJUSTMENT',
+      }),
+    ]);
+
+  return {
+    systemCash,
+    systemRevenue,
+    systemRefund,
+    systemAdjustment,
+  };
+};
+
+const getLedgerAnalytics = async (query) => {
+  const { businessId, startDate, endDate } = query;
+
+  return ledgerCoreService.getAnalytics({
+    scopeType: SCOPE_TYPES.SYSTEM,
+
+    businessId,
+
+    startDate,
+    endDate,
+  });
+};
+
+module.exports = {
+  getLedger,
+
+  getLedgerEntry,
+
+  getLedgerDrilldown,
+
+  getLedgerBalance,
+
+  getLedgerAnalytics,
 };

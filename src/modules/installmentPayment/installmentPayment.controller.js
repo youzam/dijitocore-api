@@ -1,8 +1,9 @@
-const catchAsync = require("../../utils/catchAsync");
-const AppError = require("../../utils/AppError");
-const response = require("../../utils/response");
+const catchAsync = require('../../utils/catchAsync');
+const AppError = require('../../utils/AppError');
+const response = require('../../utils/response');
 
-const paymentService = require("./installmentPayment.service");
+const paymentService = require('./installmentPayment.service');
+const ledgerService = require('./ledger.service');
 
 /* ===============================
    EXISTING CONTROLLERS (UNCHANGED)
@@ -15,17 +16,17 @@ exports.recordPayment = catchAsync(async (req, res) => {
     payload: req.body,
   });
 
-  return response.success(req, res, payment, 201, "payment.recorded");
+  return response.success(req, res, payment, 201, 'payment.recorded');
 });
 
 exports.listPayments = catchAsync(async (req, res) => {
   const result = await paymentService.listPayments(req);
-  return response.success(req, res, result, 200, "payment.fetched");
+  return response.success(req, res, result, 200, 'payment.fetched');
 });
 
 exports.listReversals = catchAsync(async (req, res) => {
   const result = await paymentService.listReversals(req);
-  return response.success(req, res, result, 200, "payment.reversals_fetched");
+  return response.success(req, res, result, 200, 'payment.reversals_fetched');
 });
 
 exports.requestReversal = catchAsync(async (req, res) => {
@@ -36,7 +37,7 @@ exports.requestReversal = catchAsync(async (req, res) => {
     reason: req.body.reason,
   });
 
-  return response.success(req, res, result, 200, "payment.reversal_requested");
+  return response.success(req, res, result, 200, 'payment.reversal_requested');
 });
 
 exports.approveReversal = catchAsync(async (req, res) => {
@@ -46,7 +47,7 @@ exports.approveReversal = catchAsync(async (req, res) => {
     reversalId: req.params.id,
   });
 
-  return response.success(req, res, result, 200, "payment.reversal_approved");
+  return response.success(req, res, result, 200, 'payment.reversal_approved');
 });
 
 exports.rejectReversal = catchAsync(async (req, res) => {
@@ -56,7 +57,7 @@ exports.rejectReversal = catchAsync(async (req, res) => {
     reversalId: req.params.id,
   });
 
-  return response.success(req, res, result, 200, "payment.reversal_rejected");
+  return response.success(req, res, result, 200, 'payment.reversal_rejected');
 });
 
 /* =====================================================
@@ -65,7 +66,7 @@ exports.rejectReversal = catchAsync(async (req, res) => {
 
 exports.getMyPayments = catchAsync(async (req, res) => {
   if (req.user.isBlacklisted) {
-    throw new AppError("customer.blacklisted", 403);
+    throw new AppError('customer.blacklisted', 403);
   }
 
   const payments = await paymentService.getCustomerPayments({
@@ -77,6 +78,66 @@ exports.getMyPayments = catchAsync(async (req, res) => {
     res,
     payments,
     200,
-    "payment.my_payments_fetched",
+    'payment.my_payments_fetched',
   );
+});
+
+/* =====================================================
+   TENANT LEDGER
+   ===================================================== */
+
+exports.getLedger = catchAsync(async (req, res) => {
+  const result = await ledgerService.getLedger({
+    businessId: req.user.businessId,
+
+    ...req.query,
+  });
+
+  return response.success(req, res, result, 200, 'ledger.fetched');
+});
+
+exports.getLedgerEntry = catchAsync(async (req, res) => {
+  const result = await ledgerService.getLedgerEntry({
+    id: req.params.id,
+
+    businessId: req.user.businessId,
+  });
+
+  if (!result) {
+    throw new AppError('ledger.not_found', 404);
+  }
+
+  return response.success(req, res, result, 200, 'ledger.entry_fetched');
+});
+
+exports.getLedgerDrilldown = catchAsync(async (req, res) => {
+  const result = await ledgerService.getLedgerDrilldown({
+    id: req.params.id,
+
+    businessId: req.user.businessId,
+  });
+
+  if (!result) {
+    throw new AppError('ledger.not_found', 404);
+  }
+
+  return response.success(req, res, result, 200, 'ledger.drilldown_fetched');
+});
+
+exports.getLedgerBalance = catchAsync(async (req, res) => {
+  const result = await ledgerService.getLedgerBalance({
+    businessId: req.user.businessId,
+  });
+
+  return response.success(req, res, result, 200, 'ledger.balance_fetched');
+});
+
+exports.getLedgerAnalytics = catchAsync(async (req, res) => {
+  const result = await ledgerService.getLedgerAnalytics({
+    businessId: req.user.businessId,
+
+    ...req.query,
+  });
+
+  return response.success(req, res, result, 200, 'ledger.analytics_fetched');
 });

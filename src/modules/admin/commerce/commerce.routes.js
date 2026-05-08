@@ -15,27 +15,42 @@ router.use(auth);
 
 /**
  * =========================
- * TRANSACTIONS
+ * LEDGER
  * =========================
  */
 
 router.get(
-  '/transactions',
-  requirePermission(PERMISSIONS.COMMERCE_TRANSACTION_READ_SYSTEM),
-  validate(validation.getTransactions),
-  controller.getTransactions,
+  '/ledger',
+  requirePermission(PERMISSIONS.COMMERCE_LEDGER_READ_SYSTEM),
+  validate(validation.getLedger),
+  controller.getLedger,
 );
 
 router.get(
-  '/transactions/:id',
-  requirePermission(PERMISSIONS.COMMERCE_TRANSACTIONBYID_READ_SYSTEM),
-  controller.getTransaction,
+  '/ledger/:id',
+  requirePermission(PERMISSIONS.COMMERCE_LEDGERBYID_READ_SYSTEM),
+  validate(validation.getLedgerEntry),
+  controller.getLedgerEntry,
 );
 
 router.get(
-  '/transactions/:id/drilldown',
-  requirePermission(PERMISSIONS.COMMERCE_TRANSACTIONDRILLDOWN_READ_SYSTEM),
-  controller.getTransactionDrilldown,
+  '/ledger/:id/drilldown',
+  requirePermission(PERMISSIONS.COMMERCE_LEDGERDRILLDOWN_READ_SYSTEM),
+  validate(validation.getLedgerDrilldown),
+  controller.getLedgerDrilldown,
+);
+
+router.get(
+  '/ledger/analytics',
+  requirePermission(PERMISSIONS.COMMERCE_LEDGER_READ_SYSTEM),
+  validate(validation.getLedgerAnalytics),
+  controller.getLedgerAnalytics,
+);
+
+router.get(
+  '/ledger/balance',
+  requirePermission(PERMISSIONS.COMMERCE_LEDGER_READ_SYSTEM),
+  controller.getLedgerBalance,
 );
 
 /**

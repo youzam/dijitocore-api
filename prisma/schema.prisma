@@ -948,6 +948,62 @@ model JobLock {
 }
 
 //////////////////////////////////////////////////////
+// Unified accounting + reporting ledger for system 
+// and tenant financial operations
+//////////////////////////////////////////////////////
+
+model LedgerEntry {
+  id String @id @default(cuid())
+
+  scopeType LedgerScopeType
+
+  businessId String?
+
+  referenceId   String
+  referenceType LedgerReferenceType
+
+  transactionType String?
+
+  accountType LedgerAccountType
+  direction   LedgerDirection
+
+  amount   Decimal @db.Decimal(18, 2)
+  currency String
+
+  status LedgerStatus @default(POSTED)
+
+  gateway String?
+
+  retryCount Int @default(0)
+
+  subscriptionAmount Decimal? @db.Decimal(18, 2)
+  setupFeeAmount     Decimal? @db.Decimal(18, 2)
+
+  subscriptionId String?
+  packageId      String?
+
+  businessNameSnapshot String?
+  packageNameSnapshot  String?
+  countrySnapshot      String?
+
+  metadata Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([scopeType])
+  @@index([businessId])
+  @@index([referenceId])
+  @@index([referenceType])
+  @@index([accountType])
+  @@index([status])
+  @@index([subscriptionId])
+  @@index([packageId])
+  @@index([createdAt])
+  @@map("ledger_entries")
+}
+
+//////////////////////////////////////////////////////
 // LOGIN ACTIVITY — Login tracking
 //////////////////////////////////////////////////////
 
@@ -1776,6 +1832,7 @@ model SystemSetting {
 
   // 🧠 System lifecycle
   isBootstrapped Boolean @default(false)
+  currency String
 
   // 🔐 Security config
   maxLoginAttempts Int @default(5)
@@ -2056,6 +2113,46 @@ enum InstallmentFrequency {
   DAILY
   MONTHLY
   WEEKLY
+}
+
+enum LedgerScopeType {
+  SYSTEM
+  TENANT
+}
+
+enum LedgerDirection {
+  DEBIT
+  CREDIT
+}
+
+enum LedgerReferenceType {
+  SUBSCRIPTION_PAYMENT
+  SETUP_FEE
+  SUBSCRIPTION_RENEWAL
+  SYSTEM_ADJUSTMENT
+  SYSTEM_REFUND
+
+  CUSTOMER_INSTALLMENT_PAYMENT
+  CUSTOMER_WAIVER
+  CUSTOMER_REFUND
+}
+
+enum LedgerAccountType {
+  SYSTEM_CASH
+  SYSTEM_REVENUE
+  SYSTEM_REFUND
+  SYSTEM_ADJUSTMENT
+
+  TENANT_CASH
+  TENANT_RECEIVABLE
+  TENANT_WAIVER
+}
+
+enum LedgerStatus {
+  PENDING
+  POSTED
+  FAILED
+  REVERSED
 }
 
 enum PaymentStatus {

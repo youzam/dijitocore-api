@@ -10,6 +10,7 @@ const {
   SUPPORTED_PAYMENT_GATEWAYS,
 } = require('../../utils/paymentGateway/supportedGateways');
 const env = require('../../config/env');
+const ledgerService = require('../../services/ledger.service');
 
 /* ======================================================
    OPTIONAL SIGNATURE VERIFY (NON-BREAKING)
@@ -60,8 +61,12 @@ const activateSubscriptionEngine = async (
     // 🔥 LOAD PACKAGE FOR SNAPSHOT (INITIAL)
     // =====================================================
     const pkg = await tx.subscriptionPackage.findUnique({
-      where: { id: subscription.packageId },
+      where: {
+        id: subscription.packageId,
+      },
+
       select: {
+        name: true,
         features: true,
         limits: true,
       },
@@ -76,15 +81,23 @@ const activateSubscriptionEngine = async (
         id: subscription.id,
         version: baseVersion,
       },
+
       data: {
         setupFeePaid: true,
+
         status: SubscriptionStatus.ACTIVE,
+
         startDate: now,
+
         endDate: newEndDate,
+
         graceUntil: null,
+
         creditBalance: 0,
+
         // 🔥 APPLY SNAPSHOT HERE
         featuresSnapshot: pkg.features || {},
+
         limitsSnapshot: pkg.limits || {},
 
         version: { increment: 1 },
@@ -92,11 +105,102 @@ const activateSubscriptionEngine = async (
     });
 
     await tx.business.update({
-      where: { id: subscription.businessId },
+      where: {
+        id: subscription.businessId,
+      },
+
       data: {
         setupCompleted: true,
         status: 'ACTIVE',
       },
+    });
+
+    // =====================================================
+    // 🔥 SYSTEM LEDGER ENTRY
+    // =====================================================
+
+    const business = await tx.business.findUnique({
+      where: {
+        id: subscription.businessId,
+      },
+
+      select: {
+        name: true,
+        country: true,
+      },
+    });
+
+    const snapshots = ledgerService.buildSnapshots({
+      business,
+      packageData: pkg,
+    });
+
+    const isSetupFee = Number(payment.setupFeeAmount || 0) > 0;
+
+    const referenceType = isSetupFee
+      ? ledgerService.REFERENCE_TYPES.SETUP_FEE
+      : ledgerService.REFERENCE_TYPES.SUBSCRIPTION_PAYMENT;
+
+    const transactionType = isSetupFee ? 'SETUP' : 'SUBSCRIPTION';
+
+    await ledgerService.recordDoubleEntryTx(tx, {
+      scopeType: ledgerService.SCOPE_TYPES.SYSTEM,
+
+      businessId: subscription.businessId,
+
+      referenceId: payment.id,
+
+      referenceType,
+
+      transactionType,
+
+      amount: payment.amount,
+
+      currency: payment.currency,
+
+      status: 'POSTED',
+
+      gateway: payment.gateway,
+
+      retryCount: payment.retryCount || 0,
+
+      subscriptionAmount: payment.subscriptionAmount || 0,
+
+      setupFeeAmount: payment.setupFeeAmount || 0,
+
+      subscriptionId: subscription.id,
+
+      packageId: subscription.packageId,
+
+      businessNameSnapshot: snapshots.businessNameSnapshot,
+
+      packageNameSnapshot: snapshots.packageNameSnapshot,
+
+      countrySnapshot: snapshots.countrySnapshot,
+
+      metadata: {
+        paymentId: payment.id,
+
+        billingCycle: subscription.billingCycle,
+
+        isInitial: true,
+
+        activatedAt: new Date().toISOString(),
+      },
+
+      entries: [
+        {
+          accountType: ledgerService.ACCOUNT_TYPES.SYSTEM_CASH,
+
+          direction: ledgerService.DIRECTIONS.DEBIT,
+        },
+
+        {
+          accountType: ledgerService.ACCOUNT_TYPES.SYSTEM_REVENUE,
+
+          direction: ledgerService.DIRECTIONS.CREDIT,
+        },
+      ],
     });
 
     return;
@@ -116,14 +220,29 @@ const activateSubscriptionEngine = async (
   );
 
   const pkg = await tx.subscriptionPackage.findUnique({
-    where: { id: subscription.packageId },
+    where: {
+      id: subscription.packageId,
+    },
+
+    select: {
+      name: true,
+      features: true,
+      limits: true,
+      priceMonthly: true,
+      priceYearly: true,
+      updatedAt: true,
+    },
   });
 
   const updateData = {
     status: SubscriptionStatus.ACTIVE,
+
     endDate: extendedEndDate,
+
     graceUntil: null,
+
     creditBalance: 0,
+
     version: { increment: 1 },
   };
 
@@ -136,11 +255,13 @@ const activateSubscriptionEngine = async (
 
       // Always update feature & limit snapshots on package change
       updateData.featuresSnapshot = pkg.features || {};
+
       updateData.limitsSnapshot = pkg.limits || {};
 
       if (adoptionStage === 1) {
         // SECOND renewal → adopt new pricing
         updateData.priceMonthlySnapshot = pkg.priceMonthly;
+
         updateData.priceYearlySnapshot = pkg.priceYearly;
       }
       // FIRST renewal → pricing untouched
@@ -152,12 +273,98 @@ const activateSubscriptionEngine = async (
       id: subscription.id,
       version: baseVersion,
     },
+
     data: updateData,
   });
 
   await tx.business.update({
-    where: { id: subscription.businessId },
-    data: { status: 'ACTIVE' },
+    where: {
+      id: subscription.businessId,
+    },
+
+    data: {
+      status: 'ACTIVE',
+    },
+  });
+
+  // =====================================================
+  // 🔥 RENEWAL LEDGER ENTRY
+  // =====================================================
+
+  const business = await tx.business.findUnique({
+    where: {
+      id: subscription.businessId,
+    },
+
+    select: {
+      name: true,
+      country: true,
+    },
+  });
+
+  const snapshots = ledgerService.buildSnapshots({
+    business,
+    packageData: pkg,
+  });
+
+  await ledgerService.recordDoubleEntryTx(tx, {
+    scopeType: ledgerService.SCOPE_TYPES.SYSTEM,
+
+    businessId: subscription.businessId,
+
+    referenceId: payment.id,
+
+    referenceType: ledgerService.REFERENCE_TYPES.SUBSCRIPTION_RENEWAL,
+
+    transactionType: 'RENEWAL',
+
+    amount: payment.amount,
+
+    currency: payment.currency,
+
+    status: 'POSTED',
+
+    gateway: payment.gateway,
+
+    retryCount: payment.retryCount || 0,
+
+    subscriptionAmount: payment.subscriptionAmount || 0,
+
+    setupFeeAmount: payment.setupFeeAmount || 0,
+
+    subscriptionId: subscription.id,
+
+    packageId: subscription.packageId,
+
+    businessNameSnapshot: snapshots.businessNameSnapshot,
+
+    packageNameSnapshot: snapshots.packageNameSnapshot,
+
+    countrySnapshot: snapshots.countrySnapshot,
+
+    metadata: {
+      paymentId: payment.id,
+
+      billingCycle: subscription.billingCycle,
+
+      isInitial: false,
+
+      renewedAt: new Date().toISOString(),
+    },
+
+    entries: [
+      {
+        accountType: ledgerService.ACCOUNT_TYPES.SYSTEM_CASH,
+
+        direction: ledgerService.DIRECTIONS.DEBIT,
+      },
+
+      {
+        accountType: ledgerService.ACCOUNT_TYPES.SYSTEM_REVENUE,
+
+        direction: ledgerService.DIRECTIONS.CREDIT,
+      },
+    ],
   });
 };
 
