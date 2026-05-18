@@ -1,7 +1,7 @@
 /**
  * Subscription Feature Registry
  * -----------------------------------
- * This is the single source of truth for:
+ * Single source of truth for:
  * - Allowed feature keys
  * - Allowed limit keys
  * - Type validation
@@ -11,113 +11,110 @@
  * - Do NOT put business logic here
  * - Do NOT read DB here
  * - This file is configuration only
+ *
+ * NOTE:
+ * - Core platform capabilities SHOULD NOT live here
+ * - This registry should contain ONLY
+ *   commercial/package entitlements
  */
 
 const subscriptionFeatureRegistry = {
+  /**
+   * COMMERCIAL FEATURES
+   * -----------------------------------
+   * These features represent:
+   * - upsells
+   * - optional modules
+   * - premium capabilities
+   */
+
   features: {
-    allowContracts: {
-      type: "boolean",
-      label: "Allow Contracts",
-      category: "core",
-      description: "Allows creation and management of contracts.",
-    },
     allowImportCustomers: {
-      type: "boolean",
-      label: "Allow Customers Import",
-      category: "advanced",
-      description: "Allows bulk import of customers via CSV or Excel.",
-    },
+      type: 'boolean',
+      label: 'Allow Customers Import',
+      category: 'advanced',
 
-    allowPayments: {
-      type: "boolean",
-      label: "Allow Payments",
-      category: "core",
-      description: "Allows recording and processing of payments.",
-    },
-
-    allowDashboard: {
-      type: "boolean",
-      label: "Allow Dashboard",
-      category: "core",
-      description: "Allows access to business dashboard.",
+      description: 'Allows bulk import of customers via CSV or Excel.',
     },
 
     allowSMS: {
-      type: "boolean",
-      label: "Allow SMS",
-      category: "communication",
-      description: "Allows sending SMS notifications.",
+      type: 'boolean',
+      label: 'Allow SMS',
+      category: 'communication',
+
+      description: 'Allows sending SMS notifications.',
     },
 
     allowCustomerPortal: {
-      type: "boolean",
-      label: "Allow Customer Portal",
-      category: "advanced",
-      description: "Allows customers to access their portal.",
-    },
+      type: 'boolean',
+      label: 'Allow Customer Portal',
+      category: 'advanced',
 
-    allowReversal: {
-      type: "boolean",
-      label: "Allow Reversal",
-      category: "advanced",
-      description: "Allows payment reversals.",
-    },
-
-    allowApprovals: {
-      type: "boolean",
-      label: "Allow Approvals",
-      category: "advanced",
-      description: "Enables approval workflow.",
+      description: 'Allows customers to access their portal.',
     },
 
     allowMultiUser: {
-      type: "boolean",
-      label: "Allow Multi User",
-      category: "advanced",
-      description: "Allows adding multiple system users.",
+      type: 'boolean',
+      label: 'Allow Multi User',
+      category: 'advanced',
+
+      description: 'Allows adding multiple system users.',
     },
 
     allowAdvancedAnalytics: {
-      type: "boolean",
-      label: "Allow Advanced Analytics",
-      category: "advanced",
-      description: "Allows access to advanced analytics and reports.",
+      type: 'boolean',
+      label: 'Allow Advanced Analytics',
+      category: 'advanced',
+
+      description: 'Allows access to advanced analytics and reports.',
     },
   },
 
+  /**
+   * PACKAGE LIMITS
+   */
+
   limits: {
     maxUsers: {
-      type: "number",
-      label: "Maximum Users",
+      type: 'number',
+
+      label: 'Maximum Users',
+
+      template: 'Up to {value} users',
+
       allowUnlimited: true,
-      description: "Maximum number of active users allowed.",
+
+      description: 'Maximum number of active users allowed.',
     },
 
     maxActiveContracts: {
-      type: "number",
-      label: "Maximum Active Contracts",
-      allowUnlimited: true,
-      description: "Maximum number of active contracts allowed.",
-    },
+      type: 'number',
 
-    maxApprovalRequests: {
-      type: "number",
-      label: "Maximum Approval Requests",
+      label: 'Maximum Active Contracts',
+
+      template: 'Up to {value} active contracts',
+
       allowUnlimited: true,
-      description: "Maximum number of approval requests allowed.",
+
+      description: 'Maximum number of active contracts allowed.',
     },
 
     maxMonthlySms: {
-      type: "number",
-      label: "Maximum Monthly SMS",
+      type: 'number',
+
+      label: 'Maximum Monthly SMS',
+
+      template: '{value} SMS per month',
+
       allowUnlimited: true,
-      description: "Maximum SMS messages allowed per month.",
+
+      description: 'Maximum SMS messages allowed per month.',
     },
   },
 };
 
 /**
- * Helper functions (pure config helpers)
+ * Helper functions
  */
 
 subscriptionFeatureRegistry.isValidFeatureKey = (key) => {
@@ -141,24 +138,5 @@ subscriptionFeatureRegistry.getFeatureKeys = () => {
 subscriptionFeatureRegistry.getLimitKeys = () => {
   return Object.keys(subscriptionFeatureRegistry.limits);
 };
-
-// 🔥 FEATURE LABELS
-const featureLabels = {
-  allowContracts: "Contracts management",
-  allowDashboard: "Dashboard access",
-  allowPayments: "Payments enabled",
-  allowSMS: "SMS notifications",
-};
-
-// 🔥 LIMIT LABELS (USE TEMPLATE)
-const limitLabels = {
-  maxUsers: "Up to {value} users",
-  maxActiveContracts: "Up to {value} active contracts",
-  maxMonthlySms: "{value} SMS per month",
-};
-
-// EXPORTS (ADD ONLY THESE)
-exports.getFeatureLabels = () => featureLabels;
-exports.getLimitLabels = () => limitLabels;
 
 module.exports = subscriptionFeatureRegistry;

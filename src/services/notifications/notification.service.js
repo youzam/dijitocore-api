@@ -127,6 +127,59 @@ const sendCustomerWelcome = async ({
   return smsChannel.send({ to: phone, message });
 };
 
+const sendOnboardingNotice = async ({ email, businessName, stage }) => {
+  let subject;
+  let body;
+
+  if (stage === 'FIRST_WARNING') {
+    subject = 'Complete your onboarding';
+
+    body = `
+      Hello,
+
+      Your business "${businessName}" onboarding is still incomplete.
+
+      Please complete setup to activate your business account.
+
+      DijitoTrack
+    `;
+  }
+
+  if (stage === 'SECOND_WARNING') {
+    subject = 'Second onboarding reminder';
+
+    body = `
+      Hello,
+
+      Your business "${businessName}" onboarding is still pending.
+
+      Please complete onboarding to avoid automatic cleanup.
+
+      DijitoTrack
+    `;
+  }
+
+  if (stage === 'FINAL_WARNING') {
+    subject = 'Final onboarding warning';
+
+    body = `
+      Hello,
+
+      Your onboarding for "${businessName}" remains incomplete.
+
+      Your business will soon be removed automatically if onboarding is not completed.
+
+      DijitoTrack
+    `;
+  }
+
+  await emailChannel.send({
+    to: email,
+    subject,
+    body,
+  });
+};
+
 /**
  * =====================================================
  * MODULE 7 — NOTIFICATION CORE (UNCHANGED)
@@ -403,6 +456,7 @@ module.exports = {
   sendEmailVerification,
   sendBusinessInvite,
   sendCustomerWelcome,
+  sendOnboardingNotice,
   createNotification,
   retryNotifications,
   markNotificationRead,

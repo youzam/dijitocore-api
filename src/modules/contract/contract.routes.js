@@ -1,95 +1,83 @@
-const express = require("express");
+const express = require('express');
 const router = express.Router();
 
-const contractController = require("./contract.controller");
-const validate = require("../../middlewares/validate.middleware");
-const contractValidation = require("./contract.validation");
+const contractController = require('./contract.controller');
+const validate = require('../../middlewares/validate.middleware');
+const contractValidation = require('./contract.validation');
 
-const auth = require("../../middlewares/auth.middleware");
-const tenant = require("../../middlewares/tenant.middleware");
-const role = require("../../middlewares/role.middleware");
-const subscriptionFeature = require("../../middlewares/subscriptionFeature.middleware");
-const subscriptionLimit = require("../../middlewares/subscriptionLimit.middleware");
+const auth = require('../../middlewares/auth.middleware');
+const tenant = require('../../middlewares/tenant.middleware');
+const role = require('../../middlewares/role.middleware');
+const subscriptionFeature = require('../../middlewares/subscriptionFeature.middleware');
 
 router.use(auth);
 router.use(tenant);
 
 /* CREATE */
 router.post(
-  "/",
-  role(["BUSINESS_OWNER", "MANAGER"]),
-  subscriptionFeature("allowContracts"),
-  subscriptionLimit("maxActiveContracts"),
+  '/',
+  role(['BUSINESS_OWNER', 'MANAGER']),
   validate(contractValidation.createContract),
   contractController.createContract,
 );
 
 /* LIST */
 router.get(
-  "/",
-  role(["BUSINESS_OWNER", "MANAGER", "STAFF"]),
-  subscriptionFeature("allowContracts"),
+  '/',
+  role(['BUSINESS_OWNER', 'MANAGER', 'STAFF']),
   contractController.getContracts,
 );
 
 /* SINGLE */
 router.get(
-  "/:id",
-  role(["BUSINESS_OWNER", "MANAGER", "STAFF"]),
-  subscriptionFeature("allowContracts"),
+  '/:id',
+  role(['BUSINESS_OWNER', 'MANAGER', 'STAFF']),
   contractController.getContractById,
 );
 
 /* UPDATE */
 router.patch(
-  "/:id",
-  role(["BUSINESS_OWNER", "MANAGER"]),
-  subscriptionFeature("allowContracts"),
-  subscriptionLimit("maxActiveContracts"),
+  '/:id',
+  role(['BUSINESS_OWNER', 'MANAGER']),
   validate(contractValidation.updateContract),
   contractController.updateContract,
 );
 
 /* TERMINATE */
 router.post(
-  "/:id/terminate",
-  role(["BUSINESS_OWNER"]),
-  subscriptionFeature("allowContracts"),
+  '/:id/terminate',
+  role(['BUSINESS_OWNER']),
   validate(contractValidation.terminateContract),
   contractController.terminateContract,
 );
 
 /* APPROVE TERMINATION */
 router.post(
-  "/termination/:approvalId/approve",
-  role(["BUSINESS_OWNER"]),
-  subscriptionFeature("allowContracts"),
+  '/termination/:approvalId/approve',
+  role(['BUSINESS_OWNER']),
   validate(contractValidation.approveTermination),
   contractController.approveTermination,
 );
 
 /* REJECT TERMINATION */
 router.post(
-  "/termination/:approvalId/reject",
-  role(["BUSINESS_OWNER"]),
-  subscriptionFeature("allowContracts"),
+  '/termination/:approvalId/reject',
+  role(['BUSINESS_OWNER']),
   validate(contractValidation.rejectTermination),
   contractController.rejectTermination,
 );
 
 /* COMPLETE */
 router.post(
-  "/:id/complete",
-  role(["BUSINESS_OWNER"]),
-  subscriptionFeature("allowContracts"),
+  '/:id/complete',
+  role(['BUSINESS_OWNER']),
   contractController.completeContract,
 );
 
 /* DELETE (soft) */
 router.delete(
-  "/:id",
-  role(["BUSINESS_OWNER"]),
-  subscriptionFeature("allowContracts"),
+  '/:id',
+  role(['BUSINESS_OWNER']),
   contractController.deleteContract,
 );
 
@@ -98,23 +86,23 @@ router.delete(
    =========================== */
 
 router.get(
-  "/customer/my-contracts",
-  role(["CUSTOMER"]),
-  subscriptionFeature("allowCustomerPortal"),
+  '/customer/my-contracts',
+  role(['CUSTOMER']),
+  subscriptionFeature('allowCustomerPortal'),
   contractController.getMyContracts,
 );
 
 router.get(
-  "/customer/my-contracts/:id",
-  role(["CUSTOMER"]),
-  subscriptionFeature("allowCustomerPortal"),
+  '/customer/my-contracts/:id',
+  role(['CUSTOMER']),
+  subscriptionFeature('allowCustomerPortal'),
   contractController.getMyContractById,
 );
 
 router.get(
-  "/customer/my-contracts/:id/statement",
-  role(["CUSTOMER"]),
-  subscriptionFeature("allowCustomerPortal"),
+  '/customer/my-contracts/:id/statement',
+  role(['CUSTOMER']),
+  subscriptionFeature('allowCustomerPortal'),
   contractController.downloadMyContractStatement,
 );
 

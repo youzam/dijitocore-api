@@ -1,8 +1,8 @@
-const axios = require("axios");
-const crypto = require("crypto");
-const AppError = require("../AppError");
-const health = require("./gateway.health");
-const env = require("../../config/env");
+const axios = require('axios');
+const crypto = require('crypto');
+const AppError = require('../AppError');
+const health = require('./gateway.health');
+const env = require('../../config/env');
 
 /**
  * =====================================================
@@ -10,8 +10,18 @@ const env = require("../../config/env");
  * =====================================================
  */
 
-const { baseUrl, apiKey, apiSecret, vendorId, callbackUrl } =
-  env.payments.selcom;
+const {
+  isLive,
+  sandboxBaseUrl,
+  liveBaseUrl,
+  apiKey,
+  apiSecret,
+  vendorId,
+  callbackUrl,
+} = env.payments.selcom;
+
+const baseUrl = isLive ? liveBaseUrl : sandboxBaseUrl;
+
 /**
  * Validate config only when used
  */
@@ -19,7 +29,7 @@ const validateConfig = () => {
   const required = [baseUrl, apiKey, apiSecret, vendorId, callbackUrl];
 
   if (required.some((v) => !v)) {
-    throw new AppError("payment.selcom_config_missing", 500);
+    throw new AppError('payment.selcom_config_missing', 500);
   }
 };
 
@@ -31,12 +41,12 @@ const generateChecksum = (payload) => {
 
   const dataString = sortedKeys
     .map((key) => `${key}=${payload[key]}`)
-    .join("&");
+    .join('&');
 
   return crypto
-    .createHmac("sha256", apiSecret)
+    .createHmac('sha256', apiSecret)
     .update(dataString)
-    .digest("hex");
+    .digest('hex');
 };
 
 /**
@@ -48,11 +58,11 @@ exports.initiate = async ({ amount, reference, businessId }) => {
   const payload = {
     vendor: vendorId,
     order_id: reference,
-    buyer_email: "no-reply@yourapp.com",
+    buyer_email: 'no-reply@yourapp.com',
     buyer_name: `Business-${businessId}`,
-    buyer_phone: "0000000000",
+    buyer_phone: '0000000000',
     amount,
-    currency: "TZS",
+    currency: 'TZS',
     callback_url: callbackUrl,
   };
 
@@ -65,34 +75,35 @@ exports.initiate = async ({ amount, reference, businessId }) => {
       {
         headers: {
           Authorization: `Bearer ${apiKey}`,
-          "X-Checksum": checksum,
-          "Content-Type": "application/json",
+          'X-Checksum': checksum,
+          'Content-Type': 'application/json',
         },
         timeout: 15000,
       },
     );
 
     if (!response.data || !response.data.checkout_url) {
-      await health.markDown("SELCOM");
-      throw new AppError("payment.selcom_invalid_response", 502);
+      await health.markDown('SELCOM');
+      throw new AppError('payment.selcom_invalid_response', 502);
     }
 
-    await health.markHealthy("SELCOM");
+    await health.markHealthy('SELCOM');
 
     return {
-      provider: "SELCOM",
+      provider: 'SELCOM',
+      mode: isLive ? 'LIVE' : 'SANDBOX',
       checkoutUrl: response.data.checkout_url,
       reference,
       amount,
     };
-  } catch (error)  {
-    await health.markDown("SELCOM");
+  } catch (error) {
+    await health.markDown('SELCOM');
 
     if (error.response) {
-      throw new AppError("payment.selcom_request_failed", 502);
+      throw new AppError('payment.selcom_request_failed', 502);
     }
 
-    throw new AppError("payment.selcom_unreachable", 503);
+    throw new AppError('payment.selcom_unreachable', 503);
   }
 };
 
@@ -100,6 +111,8 @@ exports.initiate = async ({ amount, reference, businessId }) => {
  * Verify Webhook Signature
  */
 exports.verifyWebhook = (payload, signature) => {
+  console.log(`[SELCOM ${isLive ? 'LIVE' : 'SANDBOX'} WEBHOOK]`);
+
   if (!apiSecret) return false;
 
   const checksum = generateChecksum(payload);

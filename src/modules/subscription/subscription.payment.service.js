@@ -393,7 +393,7 @@ exports.initiatePayment = async ({
       throw new AppError('subscription.not_found', 404);
     }
 
-    if (subscription.status === SubscriptionStatus.SUSPENDED) {
+    if (subscription.status === SubscriptionStatus.EXPIRED) {
       throw new AppError('subscription.not_active', 403);
     }
 

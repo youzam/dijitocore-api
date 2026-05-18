@@ -20,9 +20,7 @@ const authMiddleware = async (req, res, next) => {
   let payload;
   try {
     payload = jwt.verify(token, jwtConfig.accessSecret);
-  } catch (err) {
-    console.log(err);
-
+  } catch {
     return next(new AppError('auth.token_invalid', 401));
   }
 
@@ -89,7 +87,11 @@ const authMiddleware = async (req, res, next) => {
       user.business &&
       user.business.setupCompleted === false
     ) {
-      const allowedPaths = ['/businesses', '/auth/logout'];
+      const allowedPaths = [
+        '/api/v1/businesses',
+        '/api/v1/subscriptions',
+        '/auth/logout',
+      ];
 
       const isAllowed = allowedPaths.some((path) =>
         req.originalUrl.startsWith(path),
@@ -104,7 +106,7 @@ const authMiddleware = async (req, res, next) => {
 
     // 🔥 CONSENT PATCH (BUSINESS USERS ONLY)
     try {
-      const consent = await prisma.consent.findFirst({
+      const consent = await prisma.consentLog.findFirst({
         where: {
           userId: user.id,
         },
@@ -166,7 +168,7 @@ const authMiddleware = async (req, res, next) => {
 
     // 🔥 CONSENT PATCH (CUSTOMERS ONLY)
     try {
-      const consent = await prisma.consent.findFirst({
+      const consent = await prisma.ConsentLog.findFirst({
         where: {
           customerId: customer.id,
         },
@@ -186,13 +188,17 @@ const authMiddleware = async (req, res, next) => {
    * SYSTEM ADMIN
    * =====================================================
    */
+
   if (payload.identity_type === 'system') {
     const admin = await prisma.systemAdmin.findUnique({
-      where: { id: payload.sub },
+      where: {
+        id: payload.sub,
+        tokenVersion: payload.tokenVersion,
+      },
       include: {
         role: {
           include: {
-            rolePermissions: {
+            permissions: {
               include: {
                 permission: true,
               },
@@ -206,8 +212,8 @@ const authMiddleware = async (req, res, next) => {
       return next(new AppError('auth.unauthorized', 401));
     }
 
-    if (admin.tokenVersion !== payload.tokenVersion) {
-      return next(new AppError('auth.session_expired', 401));
+    if (!admin.role) {
+      return next(new AppError('auth.role_not_found', 403));
     }
 
     req.auth.system = true;
@@ -216,7 +222,7 @@ const authMiddleware = async (req, res, next) => {
       id: admin.id,
       role: admin.role.name,
       identityType: 'system',
-      permissions: admin.role.rolePermissions.map((rp) => rp.permission.name),
+      permissions: admin.role.permissions.map((rp) => rp.permission.name),
     };
 
     return next();

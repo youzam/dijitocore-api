@@ -33,6 +33,9 @@ exports.createSubscription = catchAsync(async (req, res) => {
     businessId: req.user.businessId,
     packageId: req.body.packageId,
     billingCycle: req.body.billingCycle,
+    paymentMethod: req.body.paymentMethod,
+    phone: req.body.phone,
+    couponId: req.body.couponId,
     userId: req.user.id,
   });
 
@@ -44,7 +47,7 @@ exports.getCurrentSubscription = catchAsync(async (req, res) => {
     where: {
       businessId: req.user.businessId,
       status: {
-        in: ['TRIAL', 'ACTIVE', 'GRACE'],
+        in: ['ACTIVE', 'GRACE'],
       },
     },
     orderBy: { createdAt: 'desc' },

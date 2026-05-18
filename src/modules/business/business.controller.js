@@ -1,6 +1,6 @@
-const catchAsync = require("../../utils/catchAsync");
-const response = require("../../utils/response");
-const service = require("./business.service");
+const catchAsync = require('../../utils/catchAsync');
+const response = require('../../utils/response');
+const service = require('./business.service');
 
 /**
  * =========================
@@ -35,5 +35,16 @@ exports.updateBusinessSettings = catchAsync(async (req, res) => {
  */
 exports.getBusinessDetails = catchAsync(async (req, res) => {
   const data = await service.getBusinessDetails(req.params.businessId);
+  return response.success(req, res, data);
+});
+
+/**
+ * =========================
+ * GET MY BUSINESS
+ * =========================
+ */
+exports.getMyBusiness = catchAsync(async (req, res) => {
+  const data = await service.getMyBusiness(req.user);
+
   return response.success(req, res, data);
 });

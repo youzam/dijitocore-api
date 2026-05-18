@@ -1,4 +1,4 @@
-const prisma = require("../../config/prisma");
+const prisma = require('../../config/prisma');
 
 class AnnouncementService {
   /*
@@ -72,23 +72,16 @@ class AnnouncementService {
 
       /*
       |--------------------------------------------------------------------------
-      | TRIAL FILTER
-      |--------------------------------------------------------------------------
-      */
-      if (a.trialOnly && !user.isTrial) return false;
-
-      /*
-      |--------------------------------------------------------------------------
       | SEGMENT FILTER (BASIC)
       |--------------------------------------------------------------------------
       */
       if (a.segments.length > 0) {
         const segmentMatch = a.segments.some((s) => {
-          if (s.segmentType === "NEW_USERS") {
+          if (s.segmentType === 'NEW_USERS') {
             return user.isNewUser;
           }
 
-          if (s.segmentType === "INACTIVE") {
+          if (s.segmentType === 'INACTIVE') {
             return user.lastLoginDays >= (s.rules?.days || 30);
           }
 

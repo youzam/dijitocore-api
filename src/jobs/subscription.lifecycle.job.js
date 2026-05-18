@@ -1,5 +1,5 @@
-const prisma = require("../config/prisma");
-const auditHelper = require("../utils/audit.helper");
+const prisma = require('../config/prisma');
+const auditHelper = require('../utils/audit.helper');
 
 const BATCH_SIZE = 200;
 const GRACE_DAYS = 7;
@@ -15,12 +15,12 @@ async function run() {
       loopGuard++;
 
       if (loopGuard >= MAX_LOOPS) {
-        throw new Error("Job loop guard triggered");
+        throw new Error('Job loop guard triggered');
       }
 
       const subscriptions = await prisma.subscription.findMany({
         where: {
-          status: { in: ["ACTIVE", "TRIAL", "GRACE"] },
+          status: { in: ['ACTIVE', 'GRACE'] },
           endDate: {
             not: null,
             lte: now,
@@ -31,7 +31,7 @@ async function run() {
           skip: 1,
           cursor: { id: cursor },
         }),
-        orderBy: { id: "asc" },
+        orderBy: { id: 'asc' },
       });
 
       if (!subscriptions.length) break;
@@ -41,10 +41,10 @@ async function run() {
 
         try {
           /**
-           * ACTIVE/TRIAL → GRACE
+           * ACTIVE → GRACE
            */
           if (
-            ["ACTIVE", "TRIAL"].includes(sub.status) &&
+            ['ACTIVE'].includes(sub.status) &&
             sub.endDate &&
             sub.endDate <= now &&
             !sub.graceUntil
@@ -57,7 +57,7 @@ async function run() {
 
               if (
                 !current ||
-                !["ACTIVE", "TRIAL"].includes(current.status) ||
+                !['ACTIVE'].includes(current.status) ||
                 current.graceUntil
               ) {
                 return;
@@ -66,7 +66,7 @@ async function run() {
               await tx.subscription.update({
                 where: { id: sub.id },
                 data: {
-                  status: "GRACE",
+                  status: 'GRACE',
                   graceUntil: new Date(
                     now.getTime() + GRACE_DAYS * 24 * 60 * 60 * 1000,
                   ),
@@ -76,9 +76,9 @@ async function run() {
               await auditHelper.logAudit({
                 tx,
                 businessId: sub.businessId,
-                entityType: "SUBSCRIPTION",
+                entityType: 'SUBSCRIPTION',
                 entityId: sub.id,
-                action: "MOVED_TO_GRACE",
+                action: 'MOVED_TO_GRACE',
               });
             });
 
@@ -86,10 +86,10 @@ async function run() {
           }
 
           /**
-           * REFUND GRACE → SUSPENDED
+           * GRACE → EXPIRED
            */
           if (
-            sub.status === "ACTIVE" &&
+            sub.status === 'GRACE' &&
             sub.graceUntil &&
             sub.graceUntil <= now
           ) {
@@ -100,7 +100,7 @@ async function run() {
 
               if (
                 !current ||
-                current.status !== "ACTIVE" ||
+                current.status !== 'GRACE' ||
                 !current.graceUntil ||
                 current.graceUntil > now
               ) {
@@ -109,73 +109,34 @@ async function run() {
 
               await tx.subscription.update({
                 where: { id: sub.id },
-                data: { status: "SUSPENDED" },
-              });
-
-              await auditHelper.logAudit({
-                tx,
-                businessId: sub.businessId,
-                entityType: "SUBSCRIPTION",
-                entityId: sub.id,
-                action: "REFUND_GRACE_SUSPENDED",
-              });
-            });
-
-            continue;
-          }
-
-          /**
-           * GRACE → SUSPENDED
-           */
-          if (
-            sub.status === "GRACE" &&
-            sub.graceUntil &&
-            sub.graceUntil <= now
-          ) {
-            await prisma.$transaction(async (tx) => {
-              const current = await tx.subscription.findUnique({
-                where: { id: sub.id },
-              });
-
-              if (
-                !current ||
-                current.status !== "GRACE" ||
-                !current.graceUntil ||
-                current.graceUntil > now
-              ) {
-                return;
-              }
-
-              await tx.subscription.update({
-                where: { id: sub.id },
-                data: { status: "SUSPENDED" },
+                data: { status: 'EXPIRED' },
               });
 
               await tx.business.update({
                 where: { id: sub.businessId },
-                data: { status: "INACTIVE" },
+                data: { status: 'INACTIVE' },
               });
 
               await auditHelper.logAudit({
                 tx,
                 businessId: sub.businessId,
-                entityType: "SUBSCRIPTION",
+                entityType: 'SUBSCRIPTION',
                 entityId: sub.id,
-                action: "SUSPENDED_EXPIRED",
+                action: 'SUBSCRIPTION_EXPIRED',
               });
             });
           }
         } catch (err) {
           console.error(
-            "Subscription lifecycle transition failed:",
+            'Subscription lifecycle transition failed:',
             sub.id,
             err,
           );
         }
       }
     }
-  } catch (error)  {
-    console.error("Subscription lifecycle cron failed:", error);
+  } catch (error) {
+    console.error('Subscription lifecycle cron failed:', error);
     throw error;
   }
 }

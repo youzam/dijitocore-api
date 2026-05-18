@@ -41,6 +41,8 @@ router.put(
   controller.updateBusinessSettings,
 );
 
+router.get('/me', tenant, role(['BUSINESS_OWNER']), controller.getMyBusiness);
+
 router.get(
   '/:businessId',
   tenant,

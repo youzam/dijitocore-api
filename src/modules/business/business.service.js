@@ -44,10 +44,22 @@ exports.createBusiness = async (user, payload) => {
     throw new AppError('business.alreadyExists', 400);
   }
 
-  const { name, email, phone, currency, timezone } = payload;
+  const { name, email, phone, currency, country, timezone } = payload;
 
-  if (!name || !currency || !timezone) {
+  if (!name || !currency || !timezone || !country) {
     throw new AppError('business.missingRequired', 400);
+  }
+
+  const normalizedEmail = email.toLowerCase();
+
+  const existingBusiness = await prisma.business.findUnique({
+    where: {
+      email: normalizedEmail,
+    },
+  });
+
+  if (existingBusiness) {
+    throw new AppError('business email already exists', 409);
   }
 
   const businessCode = await generateUniqueBusinessCode(name);
@@ -55,8 +67,9 @@ exports.createBusiness = async (user, payload) => {
   const business = await prisma.business.create({
     data: {
       name,
-      email,
+      email: normalizedEmail,
       phone,
+      country,
       businessCode,
       status: 'PENDING',
       setupCompleted: false,
@@ -141,6 +154,44 @@ exports.getBusinessDetails = async (businessId) => {
       users: {
         select: {
           id: true,
+          email: true,
+          role: true,
+          status: true,
+        },
+      },
+    },
+  });
+
+  if (!business) {
+    throw new AppError('business.notFound', 404);
+  }
+
+  return business;
+};
+
+/**
+ * =========================
+ * GET MY BUSINESS
+ * =========================
+ */
+exports.getMyBusiness = async (user) => {
+  if (!user.businessId) {
+    throw new AppError('business.notFound', 404);
+  }
+
+  const business = await prisma.business.findUnique({
+    where: {
+      id: user.businessId,
+    },
+
+    include: {
+      settings: true,
+
+      users: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
           email: true,
           role: true,
           status: true,

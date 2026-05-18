@@ -1,6 +1,6 @@
-const prisma = require("../config/prisma");
-const AppError = require("./AppError");
-const { SubscriptionStatus } = require("@prisma/client");
+const prisma = require('../config/prisma');
+const AppError = require('./AppError');
+const { SubscriptionStatus } = require('@prisma/client');
 
 /**
  * Fetch active subscription with package features
@@ -10,11 +10,7 @@ async function getActiveSubscription(businessId) {
     where: {
       businessId,
       status: {
-        in: [
-          SubscriptionStatus.TRIAL,
-          SubscriptionStatus.ACTIVE,
-          SubscriptionStatus.GRACE,
-        ],
+        in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.GRACE],
       },
     },
     include: {
@@ -30,7 +26,7 @@ async function requireActiveSubscription(businessId) {
   const subscription = await getActiveSubscription(businessId);
 
   if (!subscription) {
-    throw new AppError("subscription.not_active", 403);
+    throw new AppError('subscription.not_active', 403);
   }
 
   return subscription;
@@ -45,7 +41,7 @@ exports.hasFeature = async (businessId, featureKey) => {
   const features = subscription.package?.features || {};
 
   if (!features[featureKey]) {
-    throw new AppError("subscription.feature_not_allowed", 403);
+    throw new AppError('subscription.feature_not_allowed', 403);
   }
 
   return true;
@@ -67,7 +63,7 @@ exports.getFeatureLimit = async (businessId, featureKey) => {
 exports.validateLimit = async (businessId, featureKey, currentUsage) => {
   const limit = await exports.getFeatureLimit(businessId, featureKey);
 
-  if (typeof limit !== "number") {
+  if (typeof limit !== 'number') {
     return true; // no numeric limit defined
   }
 
@@ -86,19 +82,19 @@ exports.validateDowngradeLimits = async (businessId, newFeatures) => {
   const violations = [];
 
   for (const [key, value] of Object.entries(newFeatures || {})) {
-    if (typeof value !== "number") continue;
+    if (typeof value !== 'number') continue;
 
     let usage = null;
 
-    if (key === "maxUsers") {
+    if (key === 'maxUsers') {
       usage = await prisma.user.count({ where: { businessId } });
     }
 
-    if (key === "maxContracts") {
+    if (key === 'maxContracts') {
       usage = await prisma.contract.count({ where: { businessId } });
     }
 
-    if (key === "maxCustomers") {
+    if (key === 'maxCustomers') {
       usage = await prisma.customer.count({ where: { businessId } });
     }
 
@@ -109,7 +105,7 @@ exports.validateDowngradeLimits = async (businessId, newFeatures) => {
 
   if (violations.length) {
     throw new AppError(
-      `subscription.downgrade_limit_violation: ${violations.join(", ")}`,
+      `subscription.downgrade_limit_violation: ${violations.join(', ')}`,
       400,
     );
   }

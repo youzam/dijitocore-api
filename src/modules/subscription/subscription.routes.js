@@ -18,7 +18,6 @@ router.post(
   '/',
   auth,
   role(['BUSINESS_OWNER']),
-  tenant,
   validate(subscriptionValidation.createSubscription),
   subscriptionController.createSubscription,
 );
@@ -38,7 +37,6 @@ router.post(
   '/:id/pay',
   auth,
   role(['BUSINESS_OWNER']),
-  tenant,
   validate(subscriptionValidation.initiatePayment),
   subscriptionController.initiatePayment,
 );
@@ -64,7 +62,6 @@ router.post(
   '/:id/calculate-price',
   auth,
   role(['BUSINESS_OWNER']),
-  tenant,
   subscriptionController.calculatePrice,
 );
 
@@ -73,7 +70,6 @@ router.post(
   '/:id/apply-coupon',
   auth,
   role(['BUSINESS_OWNER']),
-  tenant,
   validate(subscriptionValidation.applyCoupon),
   subscriptionController.applyCoupon,
 );

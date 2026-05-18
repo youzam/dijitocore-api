@@ -15,14 +15,19 @@ async function findActiveSubscription(businessId) {
     where: {
       businessId,
       status: {
-        in: [
-          SubscriptionStatus.TRIAL,
-          SubscriptionStatus.ACTIVE,
-          SubscriptionStatus.GRACE,
-        ],
+        in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.GRACE],
       },
     },
     include: { package: true },
+  });
+}
+
+async function findPendingSubscription(businessId) {
+  return prisma.subscription.findFirst({
+    where: {
+      businessId,
+      status: SubscriptionStatus.PENDING,
+    },
   });
 }
 
@@ -40,21 +45,14 @@ exports.calculatePrice = async ({ businessId, subscriptionId }) => {
 
   const isInitial = !subscription.setupFeePaid;
 
-  // 🔹 BASE AMOUNT
-  let baseAmount;
+  const subscriptionAmount =
+    subscription.billingCycle === 'YEARLY'
+      ? subscription.priceYearlySnapshot
+      : subscription.priceMonthlySnapshot;
 
-  if (isInitial) {
-    baseAmount =
-      subscription.setupFeeSnapshot +
-      (subscription.billingCycle === 'YEARLY'
-        ? subscription.priceYearlySnapshot
-        : subscription.priceMonthlySnapshot);
-  } else {
-    baseAmount =
-      subscription.billingCycle === 'YEARLY'
-        ? subscription.priceYearlySnapshot
-        : subscription.priceMonthlySnapshot;
-  }
+  const setupFeeAmount = isInitial ? subscription.setupFeeSnapshot : 0;
+
+  const baseAmount = subscriptionAmount + setupFeeAmount;
 
   if (!Number.isInteger(baseAmount) || baseAmount < 0) {
     throw new AppError('payment.invalid_amount', 500);
@@ -191,6 +189,9 @@ exports.createSubscription = async ({
   businessId,
   packageId,
   billingCycle,
+  paymentMethod,
+  phone,
+  couponId,
   userId,
 }) => {
   if (!['MONTHLY', 'YEARLY'].includes(billingCycle)) {
@@ -203,8 +204,12 @@ exports.createSubscription = async ({
     throw new AppError('subscription.already_active', 400);
   }
 
+  const pendingSubscription = await findPendingSubscription(businessId);
+
   const pkg = await prisma.subscriptionPackage.findUnique({
-    where: { id: packageId },
+    where: {
+      id: packageId,
+    },
   });
 
   if (!pkg || !pkg.isActive) {
@@ -227,33 +232,60 @@ exports.createSubscription = async ({
 
   const startDate = new Date();
 
-  let status = SubscriptionStatus.ACTIVE;
+  let status = SubscriptionStatus.PENDING;
+
   let endDate = null;
 
-  if (pkg.trialDays > 0) {
-    status = SubscriptionStatus.TRIAL;
-    endDate = new Date(startDate.getTime() + pkg.trialDays * 86400000);
+  const featuresSnapshot = pkg.features || {};
+
+  const limitsSnapshot = pkg.limits || {};
+
+  let subscription;
+
+  if (pendingSubscription) {
+    subscription = await prisma.subscription.update({
+      where: {
+        id: pendingSubscription.id,
+      },
+      data: {
+        packageId,
+        billingCycle,
+        setupFeeSnapshot: pkg.setupFee,
+        priceMonthlySnapshot: pkg.priceMonthly,
+        priceYearlySnapshot: pkg.priceYearly,
+        featuresSnapshot,
+        limitsSnapshot,
+        startDate,
+        endDate,
+      },
+    });
+  } else {
+    subscription = await prisma.subscription.create({
+      data: {
+        businessId,
+        packageId,
+        billingCycle,
+        setupFeeSnapshot: pkg.setupFee,
+        priceMonthlySnapshot: pkg.priceMonthly,
+        priceYearlySnapshot: pkg.priceYearly,
+        featuresSnapshot,
+        limitsSnapshot,
+        status,
+        startDate,
+        endDate,
+        setupFeePaid: false,
+        version: 1,
+        creditBalance: 0,
+      },
+    });
   }
 
-  const featuresSnapshot = pkg.features?.features || {};
-  const limitsSnapshot = pkg.features?.limits || {};
-
-  const subscription = await prisma.subscription.create({
-    data: {
-      businessId,
-      packageId,
-      billingCycle,
-      setupFeeSnapshot: pkg.setupFee,
-      priceMonthlySnapshot: pkg.priceMonthly,
-      priceYearlySnapshot: pkg.priceYearly,
-      featuresSnapshot,
-      limitsSnapshot,
-      status,
-      startDate,
-      endDate,
-      version: 1,
-      creditBalance: 0,
-    },
+  const payment = await exports.initiatePayment({
+    subscriptionId: subscription.id,
+    paymentMethod,
+    phone,
+    couponId,
+    userId,
   });
 
   await auditHelper.logAudit({
@@ -261,14 +293,22 @@ exports.createSubscription = async ({
     userId,
     entityType: 'SUBSCRIPTION',
     entityId: subscription.id,
-    action: 'CREATE',
+    action: pendingSubscription ? 'UPDATE' : 'CREATE',
     metadata: {
       packageCode: pkg.code,
       billingCycle,
+      reusedPendingSubscription: !!pendingSubscription,
+      paymentInitiated: true,
     },
   });
 
-  return subscription;
+  return {
+    subscription,
+    onboarding: {
+      paymentRequired: true,
+      payment,
+    },
+  };
 };
 
 /* ===========================
@@ -296,11 +336,9 @@ exports.upgradeSubscription = async ({
   }
 
   if (
-    ![
-      SubscriptionStatus.ACTIVE,
-      SubscriptionStatus.TRIAL,
-      SubscriptionStatus.GRACE,
-    ].includes(subscription.status)
+    ![SubscriptionStatus.ACTIVE, SubscriptionStatus.GRACE].includes(
+      subscription.status,
+    )
   ) {
     throw new AppError('subscription.not_active', 403);
   }
@@ -360,8 +398,8 @@ exports.upgradeSubscription = async ({
     credit = Math.floor(dailyRate * remainingDays);
   }
 
-  const featuresSnapshot = pkg.features?.features || {};
-  const limitsSnapshot = pkg.features?.limits || {};
+  const featuresSnapshot = pkg.features || {};
+  const limitsSnapshot = pkg.limits || {};
 
   let updated;
 

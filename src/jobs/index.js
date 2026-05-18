@@ -1,18 +1,20 @@
-const cron = require("node-cron");
+const cron = require('node-cron');
 
-const { runSafeJob, gracefulShutdown } = require("../utils/jobRunner");
+const { runSafeJob, gracefulShutdown } = require('../utils/jobRunner');
 
-const dashboardSnapshotJob = require("./dashboard.snapshot.job");
-const deviceCleanupJob = require("./device.cleanup.job");
-const escalationJob = require("./escalation.job");
-const reminderJob = require("./reminder.job");
-const notificationRetryJob = require("./notification.job");
-const subscriptionLifecycleJob = require("./subscription.lifecycle.job");
-const complianceJob = require("./compliance.job");
-const apiMetricsJob = require("./api.metrics.job");
-const deadJobMonitor = require("./dead.job.monitor");
-const userAutoUnlockJob = require("./user.auto.unlock.job");
-const cleanupJob = require("./cleanup.job");
+const dashboardSnapshotJob = require('./dashboard.snapshot.job');
+const deviceCleanupJob = require('./device.cleanup.job');
+const escalationJob = require('./escalation.job');
+const reminderJob = require('./reminder.job');
+const notificationRetryJob = require('./notification.job');
+const subscriptionLifecycleJob = require('./subscription.lifecycle.job');
+const complianceJob = require('./compliance.job');
+const apiMetricsJob = require('./api.metrics.job');
+const deadJobMonitor = require('./dead.job.monitor');
+const userAutoUnlockJob = require('./user.auto.unlock.job');
+const cleanupJob = require('./cleanup.job');
+const subscriptionCleanupJob = require('./subscription.cleanup.job');
+const businessOnboardingLifecycleJob = require('./business.onboarding.lifecycle.job');
 
 /*
 |--------------------------------------------------------------------------
@@ -32,6 +34,8 @@ const jobRegistry = {
   dead_job_monitor: deadJobMonitor,
   user_auto_unlock: userAutoUnlockJob,
   export_cleanup: cleanupJob,
+  subscription_cleanup: subscriptionCleanupJob,
+  subscription_cleanup: subscriptionCleanupJob,
 };
 
 /*
@@ -63,64 +67,80 @@ function startJobs() {
   // 🔴 HEAVY JOBS (1 hour)
   tasks.push(
     scheduleCronJob(
-      "dashboard_snapshot",
+      'dashboard_snapshot',
       dashboardSnapshotJob.run,
-      "0 * * * *",
+      '0 * * * *',
       1800,
     ),
   );
 
   tasks.push(
     scheduleCronJob(
-      "subscription_lifecycle",
+      'subscription_lifecycle',
       subscriptionLifecycleJob.run,
-      "0 * * * *",
+      '0 * * * *',
       1800,
     ),
   );
 
   // 🟡 MEDIUM JOBS (1 hour)
   tasks.push(
-    scheduleCronJob("device_cleanup", deviceCleanupJob.run, "0 * * * *", 900),
+    scheduleCronJob('device_cleanup', deviceCleanupJob.run, '0 * * * *', 900),
   );
 
   tasks.push(
-    scheduleCronJob("export_cleanup", cleanupJob.run, "0 * * * *", 900),
+    scheduleCronJob('export_cleanup', cleanupJob.run, '0 * * * *', 900),
   );
 
-  tasks.push(scheduleCronJob("reminder", reminderJob.run, "0 * * * *", 900));
+  tasks.push(scheduleCronJob('reminder', reminderJob.run, '0 * * * *', 900));
 
   // 🔵 FAST JOBS (10 min)
   tasks.push(
-    scheduleCronJob("escalation", escalationJob.run, "*/10 * * * *", 600),
+    scheduleCronJob('escalation', escalationJob.run, '*/10 * * * *', 600),
   );
 
   tasks.push(
-    scheduleCronJob("retry", notificationRetryJob.run, "*/10 * * * *", 600),
+    scheduleCronJob('retry', notificationRetryJob.run, '*/10 * * * *', 600),
   );
 
   tasks.push(
-    scheduleCronJob("compliance", complianceJob.run, "*/10 * * * *", 600),
+    scheduleCronJob('compliance', complianceJob.run, '*/10 * * * *', 600),
   );
 
   // 🟢 VERY FREQUENT (5 min)
   tasks.push(
-    scheduleCronJob("api_metrics", apiMetricsJob.run, "*/5 * * * *", 300),
+    scheduleCronJob('api_metrics', apiMetricsJob.run, '*/5 * * * *', 300),
   );
 
   tasks.push(
-    scheduleCronJob("dead_job_monitor", deadJobMonitor.run, "*/5 * * * *", 300),
+    scheduleCronJob('dead_job_monitor', deadJobMonitor.run, '*/5 * * * *', 300),
   );
 
   tasks.push(
     scheduleCronJob(
-      "user_auto_unlock",
+      'user_auto_unlock',
       userAutoUnlockJob.run,
-      "*/5 * * * *",
+      '*/5 * * * *',
       300,
     ),
   );
+  tasks.push(
+    scheduleCronJob(
+      'subscription_cleanup',
+      subscriptionCleanupJob.run,
+      '0 2 * * *',
+      900,
+    ),
+  );
 
+  tasks.push(
+    scheduleCronJob(
+      'business_onboarding_lifecycle',
+      businessOnboardingLifecycleJob.run,
+      '0 3 * * *',
+      900,
+    ),
+  );
   /*
   |--------------------------------------------------------------------------
   | Graceful Shutdown (UNCHANGED)

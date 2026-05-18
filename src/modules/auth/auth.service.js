@@ -93,17 +93,8 @@ const verifyEmail = async (code) => {
     action: 'EMAIL_VERIFIED',
   });
 
-  // 🔥 CORE TOKEN GENERATION
-  const tokens = coreAuth.generateAuthTokens({
-    sub: user.id,
-    identity_type: 'business',
-    role: user.role,
-    businessId: null,
-    tokenVersion: user.tokenVersion,
-  });
-
   // 🔥 PATCH — CONSENT CHECK
-  const existingConsent = await prisma.consent.findFirst({
+  const existingConsent = await prisma.consentLog.findFirst({
     where: {
       userId: user.id,
     },
@@ -117,7 +108,6 @@ const verifyEmail = async (code) => {
       email: user.email,
       role: user.role,
     },
-    tokens,
     forceConsent,
   };
 };
@@ -337,7 +327,7 @@ const requestPasswordReset = async (email) => {
   });
 
   // 🔥 BUILD URL
-  const resetUrl = `${env.frontend.url}/reset-password?token=${resetToken}`;
+  const resetUrl = `${env.frontend.url}/auth/password/reset?token=${resetToken}`;
 
   // 🔥 REAL FUNCTION FROM YOUR SYSTEM
   await notificationService.sendPasswordReset({
@@ -391,21 +381,6 @@ const resetPassword = async (token, newPassword) => {
     userId: user.id,
   });
 
-  // 🔥 CORE TOKEN GENERATION
-  const tokens = coreAuth.generateAuthTokens({
-    sub: user.id,
-    identity_type: 'business',
-    role: user.role,
-    businessId: user.businessId,
-    tokenVersion: user.tokenVersion,
-  });
-
-  // 🔥 CREATE NEW SESSION
-  await coreAuth.createUserSession({
-    userId: user.id,
-    refreshToken: tokens.refreshToken,
-  });
-
   await logAudit({
     businessId: user.businessId,
     userId: user.id,
@@ -415,13 +390,10 @@ const resetPassword = async (token, newPassword) => {
   });
 
   return {
-    user: {
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      businessId: user.businessId,
-    },
-    tokens,
+    id: user.id,
+    email: user.email,
+    role: user.role,
+    businessId: user.businessId,
   };
 };
 

@@ -1,5 +1,5 @@
-const AppError = require("../utils/AppError");
-const prisma = require("../config/prisma");
+const AppError = require('../utils/AppError');
+const prisma = require('../config/prisma');
 
 /**
  * =====================================================
@@ -8,7 +8,7 @@ const prisma = require("../config/prisma");
  */
 const tenantMiddleware = async (req, res, next) => {
   if (!req.auth) {
-    return next(new AppError("auth.unauthorized", 401));
+    return next(new AppError('auth.unauthorized', 401));
   }
 
   /**
@@ -17,11 +17,11 @@ const tenantMiddleware = async (req, res, next) => {
    * Inject business context dynamically
    * =====================================================
    */
-  if (req.auth.identityType === "system") {
+  if (req.auth.identityType === 'system') {
     if (req.params.businessId) {
       req.user = req.user || {};
       req.user.businessId = req.params.businessId;
-      req.user.role = req.user.role || "SUPER_ADMIN";
+      req.user.role = req.user.role || 'SUPER_ADMIN';
     }
 
     return next();
@@ -32,12 +32,18 @@ const tenantMiddleware = async (req, res, next) => {
    * OWNER BEFORE BUSINESS CREATION
    * =====================================================
    */
-  if (
-    req.auth.identityType === "business" &&
-    req.auth.role === "BUSINESS_OWNER" &&
-    !req.auth.businessId
-  ) {
-    return next();
+  if (req.auth.identityType === 'business' && !req.auth.businessId) {
+    const allowedRoutes = ['/api/v1/businesses'];
+
+    const isAllowedRoute = allowedRoutes.some((route) =>
+      req.originalUrl.startsWith(route),
+    );
+
+    if (!isAllowedRoute) {
+      return next(
+        new AppError('Must have a business to perform this Action', 401),
+      );
+    }
   }
 
   /**
@@ -46,11 +52,11 @@ const tenantMiddleware = async (req, res, next) => {
    * =====================================================
    */
   if (!req.auth.businessId) {
-    return next(new AppError("auth.unauthorized", 401));
+    return next(new AppError('auth.unauthorized', 401));
   }
 
   if (req.params.businessId && req.params.businessId !== req.auth.businessId) {
-    return next(new AppError("auth.unauthorized", 403));
+    return next(new AppError('auth.unauthorized', 403));
   }
 
   /**
@@ -62,7 +68,7 @@ const tenantMiddleware = async (req, res, next) => {
    */
   if (
     req.auth.businessStatus &&
-    ["ACTIVE", "GRACE"].includes(req.auth.businessStatus) &&
+    ['ACTIVE', 'GRACE'].includes(req.auth.businessStatus) &&
     req.auth.subscriptionActive === true
   ) {
     req.user = req.user || {};
@@ -82,7 +88,7 @@ const tenantMiddleware = async (req, res, next) => {
       select: {
         status: true,
         subscriptions: {
-          where: { status: "ACTIVE" },
+          where: { status: 'ACTIVE' },
           select: { id: true },
           take: 1,
         },
@@ -90,17 +96,17 @@ const tenantMiddleware = async (req, res, next) => {
     });
 
     if (!business) {
-      return next(new AppError("auth.unauthorized", 403));
+      return next(new AppError('auth.unauthorized', 403));
     }
 
-    if (!["ACTIVE", "GRACE"].includes(business.status)) {
-      return next(new AppError("business.inactive", 403));
+    if (!['ACTIVE', 'GRACE'].includes(business.status)) {
+      return next(new AppError('business.inactive', 403));
     }
 
     if (!business.subscriptions.length) {
-      return next(new AppError("subscription.required", 403));
+      return next(new AppError('subscription.required', 403));
     }
-  } catch (error)  {
+  } catch (error) {
     return next(error);
   }
 

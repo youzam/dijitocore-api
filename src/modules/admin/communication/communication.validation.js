@@ -1,4 +1,4 @@
-const Joi = require("joi");
+const Joi = require('joi');
 
 /*
 |--------------------------------------------------------------------------
@@ -6,25 +6,25 @@ const Joi = require("joi");
 |--------------------------------------------------------------------------
 */
 const placementEnum = [
-  "TOP_BAR",
-  "SIDEBAR",
-  "CENTER_MODAL",
-  "BANNER",
-  "INLINE",
+  'TOP_BAR',
+  'SIDEBAR',
+  'CENTER_MODAL',
+  'BANNER',
+  'INLINE',
 ];
 
 const eventTypeEnum = [
-  "GENERAL",
-  "HOLIDAY",
-  "PROMOTION",
-  "SYSTEM",
-  "BILLING",
-  "SECURITY",
+  'GENERAL',
+  'HOLIDAY',
+  'PROMOTION',
+  'SYSTEM',
+  'BILLING',
+  'SECURITY',
 ];
 
-const priorityEnum = ["LOW", "MEDIUM", "HIGH", "CRITICAL"];
+const priorityEnum = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'];
 
-const channelEnum = ["IN_APP", "SMS", "EMAIL"];
+const channelEnum = ['IN_APP', 'SMS', 'EMAIL'];
 
 /*
 |--------------------------------------------------------------------------
@@ -60,9 +60,7 @@ exports.createAnnouncement = Joi.object({
 
   startAt: Joi.date().optional(),
 
-  endAt: Joi.date().greater(Joi.ref("startAt")).optional(),
-
-  trialOnly: Joi.boolean().optional(),
+  endAt: Joi.date().greater(Joi.ref('startAt')).optional(),
 
   isEmergency: Joi.boolean().optional(),
 
@@ -86,7 +84,7 @@ exports.createAnnouncement = Joi.object({
 
   channels: Joi.array()
     .items(Joi.string().valid(...channelEnum))
-    .when("sendNotification", {
+    .when('sendNotification', {
       is: true,
       then: Joi.required(),
       otherwise: Joi.optional(),
@@ -117,9 +115,7 @@ exports.updateAnnouncement = Joi.object({
 
   startAt: Joi.date().optional(),
 
-  endAt: Joi.date().greater(Joi.ref("startAt")).optional(),
-
-  trialOnly: Joi.boolean().optional(),
+  endAt: Joi.date().greater(Joi.ref('startAt')).optional(),
 
   isEmergency: Joi.boolean().optional(),
 
@@ -186,14 +182,14 @@ exports.sendBatch = Joi.object({
 
 exports.createTemplate = Joi.object({
   name: Joi.string().required(),
-  subject: Joi.string().allow(""),
+  subject: Joi.string().allow(''),
   body: Joi.string().required(),
   channel: Joi.string().required(),
 });
 
 exports.updateTemplate = Joi.object({
   name: Joi.string(),
-  subject: Joi.string().allow(""),
+  subject: Joi.string().allow(''),
   body: Joi.string(),
   channel: Joi.string(),
 });

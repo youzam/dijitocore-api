@@ -1,7 +1,7 @@
-const prisma = require("../config/prisma");
-const dashboardService = require("../modules/dashboard/dashboard.service");
-const insightService = require("../modules/dashboard/dashboard.insight.service");
-const dayjs = require("dayjs");
+const prisma = require('../config/prisma');
+const dashboardService = require('../modules/dashboard/dashboard.service');
+const insightService = require('../modules/dashboard/dashboard.insight.service');
+const dayjs = require('dayjs');
 
 const BATCH_SIZE = 50;
 const MAX_LOOPS = 1000;
@@ -15,7 +15,7 @@ async function run() {
       loopGuard++;
 
       if (loopGuard >= MAX_LOOPS) {
-        throw new Error("Job loop guard triggered");
+        throw new Error('Job loop guard triggered');
       }
 
       const businesses = await prisma.business.findMany({
@@ -25,7 +25,7 @@ async function run() {
           skip: 1,
           cursor: { id: cursor },
         }),
-        orderBy: { id: "asc" },
+        orderBy: { id: 'asc' },
       });
 
       if (!businesses.length) break;
@@ -35,42 +35,45 @@ async function run() {
         const businessId = b.id;
 
         try {
-          const health =
-            await dashboardService.calculateHealthScore(businessId);
+          const health = await dashboardService.getHealthScore(businessId);
 
           const staff = await dashboardService.getStaffMetrics(businessId);
 
           const assets = await dashboardService.getAssetMetrics(businessId);
 
-          const cashflow =
-            await dashboardService.getCashflowMetrics(businessId);
+          const cashflow = await dashboardService.getCashflow(businessId);
 
           const contractsAgg = await prisma.contract.aggregate({
             where: { businessId },
-            _sum: { totalAmount: true },
+            _sum: { totalValue: true },
           });
 
           const paymentsAgg = await prisma.installmentPayment.aggregate({
-            where: { businessId, reversed: false },
+            where: { businessId, isDeleted: false },
             _sum: { amount: true },
           });
 
-          const overdueAgg = await prisma.installmentPaymentSchedule.aggregate({
+          const overdueAgg = await prisma.installmentSchedule.aggregate({
             where: {
-              businessId,
+              contract: {
+                businessId,
+              },
               dueDate: { lt: new Date() },
-              status: { not: "PAID" },
+              status: { not: 'PAID' },
+              isDeleted: false,
             },
-            _sum: { amount: true, paidAmount: true },
+            _sum: {
+              amount: true,
+            },
           });
 
-          const portfolio = contractsAgg._sum.totalAmount || 0;
+          const portfolio = contractsAgg._sum.totalValue || 0;
           const collected = paymentsAgg._sum.amount || 0;
           const overdue =
             (overdueAgg._sum.amount || 0) - (overdueAgg._sum.paidAmount || 0);
           const outstanding = portfolio - collected;
 
-          const today = dayjs().startOf("day").toDate();
+          const today = dayjs().startOf('day').toDate();
 
           await prisma.$transaction(async (tx) => {
             // Snapshot upsert
@@ -172,15 +175,15 @@ async function run() {
           await insightService.generateInsights(businessId);
         } catch (err) {
           console.error(
-            "Dashboard snapshot failed for business:",
+            'Dashboard snapshot failed for business:',
             businessId,
             err,
           );
         }
       }
     }
-  } catch (error)  {
-    console.error("Dashboard snapshot cron failed:", error);
+  } catch (error) {
+    console.error('Dashboard snapshot cron failed:', error);
     throw error;
   }
 }

@@ -13,11 +13,7 @@ async function getCurrentSubscription(businessId) {
     where: {
       businessId,
       status: {
-        in: [
-          SubscriptionStatus.TRIAL,
-          SubscriptionStatus.ACTIVE,
-          SubscriptionStatus.GRACE,
-        ],
+        in: [SubscriptionStatus.ACTIVE, SubscriptionStatus.GRACE],
       },
     },
     orderBy: { createdAt: 'desc' },
@@ -52,11 +48,9 @@ exports.assertActiveSubscription = async (businessId) => {
   }
 
   if (
-    ![
-      SubscriptionStatus.TRIAL,
-      SubscriptionStatus.ACTIVE,
-      SubscriptionStatus.GRACE,
-    ].includes(subscription.status)
+    ![SubscriptionStatus.ACTIVE, SubscriptionStatus.GRACE].includes(
+      subscription.status,
+    )
   ) {
     throw new AppError('subscription.not_active', 403);
   }
@@ -80,7 +74,7 @@ exports.assertLimit = async (businessId, limitKey, options = {}) => {
     where: {
       businessId,
       status: {
-        in: ['ACTIVE', 'TRIAL', 'GRACE'],
+        in: ['ACTIVE', 'GRACE'],
       },
     },
     orderBy: { createdAt: 'desc' },
@@ -192,7 +186,7 @@ exports.assertLimit = async (businessId, limitKey) => {
   const subscription = await prisma.subscription.findFirst({
     where: {
       businessId,
-      status: { in: ['ACTIVE', 'TRIAL', 'GRACE'] },
+      status: { in: ['ACTIVE', 'GRACE'] },
     },
     orderBy: { createdAt: 'desc' },
   });

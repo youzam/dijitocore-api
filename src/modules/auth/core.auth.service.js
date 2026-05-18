@@ -1,34 +1,34 @@
-const prisma = require("../../config/prisma");
-const AppError = require("../../utils/AppError");
-const jwtConfig = require("../../config/jwt");
-const { signToken, verifyToken } = require("../../utils/auth.helper");
+const prisma = require('../../config/prisma');
+const AppError = require('../../utils/AppError');
+const jwtConfig = require('../../config/jwt');
+const { signToken, verifyToken } = require('../../utils/auth.helper');
 
 // ======================================================
 // 🧠 USER VALIDATION
 // ======================================================
 const validateUserAccess = (user) => {
   if (!user) {
-    throw new AppError("auth.unauthorized", 401);
+    throw new AppError('auth.unauthorized', 401);
   }
 
   if (user.isDeleted) {
-    throw new AppError("auth.account_deleted", 403);
+    throw new AppError('auth.account_deleted', 403);
   }
 
-  if (user.status !== "ACTIVE") {
-    throw new AppError("auth.account_inactive", 403);
+  if (user.status !== 'ACTIVE') {
+    throw new AppError('auth.account_inactive', 403);
   }
 
   if (!user.emailVerified) {
-    throw new AppError("auth.email_not_verified", 403);
+    throw new AppError('auth.email_not_verified', 403);
   }
 
   if (user.lockUntil && user.lockUntil > new Date()) {
-    throw new AppError("auth.account_locked", 423);
+    throw new AppError('auth.account_locked', 423);
   }
 
   if (user.business && user.business.isDeleted) {
-    throw new AppError("business.deleted", 403);
+    throw new AppError('business.deleted', 403);
   }
 
   return user;
@@ -39,23 +39,23 @@ const validateUserAccess = (user) => {
 // ======================================================
 const validateCustomerAccess = (customer, business) => {
   if (!customer) {
-    throw new AppError("auth.unauthorized", 401);
+    throw new AppError('auth.unauthorized', 401);
   }
 
   if (customer.isDeleted) {
-    throw new AppError("auth.account_deleted", 403);
+    throw new AppError('auth.account_deleted', 403);
   }
 
-  if (customer.status !== "ACTIVE") {
-    throw new AppError("customer.inactive", 403);
+  if (customer.status !== 'ACTIVE') {
+    throw new AppError('customer.inactive', 403);
   }
 
   if (customer.isBlacklisted) {
-    throw new AppError("customer.blacklisted", 403);
+    throw new AppError('customer.blacklisted', 403);
   }
 
   if (business && business.isDeleted) {
-    throw new AppError("business.deleted", 403);
+    throw new AppError('business.deleted', 403);
   }
 
   return customer;
@@ -115,7 +115,7 @@ const rotateUserSession = async ({ refreshToken, tx }) => {
     storedToken.revokedAt ||
     storedToken.expiresAt < new Date()
   ) {
-    throw new AppError("auth.session_invalid", 401);
+    throw new AppError('auth.session_invalid', 401);
   }
 
   const user = await client.user.findUnique({
@@ -127,7 +127,7 @@ const rotateUserSession = async ({ refreshToken, tx }) => {
 
   const newTokens = generateAuthTokens({
     sub: user.id,
-    identity_type: "business",
+    identity_type: 'business',
     role: user.role,
     businessId: user.businessId,
     tokenVersion: user.tokenVersion,
@@ -170,7 +170,7 @@ const rotateCustomerSession = async ({ refreshToken, tx }) => {
     storedToken.revokedAt ||
     storedToken.expiresAt < new Date()
   ) {
-    throw new AppError("auth.session_invalid", 401);
+    throw new AppError('auth.session_invalid', 401);
   }
 
   const customer = await client.customer.findUnique({
@@ -185,9 +185,9 @@ const rotateCustomerSession = async ({ refreshToken, tx }) => {
 
   const newTokens = generateAuthTokens({
     sub: customer.id,
-    identity_type: "customer",
+    identity_type: 'customer',
     businessId: customer.businessId,
-    role: "CUSTOMER",
+    role: 'CUSTOMER',
     tokenVersion: customer.tokenVersion || 0,
   });
 

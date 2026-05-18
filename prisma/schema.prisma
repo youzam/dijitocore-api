@@ -185,7 +185,7 @@ model Business {
   id String @id @default(uuid())
 
   name         String
-  email        String?
+  email        String  @unique
   phone        String?
   country      String
   businessCode String  @unique
@@ -1452,7 +1452,7 @@ model Subscription {
   version       Int @default(1)
   creditBalance Int @default(0)
 
-  couponId       String
+  couponId       String?
   couponCode     String?
   couponDiscount Int?
   finalAmount    Int?
@@ -1461,11 +1461,6 @@ model Subscription {
 
   subscriptionPayments  SubscriptionPayment[]
   subscriptionHistories SubscriptionHistory[]
-
-  isTrial        Boolean   @default(false)
-  trialStartedAt DateTime?
-  trialEndedAt   DateTime?
-  convertedAt    DateTime?
 
   isDeleted Boolean   @default(false)
   deletedAt DateTime?
@@ -1527,7 +1522,6 @@ model SubscriptionPackage {
   priceMonthly Int
   priceYearly  Int?
   setupFee     Int  @default(0)
-  trialDays    Int  @default(0)
 
   features Json
   limits   Json?
@@ -1535,6 +1529,8 @@ model SubscriptionPackage {
   isActive Boolean @default(true)
 
   subscriptions Subscription[]
+
+  configVersion Int @default(1)
 
   isDeleted Boolean   @default(false)
   deletedAt DateTime?
@@ -2191,10 +2187,12 @@ enum SubscriptionPaymentStatus {
 }
 
 enum SubscriptionStatus {
+  PENDING
   ACTIVE
   GRACE
+  EXPIRED
+  CANCELLED
   SUSPENDED
-  TRIAL
 }
 
 enum TicketStatus {

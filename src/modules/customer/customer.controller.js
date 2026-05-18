@@ -1,13 +1,13 @@
-const catchAsync = require("../../utils/catchAsync");
-const response = require("../../utils/response");
-const service = require("./customer.service");
+const catchAsync = require('../../utils/catchAsync');
+const response = require('../../utils/response');
+const service = require('./customer.service');
 
 exports.createCustomer = catchAsync(async (req, res) => {
   const businessId = req.user.businessId;
 
   const customer = await service.createCustomer(businessId, req.body, req);
 
-  return response.success(req, res, customer, 201, "customer.created");
+  return response.success(req, res, customer, 201, 'customer.created');
 });
 
 exports.listCustomers = catchAsync(async (req, res) => {
@@ -32,7 +32,7 @@ exports.updateCustomer = catchAsync(async (req, res) => {
     req.body,
   );
 
-  return response.success(req, res, customer, 200, "customer.updated");
+  return response.success(req, res, customer, 200, 'customer.updated');
 });
 
 exports.updateStatus = catchAsync(async (req, res) => {
@@ -42,7 +42,7 @@ exports.updateStatus = catchAsync(async (req, res) => {
     req.body.status,
   );
 
-  return response.success(req, res, customer, 200, "customer.status_updated");
+  return response.success(req, res, customer, 200, 'customer.status_updated');
 });
 
 exports.updateBlacklist = catchAsync(async (req, res) => {
@@ -57,12 +57,12 @@ exports.updateBlacklist = catchAsync(async (req, res) => {
     res,
     customer,
     200,
-    req.body.isBlacklisted ? "customer.blacklisted" : "customer.unblacklisted",
+    req.body.isBlacklisted ? 'customer.blacklisted' : 'customer.unblacklisted',
   );
 });
 
 exports.importCustomers = catchAsync(async (req, res) => {
   const result = await service.importCustomers(req.user.businessId, req);
 
-  return response.success(req, res, result, 200, "customer.imported");
+  return response.success(req, res, result, 200, 'customer.imported');
 });

@@ -4,23 +4,20 @@ const registry = require('../../../utils/subscriptionFeatureRegistry');
 const { logAudit } = require('../../../utils/audit.helper');
 
 /**
- * ===== INTERNAL HELPERS =====
- */
-
-/**
  * Validate pricing
  */
-const validatePricing = (price) => {
-  if (price === undefined || price === null) return;
+const validatePricing = (priceMonthly, priceYearly) => {
+  if (priceMonthly !== undefined && Number(priceMonthly) < 0) {
+    throw new AppError('subscription.invalid_package_monthly_price', 400);
+  }
 
-  if (Number(price) < 0) {
-    throw new AppError('subscription.invalid_package_price', 400);
+  if (priceYearly !== undefined && Number(priceYearly) < 0) {
+    throw new AppError('subscription.invalid_package_yearly_price', 400);
   }
 };
 
 /**
  * Validate JSON structure (features / limits)
- * NOTE: Replace with real registry if exists in your system
  */
 const validateConfigJSON = (data, type) => {
   if (!data) return {};
@@ -72,14 +69,26 @@ const validateConfigJSON = (data, type) => {
  * Create Package
  */
 exports.createPackage = async (data, req) => {
-  const { name, code, price, currency, features, limits, isActive } = data;
+  const {
+    name,
+    code,
+    description,
+    priceMonthly,
+    priceYearly,
+    setupFee,
+    features,
+    limits,
+    isActive,
+  } = data;
 
-  if (!name || !code || price === undefined) {
+  if (!name || !code || priceMonthly === undefined) {
     throw new AppError('subscription.invalid_package_data', 400);
   }
 
-  validatePricing(price);
+  validatePricing(priceMonthly, priceYearly);
+
   const validatedFeatures = validateConfigJSON(features, 'features');
+
   const validatedLimits = validateConfigJSON(limits, 'limits');
 
   const existing = await prisma.subscriptionPackage.findUnique({
@@ -93,16 +102,14 @@ exports.createPackage = async (data, req) => {
   const pkg = await prisma.subscriptionPackage.create({
     data: {
       name,
+      description,
       code,
-      price,
-      currency: currency || 'USD',
+      priceMonthly,
+      priceYearly: priceYearly ?? null,
+      setupFee: setupFee ?? 0,
       features: validatedFeatures,
       limits: validatedLimits,
       isActive: typeof isActive === 'boolean' ? isActive : true,
-      metadata: {
-        createdBy: req.user.id,
-        createdAt: new Date(),
-      },
     },
   });
 
@@ -111,16 +118,18 @@ exports.createPackage = async (data, req) => {
     entityType: 'PACKAGE',
     entityId: pkg.id,
     action: 'PACKAGE_CREATED',
+
     metadata: {
       name: pkg.name,
       code: pkg.code,
-      price: pkg.price,
+      priceMonthly: pkg.priceMonthly,
+      priceYearly: pkg.priceYearly,
+      setupFee: pkg.setupFee,
     },
+
     module: 'COMMERCE',
     actorType: 'ADMIN',
   });
-
-  return pkg;
 
   return pkg;
 };
@@ -139,7 +148,9 @@ exports.updatePackage = async (id, data, req) => {
 
   if (data.code && data.code !== existing.code) {
     const duplicate = await prisma.subscriptionPackage.findUnique({
-      where: { code: data.code },
+      where: {
+        code: data.code,
+      },
     });
 
     if (duplicate) {
@@ -147,23 +158,62 @@ exports.updatePackage = async (id, data, req) => {
     }
   }
 
-  validatePricing(data.price);
+  validatePricing(data.priceMonthly, data.priceYearly);
 
   const changes = {};
 
-  if (data.name) changes.name = { from: existing.name, to: data.name };
-  if (data.price !== undefined)
-    changes.price = { from: existing.price, to: data.price };
-  if (data.isActive !== undefined)
-    changes.isActive = { from: existing.isActive, to: data.isActive };
+  if (data.name) {
+    changes.name = {
+      from: existing.name,
+      to: data.name,
+    };
+  }
+
+  if (data.priceMonthly !== undefined) {
+    changes.priceMonthly = {
+      from: existing.priceMonthly,
+      to: data.priceMonthly,
+    };
+  }
+
+  if (data.priceYearly !== undefined) {
+    changes.priceYearly = {
+      from: existing.priceYearly,
+      to: data.priceYearly,
+    };
+  }
+
+  if (data.isActive !== undefined) {
+    changes.isActive = {
+      from: existing.isActive,
+      to: data.isActive,
+    };
+  }
 
   const updated = await prisma.subscriptionPackage.update({
     where: { id },
+
     data: {
-      ...(data.name && { name: data.name }),
-      ...(data.code && { code: data.code }),
-      ...(data.price !== undefined && { price: data.price }),
-      ...(data.currency && { currency: data.currency }),
+      ...(data.name && {
+        name: data.name,
+      }),
+
+      ...(data.code && {
+        code: data.code,
+      }),
+
+      ...(data.priceMonthly !== undefined && {
+        priceMonthly: data.priceMonthly,
+      }),
+
+      ...(data.priceYearly !== undefined && {
+        priceYearly: data.priceYearly,
+      }),
+
+      ...(data.setupFee !== undefined && {
+        setupFee: data.setupFee,
+      }),
+
       ...(typeof data.isActive === 'boolean' && {
         isActive: data.isActive,
       }),
@@ -175,9 +225,11 @@ exports.updatePackage = async (id, data, req) => {
     entityType: 'PACKAGE',
     entityId: id,
     action: 'PACKAGE_UPDATED',
+
     metadata: {
       changes,
     },
+
     module: 'COMMERCE',
     actorType: 'ADMIN',
   });
@@ -207,8 +259,8 @@ exports.updatePackageConfiguration = async (id, data, actor) => {
 
   const updated = await prisma.subscriptionPackage.update({
     where: { id },
+
     data: {
-      // 🔥 DO NOT MERGE — ALWAYS OVERWRITE CLEAN CONFIG
       ...(validatedFeatures && {
         features: validatedFeatures,
       }),
@@ -224,18 +276,22 @@ exports.updatePackageConfiguration = async (id, data, actor) => {
     entityType: 'PACKAGE',
     entityId: id,
     action: 'PACKAGE_CONFIG_UPDATED',
+
     metadata: {
       featuresUpdated: !!data.features,
+
       limitsUpdated: !!data.limits,
     },
+
     module: 'COMMERCE',
     actorType: 'ADMIN',
   });
+
   return updated;
 };
 
 /**
- * Deactivate Package (Blueprint requirement)
+ * Deactivate Package
  */
 exports.deactivatePackage = async (id, req) => {
   const existing = await prisma.subscriptionPackage.findUnique({
@@ -252,8 +308,10 @@ exports.deactivatePackage = async (id, req) => {
 
   const updated = await prisma.subscriptionPackage.update({
     where: { id },
+
     data: {
       isActive: false,
+
       metadata: {
         deactivated: true,
         actor: req.user.id,
@@ -266,6 +324,7 @@ exports.deactivatePackage = async (id, req) => {
     entityType: 'PACKAGE',
     entityId: id,
     action: 'PACKAGE_DEACTIVATED',
+
     module: 'COMMERCE',
     actorType: 'ADMIN',
   });

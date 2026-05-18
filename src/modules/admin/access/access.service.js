@@ -10,6 +10,7 @@ const { detectLoginAnomaly } = require('../security/security.service');
 
 const speakeasy = require('speakeasy');
 const QRCode = require('qrcode');
+const AppError = require('../../../utils/AppError');
 
 /*
 |--------------------------------------------------------------------------
@@ -255,7 +256,12 @@ const validateAdminLogin = async ({ email, password, req, settings }) => {
     throw new Error('Admin account suspended');
   }
 
-  return admin;
+  return {
+    id: admin.id,
+    email: admin.email,
+    roleId: admin.roleId,
+    status: admin.status,
+  };
 };
 
 /**
@@ -402,11 +408,12 @@ exports.refreshToken = async ({ refreshToken }) => {
   });
 
   if (!session) {
-    throw new Error('Invalid session');
+    throw new AppError('Invalid session', 400);
   }
 
   const admin = await prisma.systemAdmin.findUnique({
     where: { id: session.adminId },
+    include: { role: true },
   });
 
   if (!admin || admin.status !== 'ACTIVE') {
@@ -478,9 +485,9 @@ exports.resetAdminPassword = async (adminId, actor) => {
   };
 };
 
-exports.changePassword = async (adminId, currentPassword, newPassword) => {
+exports.changePassword = async (actor, currentPassword, newPassword) => {
   const admin = await prisma.systemAdmin.findUnique({
-    where: { id: adminId },
+    where: { id: actor.id },
   });
 
   const passwordMatch = await bcrypt.compare(currentPassword, admin.password);
@@ -493,7 +500,7 @@ exports.changePassword = async (adminId, currentPassword, newPassword) => {
 
   // 🔥 increment tokenVersion
   const updatedAdmin = await prisma.systemAdmin.update({
-    where: { id: adminId },
+    where: { id: actor.id },
     data: {
       password: hashedPassword,
       forcePasswordChange: false,
@@ -501,29 +508,18 @@ exports.changePassword = async (adminId, currentPassword, newPassword) => {
     },
   });
 
-  const rolePermissions = await prisma.rolePermission.findMany({
-    where: { systemAdminRoleId: admin.roleId }, // ✅ FIX
-    include: { permission: true },
-  });
-
-  const permissions = rolePermissions.map(
-    (p) =>
-      `${p.permission.module}_${p.permission.action}_${p.permission.scope}`,
-  );
-
   const tokens = coreAuth.generateAuthTokens({
     sub: updatedAdmin.id,
     identity_type: 'system',
     role: updatedAdmin.role?.name || updatedAdmin.role,
     tokenVersion: updatedAdmin.tokenVersion,
-    permissions,
     businessId: null,
   });
 
   await logAudit({
-    userId: adminId,
+    userId: actor.id,
     entityType: 'ADMIN',
-    entityId: adminId,
+    entityId: actor.id,
     action: 'ADMIN_PASSWORD_CHANGED',
     module: 'ACCESS',
     actorType: 'ADMIN',
@@ -601,7 +597,12 @@ exports.getAdmin = async (id) => {
 
   if (!admin) throw new Error('Admin not found');
 
-  return admin;
+  return {
+    id: admin.id,
+    email: admin.email,
+    roleId: admin.roleId,
+    status: admin.status,
+  };
 };
 
 exports.updateAdmin = async (id, data, actor) => {
@@ -639,7 +640,12 @@ exports.updateAdmin = async (id, data, actor) => {
     actorType: 'ADMIN',
   });
 
-  return updated;
+  return {
+    id: updated.id,
+    email: updated.email,
+    roleId: updated.roleId,
+    status: updated.status,
+  };
 };
 
 exports.suspendAdmin = async (id, actor) => {
@@ -666,11 +672,13 @@ exports.suspendAdmin = async (id, actor) => {
   // revoke sessions
   await prisma.adminSession.updateMany({
     where: {
-      adminId: id,
-      isActive: true,
+      adminId: admin.id,
+      isDeleted: false,
     },
     data: {
-      isActive: false,
+      isDeleted: true,
+      deletedAt: new Date(),
+      deletedBy: actor.id,
     },
   });
 
@@ -690,7 +698,12 @@ exports.suspendAdmin = async (id, actor) => {
     actorType: 'ADMIN',
   });
 
-  return updated;
+  return {
+    id: updated.id,
+    email: updated.email,
+    roleId: updated.roleId,
+    status: updated.status,
+  };
 };
 
 /*
@@ -733,7 +746,12 @@ exports.changeAdminRole = async (adminId, roleId, actor) => {
     actorType: 'ADMIN',
   });
 
-  return updated;
+  return {
+    id: updated.id,
+    email: updated.email,
+    roleId: updated.roleId,
+    status: updated.status,
+  };
 };
 
 /*
@@ -836,7 +854,12 @@ exports.updateRole = async (id, data, actor) => {
     actorType: 'ADMIN',
   });
 
-  return updated;
+  return {
+    id: updated.id,
+    email: updated.email,
+    roleId: updated.roleId,
+    status: updated.status,
+  };
 };
 
 exports.activateRole = async (id, actor) => {
@@ -863,7 +886,12 @@ exports.activateRole = async (id, actor) => {
     actorType: 'ADMIN',
   });
 
-  return updated;
+  return {
+    id: updated.id,
+    email: updated.email,
+    roleId: updated.roleId,
+    status: updated.status,
+  };
 };
 
 exports.deactivateRole = async (id, actor) => {
@@ -900,7 +928,12 @@ exports.deactivateRole = async (id, actor) => {
     actorType: 'ADMIN',
   });
 
-  return updated;
+  return {
+    id: updated.id,
+    email: updated.email,
+    roleId: updated.roleId,
+    status: updated.status,
+  };
 };
 
 exports.setupAdminMFA = async (actor) => {
@@ -965,7 +998,26 @@ exports.verifyAdminMFASetup = async (token, actor) => {
   return true;
 };
 
-exports.disableAdminMFA = async (actor) => {
+exports.disableAdminMFA = async (actor, token) => {
+  const admin = await prisma.systemAdmin.findUnique({
+    where: { id: actor.id },
+  });
+
+  if (!admin.mfaEnabled || !admin.mfaSecret) {
+    throw new Error('MFA is not enabled');
+  }
+
+  const verified = speakeasy.totp.verify({
+    secret: admin.mfaSecret,
+    encoding: 'base32',
+    token,
+    window: 1,
+  });
+
+  if (!verified) {
+    throw new Error('Invalid MFA token');
+  }
+
   const updated = await prisma.systemAdmin.update({
     where: { id: actor.id },
     data: {
@@ -983,7 +1035,12 @@ exports.disableAdminMFA = async (actor) => {
     actorType: 'ADMIN',
   });
 
-  return updated;
+  return {
+    id: updated.id,
+    email: updated.email,
+    roleId: updated.roleId,
+    status: updated.status,
+  };
 };
 
 exports.getMyProfile = async (actor) => {
@@ -992,7 +1049,12 @@ exports.getMyProfile = async (actor) => {
     include: { role: true },
   });
 
-  return admin;
+  return {
+    id: admin.id,
+    email: admin.email,
+    roleId: admin.roleId,
+    status: admin.status,
+  };
 };
 
 exports.updateMyProfile = async (actor, data) => {
@@ -1010,7 +1072,12 @@ exports.updateMyProfile = async (actor, data) => {
     actorType: 'ADMIN',
   });
 
-  return updated;
+  return {
+    id: updated.id,
+    email: updated.email,
+    roleId: updated.roleId,
+    status: updated.status,
+  };
 };
 
 exports.getMySessions = async (actor) => {
@@ -1046,7 +1113,7 @@ exports.deleteSession = async (sessionId, actor) => {
 };
 
 exports.logoutAdmin = async (actor) => {
-  const updated = await prisma.systemAdmin.update({
+  const admin = await prisma.systemAdmin.update({
     where: { id: actor.id },
     data: {
       tokenVersion: { increment: 1 },
@@ -1062,5 +1129,10 @@ exports.logoutAdmin = async (actor) => {
     actorType: 'ADMIN',
   });
 
-  return updated;
+  return {
+    id: admin.id,
+    email: admin.email,
+    roleId: admin.roleId,
+    status: admin.status,
+  };
 };

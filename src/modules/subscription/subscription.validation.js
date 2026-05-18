@@ -15,6 +15,9 @@ const uuidSchema = Joi.string().uuid().required();
 exports.createSubscription = Joi.object({
   packageId: uuidSchema,
   billingCycle: billingCycleSchema,
+  paymentMethod: Joi.string().required(),
+  phone: Joi.string().optional(),
+  couponId: Joi.string().optional(),
 });
 
 exports.upgradeSubscription = Joi.object({
@@ -42,8 +45,6 @@ exports.createPackage = Joi.object({
 
   setupFee: Joi.number().integer().min(0).required(),
 
-  trialDays: Joi.number().integer().min(0).required(),
-
   // Must not be empty object
   features: Joi.object().min(1).required(),
 
@@ -60,8 +61,6 @@ exports.updatePackage = Joi.object({
   priceYearly: Joi.number().integer().min(0).allow(null).optional(),
 
   setupFee: Joi.number().integer().min(0).optional(),
-
-  trialDays: Joi.number().integer().min(0).optional(),
 
   features: Joi.object().min(1).optional(),
 

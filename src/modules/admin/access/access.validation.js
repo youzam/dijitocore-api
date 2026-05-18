@@ -18,8 +18,9 @@ const bootstrapSchema = Joi.object({
  */
 const adminLoginSchema = Joi.object({
   email: Joi.string().email().required(),
-
   password: Joi.string().required(),
+
+  mfaToken: Joi.string().length(6).optional(),
 });
 
 /**
@@ -31,7 +32,7 @@ const createAdminSchema = Joi.object({
 
   password: Joi.string().min(8).max(64).required(),
 
-  role: Joi.string().required(),
+  roleId: Joi.string().uuid().required(),
 });
 
 /**
@@ -40,9 +41,7 @@ const createAdminSchema = Joi.object({
  */
 const updateAdminSchema = Joi.object({
   email: Joi.string().email().optional(),
-
-  role: Joi.string().optional(),
-
+  roleId: Joi.string().uuid().optional(),
   status: Joi.string().valid('ACTIVE', 'SUSPENDED').optional(),
 });
 
@@ -69,7 +68,7 @@ const updateProfileSchema = Joi.object({
  * PATCH /admin/access/admins/:id/role
  */
 const changeRoleSchema = Joi.object({
-  role: Joi.string().required(),
+  roleId: Joi.string().uuid().required(),
 });
 
 module.exports = {

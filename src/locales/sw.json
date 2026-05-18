@@ -76,6 +76,7 @@
     "notFound": "Biashara haijapatikana",
     "alreadyTerminated": "Biashara tayari imefungwa",
     "activated": "Biashara imewezeshwa",
+    "onboardingRequired": "Lazima uunde biashara na ujisajili kwenye kifurushi",
     "grace": "Biashara imehamishwa kwenye kipindi cha msamaha",
     "suspended": "Biashara imesimamishwa",
     "terminated": "Biashara imefungwa kabisa",

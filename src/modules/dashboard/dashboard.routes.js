@@ -1,12 +1,12 @@
-const express = require("express");
+const express = require('express');
 const router = express.Router();
 
-const auth = require("../../middlewares/auth.middleware");
-const role = require("../../middlewares/role.middleware");
-const tenant = require("../../middlewares/tenant.middleware");
-const subscriptionFeature = require("../../middlewares/subscriptionFeature.middleware");
+const auth = require('../../middlewares/auth.middleware');
+const role = require('../../middlewares/role.middleware');
+const tenant = require('../../middlewares/tenant.middleware');
+const subscriptionFeature = require('../../middlewares/subscriptionFeature.middleware');
 
-const controller = require("./dashboard.controller");
+const controller = require('./dashboard.controller');
 
 router.use(auth);
 router.use(tenant);
@@ -19,30 +19,26 @@ router.use(tenant);
  * BUSINESS_OWNER + MANAGER + STAFF
  */
 router.get(
-  "/",
-  role(["BUSINESS_OWNER", "MANAGER", "STAFF"]),
-  subscriptionFeature("allowDashboard"),
+  '/',
+  role(['BUSINESS_OWNER', 'MANAGER', 'STAFF']),
   controller.getEnterpriseDashboard,
 );
 
 router.get(
-  "/insights",
-  role(["BUSINESS_OWNER", "MANAGER"]),
-  subscriptionFeature("allowDashboard"),
+  '/insights',
+  role(['BUSINESS_OWNER', 'MANAGER']),
   controller.getInsights,
 );
 
 router.get(
-  "/export/csv",
-  role(["BUSINESS_OWNER", "MANAGER"]),
-  subscriptionFeature("allowDashboard"),
+  '/export/csv',
+  role(['BUSINESS_OWNER', 'MANAGER']),
   controller.exportCSV,
 );
 
 router.get(
-  "/export/pdf",
-  role(["BUSINESS_OWNER", "MANAGER"]),
-  subscriptionFeature("allowDashboard"),
+  '/export/pdf',
+  role(['BUSINESS_OWNER', 'MANAGER']),
   controller.exportPDF,
 );
 
@@ -53,58 +49,57 @@ router.get(
  */
 
 router.get(
-  "/analytics/snapshots",
-  role(["BUSINESS_OWNER", "MANAGER", "STAFF"]),
-  subscriptionFeature("allowAdvancedAnalytics"),
+  '/analytics/snapshots',
+  role(['BUSINESS_OWNER', 'MANAGER', 'STAFF']),
+  subscriptionFeature('allowAdvancedAnalytics'),
   controller.getSnapshotSeries,
 );
 
 router.get(
-  "/analytics/health-timeline",
-  role(["BUSINESS_OWNER", "MANAGER", "STAFF"]),
-  subscriptionFeature("allowAdvancedAnalytics"),
+  '/analytics/health-timeline',
+  role(['BUSINESS_OWNER', 'MANAGER', 'STAFF']),
+  subscriptionFeature('allowAdvancedAnalytics'),
   controller.getHealthTimeline,
 );
 
 router.get(
-  "/analytics/insights",
-  role(["BUSINESS_OWNER", "MANAGER"]),
-  subscriptionFeature("allowAdvancedAnalytics"),
+  '/analytics/insights',
+  role(['BUSINESS_OWNER', 'MANAGER']),
+  subscriptionFeature('allowAdvancedAnalytics'),
   controller.getAnalyticsInsights,
 );
 
 router.get(
-  "/analytics/cohorts",
-  role(["BUSINESS_OWNER", "MANAGER"]),
-  subscriptionFeature("allowAdvancedAnalytics"),
+  '/analytics/cohorts',
+  role(['BUSINESS_OWNER', 'MANAGER']),
+  subscriptionFeature('allowAdvancedAnalytics'),
   controller.getCohorts,
 );
 
 router.get(
-  "/analytics/projections",
-  role(["BUSINESS_OWNER", "MANAGER"]),
-  subscriptionFeature("allowAdvancedAnalytics"),
+  '/analytics/projections',
+  role(['BUSINESS_OWNER', 'MANAGER']),
+  subscriptionFeature('allowAdvancedAnalytics'),
   controller.getProjections,
 );
 
 router.get(
-  "/analytics/audit",
-  role(["BUSINESS_OWNER"]),
-  subscriptionFeature("allowAdvancedAnalytics"),
+  '/analytics/audit',
+  role(['BUSINESS_OWNER']),
+  subscriptionFeature('allowAdvancedAnalytics'),
   controller.getAuditDashboard,
 );
 
 router.get(
-  "/enterprise/role",
-  role(["BUSINESS_OWNER", "MANAGER", "STAFF"]),
-  subscriptionFeature("allowDashboard"),
+  '/enterprise/role',
+  role(['BUSINESS_OWNER', 'MANAGER', 'STAFF']),
   controller.getRoleDashboard,
 );
 
 router.get(
-  "/analytics/advanced-metrics",
-  role(["BUSINESS_OWNER", "MANAGER"]),
-  subscriptionFeature("allowAdvancedAnalytics"),
+  '/analytics/advanced-metrics',
+  role(['BUSINESS_OWNER', 'MANAGER']),
+  subscriptionFeature('allowAdvancedAnalytics'),
   controller.getAdvancedPortfolioMetrics,
 );
 

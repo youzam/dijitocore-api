@@ -171,7 +171,7 @@ exports.getPackages = handlerFactory.getAll('subscriptionPackage');
 exports.getPackage = catchAsync(async (req, res) => {
   const data = await packageService.getPackageById(req.params.id);
 
-  return response.success(req, res, data, 200, 'subscription.package_fetched');
+  return response.success(req, res, data, 200);
 });
 
 /**

@@ -14,54 +14,54 @@ router.use(auth);
 router.use(tenant);
 
 // ================= RECORD PAYMENT =================
+
 router.post(
   '/',
   role(['BUSINESS_OWNER', 'MANAGER', 'STAFF']),
-  subscriptionFeature('allowPayments'),
   validate(validation.recordPayment),
   controller.recordPayment,
 );
 
 // ================= LIST PAYMENTS =================
+
 router.get(
   '/',
   role(['BUSINESS_OWNER', 'MANAGER']),
-  subscriptionFeature('allowPayments'),
   validate(validation.listPayments),
   controller.listPayments,
 );
 
 // ================= LIST REVERSALS =================
+
 router.get(
   '/reversals',
   role(['BUSINESS_OWNER', 'MANAGER']),
-  subscriptionFeature('allowPayments'),
   validate(validation.listReversals),
   controller.listReversals,
 );
 
 // ================= REQUEST REVERSAL =================
+
 router.post(
   '/:id/reversal-request',
   role(['BUSINESS_OWNER', 'MANAGER']),
-  subscriptionFeature('allowReversal'),
   validate(validation.requestReversal),
   controller.requestReversal,
 );
 
 // ================= APPROVE REVERSAL =================
+
 router.post(
   '/approvals/:id/approve',
   role(['BUSINESS_OWNER']),
-  subscriptionFeature('allowReversal'),
   controller.approveReversal,
 );
 
 // ================= REJECT REVERSAL =================
+
 router.post(
   '/approvals/:id/reject',
   role(['BUSINESS_OWNER']),
-  subscriptionFeature('allowReversal'),
   controller.rejectReversal,
 );
 
@@ -83,7 +83,6 @@ router.get(
 router.get(
   '/ledger',
   role(['BUSINESS_OWNER', 'MANAGER']),
-  subscriptionFeature('allowPayments'),
   validate(validation.getLedger),
   controller.getLedger,
 );
@@ -91,14 +90,12 @@ router.get(
 router.get(
   '/ledger/balance',
   role(['BUSINESS_OWNER', 'MANAGER']),
-  subscriptionFeature('allowPayments'),
   controller.getLedgerBalance,
 );
 
 router.get(
   '/ledger/analytics',
   role(['BUSINESS_OWNER', 'MANAGER']),
-  subscriptionFeature('allowPayments'),
   validate(validation.getLedgerAnalytics),
   controller.getLedgerAnalytics,
 );
@@ -106,14 +103,12 @@ router.get(
 router.get(
   '/ledger/:id',
   role(['BUSINESS_OWNER', 'MANAGER']),
-  subscriptionFeature('allowPayments'),
   controller.getLedgerEntry,
 );
 
 router.get(
   '/ledger/:id/drilldown',
   role(['BUSINESS_OWNER', 'MANAGER']),
-  subscriptionFeature('allowPayments'),
   controller.getLedgerDrilldown,
 );
 

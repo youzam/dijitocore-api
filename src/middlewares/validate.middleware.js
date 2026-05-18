@@ -55,9 +55,9 @@ const validate = (schema) => {
     |--------------------------------------------------------------------------
     */
 
-    req.body = value.body;
-    req.params = value.params;
-    req.query = value.query;
+    if (value.body) req.body = value.body;
+    if (value.params) req.params = value.params;
+    if (value.query) req.query = value.query;
 
     return next();
   };

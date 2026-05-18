@@ -7,10 +7,6 @@ const Joi = require('joi');
 const uuidSchema = Joi.string().uuid().required();
 
 /* ===========================
-   TRANSACTIONS
-=========================== */
-
-/* ===========================
    LEDGER
 =========================== */
 
@@ -111,19 +107,22 @@ exports.applyCoupon = Joi.object({
 /* ===========================
    PACKAGES
 =========================== */
-
 exports.createPackage = Joi.object({
   name: Joi.string().trim().min(2).required(),
+  description: Joi.string().trim().optional(),
 
   code: Joi.string()
     .pattern(/^[A-Z0-9_]+$/)
     .required(),
 
-  price: Joi.number().min(0).required(),
+  priceMonthly: Joi.number().min(0).required(),
 
-  currency: Joi.string().optional(),
+  priceYearly: Joi.number().min(0).allow(null).optional(),
+
+  setupFee: Joi.number().min(0).optional(),
 
   features: Joi.object().optional(),
+
   limits: Joi.object().optional(),
 
   isActive: Joi.boolean().optional(),
@@ -136,9 +135,15 @@ exports.updatePackage = Joi.object({
     .pattern(/^[A-Z0-9_]+$/)
     .optional(),
 
-  price: Joi.number().min(0).optional(),
+  priceMonthly: Joi.number().min(0).optional(),
 
-  currency: Joi.string().optional(),
+  priceYearly: Joi.number().min(0).allow(null).optional(),
+
+  setupFee: Joi.number().min(0).optional(),
+
+  features: Joi.object().optional(),
+
+  limits: Joi.object().optional(),
 
   isActive: Joi.boolean().optional(),
 });
