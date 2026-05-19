@@ -16,12 +16,6 @@ exports.createApproval = async ({
   // 🔒 Enforce active subscription
   await subscriptionAuthority.assertActiveSubscription(businessId);
 
-  // 🔒 Enforce monthly approval limit
-  await subscriptionAuthority.assertMonthlyLimit(
-    businessId,
-    'maxApprovalRequests',
-  );
-
   // 🔒 Prevent duplicate pending approval for same entity
   const existing = await db.approvalRequest.findFirst({
     where: {

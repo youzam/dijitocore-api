@@ -67,6 +67,14 @@
           "title": "Mkataba Mpya Umeundwa",
           "body": "Mkataba mpya umeundwa kikamilifu."
         }
+      },
+      "terminated": {
+        "title": "Mkataba Umesitishwa",
+        "body": "Mkataba wako {{contract}} umesitishwa."
+      },
+      "restored": {
+        "title": "Mkataba Umefufuliwa",
+        "body": "Mkataba wako {{contract}} umefufuliwa."
       }
     },
     "staff_overdue": {
@@ -135,7 +143,10 @@
     "termination_rejected": "Kusitisha mkataba kumeakataliwa",
     "approval_not_found": "Ombi la idhini halijapatikana",
     "already_amended": "Mkataba huu tayari umefanyiwa marekebisho",
-    "only_active_can_be_amended": "Ni mikataba iliyo hai pekee inaweza kufanyiwa marekebisho"
+    "only_active_can_be_amended": "Ni mikataba iliyo hai pekee inaweza kufanyiwa marekebisho",
+    "not_terminated": "Mkataba huu haujasitishwa",
+    "restore_window_expired": "Muda wa kufufua mkataba umeisha",
+    "only_active_can_be_terminated": "Ni mikataba iliyo hai pekee inaweza kusitishwa"
   },
   "payment": {
     "created": "Malipo yamehifadhiwa kikamilifu",

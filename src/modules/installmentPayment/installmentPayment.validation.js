@@ -9,7 +9,7 @@ exports.recordPayment = Joi.object({
   source: Joi.string().valid('POS', 'WEB', 'IMPORT', 'API').required(),
 
   reference: Joi.string().allow(null, ''),
-  attachments: Joi.array().items(Joi.object()).optional(),
+  attachment: Joi.any().optional(),
   receivedAt: Joi.date().optional(),
 });
 

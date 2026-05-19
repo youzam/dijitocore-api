@@ -67,6 +67,14 @@
           "title": "New Contract Created",
           "body": "A new contract has been created successfully."
         }
+      },
+      "terminated": {
+        "title": "Contract Terminated",
+        "body": "Your contract {{contract}} has been terminated."
+      },
+      "restored": {
+        "title": "Contract Restored",
+        "body": "Your contract {{contract}} has been restored."
       }
     },
 
@@ -135,7 +143,10 @@
     "termination_rejected": "Contract termination rejected successfully",
     "approval_not_found": "Approval request not found",
     "already_amended": "Contract has already been amended",
-    "only_active_can_be_amended": "Only active contracts can be amended"
+    "only_active_can_be_amended": "Only active contracts can be amended",
+    "not_terminated": "Contract is not terminated",
+    "restore_window_expired": "Restore window has expired",
+    "only_active_can_be_terminated": "Only active contracts can be terminated"
   },
   "payment": {
     "created": "Payment recorded successfully",

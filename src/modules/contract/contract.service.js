@@ -3,7 +3,7 @@ const prisma = new PrismaClient();
 const dayjs = require('dayjs');
 
 const AppError = require('../../utils/AppError');
-const approvalEngine = require('../../services/approval/approval.engine'); // PATCH
+
 const { logAudit } = require('../../utils/audit.helper'); // PATCH
 const {
   createNotification,
@@ -52,15 +52,15 @@ exports.createContract = async (businessId, payload, userId) => {
   await subscriptionAuthority.assertActiveSubscription(businessId);
 
   if (downPayment > totalValue) {
-    throw new Error('contract.invalid-downpayment');
+    throw new AppError('contract.invalid-downpayment');
   }
 
   if (installmentAmount <= 0) {
-    throw new Error('contract.invalid-installment');
+    throw new AppError('contract.invalid-installment');
   }
 
   if (frequency === 'CUSTOM' && !customDays) {
-    throw new Error('contract.custom-days-required');
+    throw new AppError('contract.custom-days-required');
   }
 
   const customer = await prisma.customer.findFirst({
@@ -71,11 +71,11 @@ exports.createContract = async (businessId, payload, userId) => {
   });
 
   if (!customer) {
-    throw new Error('contract.customer-not-found');
+    throw new AppError('contract.customer-not-found');
   }
 
   if (customer.status === 'INACTIVE' || customer.isBlacklisted) {
-    throw new Error('customer.inactiveBlacklisted');
+    throw new AppError('customer.inactiveBlacklisted');
   }
 
   const assetNames = assets.map((a) => a.name.trim().toLowerCase());
@@ -100,7 +100,7 @@ exports.createContract = async (businessId, payload, userId) => {
   });
 
   if (existingContract) {
-    throw new Error('contract.customer_already_has_asset');
+    throw new AppError('contract.customer_already_has_asset');
   }
 
   const balance = totalValue - downPayment;
@@ -173,11 +173,11 @@ exports.activateContract = async (businessId, contractId, userId) => {
   });
 
   if (!contract) {
-    throw new Error('contract.not-found');
+    throw new AppError('contract.not-found');
   }
 
   if (contract.status !== 'DRAFT') {
-    throw new Error('contract.invalid_activation');
+    throw new AppError('contract.invalid_activation');
   }
 
   const activeContractsCount = await prisma.contract.count({
@@ -390,7 +390,7 @@ exports.getContractById = async (id, businessId) => {
     },
   });
 
-  if (!contract) throw new Error('contract.not-found');
+  if (!contract) throw new AppError('contract.not-found');
 
   return contract;
 };
@@ -469,154 +469,213 @@ exports.updateContractDraft = async (businessId, id, payload) => {
 };
 
 /* === TERMINATE CONTRACT === */
-exports.terminateContract = async ({ businessId, id, userId, reason }) => {
+exports.terminateContract = async ({ contractId, payload, user }) => {
+  const businessId = user.businessId;
+
   await subscriptionAuthority.assertActiveSubscription(businessId);
 
-  const contract = await exports.getContractById(id, businessId);
+  const contract = await prisma.contract.findFirst({
+    where: {
+      id: contractId,
+      businessId,
+      deletedAt: null,
+    },
+    include: {
+      customer: true,
+    },
+  });
 
-  if (['TERMINATED', 'COMPLETED'].includes(contract.status)) {
-    throw new AppError('contract.invalid_termination', 400);
+  if (!contract) {
+    throw new AppError('general.not_found');
   }
 
-  return prisma.$transaction(async (tx) => {
-    const existingPending = await tx.approvalRequest.findFirst({
+  if (contract.status !== 'ACTIVE') {
+    throw new AppError('contract.only_active_can_be_terminated');
+  }
+
+  const terminationExpiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
+  console.log('payload', payload);
+
+  const terminated = await prisma.$transaction(async (tx) => {
+    const updated = await tx.contract.update({
       where: {
-        businessId,
-        entityType: 'CONTRACT',
-        entityId: id,
-        status: 'PENDING',
+        id: contract.id,
       },
-    });
-
-    if (existingPending) {
-      throw new AppError('approval.already_pending', 400);
-    }
-
-    // 🔒 Enforce approval limit
-    const approvalCount = await tx.approvalRequest.count({
-      where: {
-        businessId,
-        status: 'PENDING',
-      },
-    });
-
-    await subscriptionAuthority.assertLimit(
-      businessId,
-      'maxApprovalRequests',
-      approvalCount,
-    );
-
-    const approval = await approvalEngine.createApproval({
-      tx,
-      businessId,
-      entityType: 'CONTRACT',
-      entityId: id,
-      type: 'CONTRACT_TERMINATION',
-      requestedBy: userId,
-      reason,
-    });
-
-    await logAudit({
-      tx,
-      businessId,
-      userId,
-      entityType: 'CONTRACT',
-      entityId: id,
-      action: 'TERMINATION_REQUESTED',
-    });
-
-    return { approvalId: approval.id };
-  });
-};
-
-/* ================= APPROVE TERMINATION (NEW) ================= */
-
-exports.approveTermination = async ({ businessId, approvalId, approverId }) => {
-  await subscriptionAuthority.assertActiveSubscription(businessId);
-
-  // 🔒 Ensure approvals feature enabled
-  await subscriptionAuthority.assertFeature(businessId, 'allowApprovals');
-
-  // 🔒 Ensure contracts feature enabled
-  await subscriptionAuthority.assertFeature(businessId, 'allowContracts');
-
-  return prisma.$transaction(async (tx) => {
-    const approval = await approvalEngine.approveApproval({
-      tx,
-      approvalId,
-      businessId,
-      approverId,
-    });
-
-    const contract = await tx.contract.findFirst({
-      where: { id: approval.entityId },
-    });
-
-    if (!contract) throw new AppError('contract.not-found', 404);
-
-    await tx.contract.update({
-      where: { id: contract.id },
       data: {
         status: 'TERMINATED',
         terminatedAt: new Date(),
-        terminationReason: approval.reason,
-        terminatedBy: approverId,
+        terminatedBy: user.id,
+        terminationReason: payload.reason,
+        terminationExpiresAt,
       },
     });
 
     await tx.customer.update({
-      where: { id: contract.customerId },
+      where: {
+        id: contract.customerId,
+      },
       data: {
-        activeContracts: { decrement: 1 },
+        activeContracts: {
+          decrement: 1,
+        },
         totalOutstanding: {
           decrement: contract.outstandingAmount,
         },
       },
     });
 
-    await logAudit({
-      tx,
-      businessId,
-      userId: approverId,
-      entityType: 'CONTRACT',
-      entityId: contract.id,
-      action: 'TERMINATION_APPROVED',
-    });
-
-    return true;
+    return updated;
   });
+
+  await logAudit({
+    businessId,
+    userId: user.id,
+    entityType: 'CONTRACT',
+    entityId: contract.id,
+    action: 'CONTRACT_TERMINATED',
+    metadata: {
+      contractNumber: contract.contractNumber,
+      reason: payload.reason,
+    },
+  });
+
+  await createNotification({
+    businessId,
+    customerId: contract.customerId,
+    contractId: contract.id,
+    type: 'CONTRACT',
+    channel: 'SMS',
+    titleKey: 'notification.contract.terminated.title',
+    messageKey: 'notification.contract.terminated.body',
+    templateVars: {
+      contract: contract.contractNumber,
+    },
+    recipient: contract.customerPhone,
+  });
+
+  if (contract.customer?.whatsappPhone) {
+    await createNotification({
+      businessId,
+      customerId: contract.customerId,
+      contractId: contract.id,
+      type: 'CONTRACT',
+      channel: 'WHATSAPP',
+      titleKey: 'notification.contract.terminated.title',
+      messageKey: 'notification.contract.terminated.body',
+      templateVars: {
+        contract: contract.contractNumber,
+      },
+      recipient: contract.customer.whatsappPhone,
+    });
+  }
+
+  return terminated;
 };
 
-/* ================= REJECT TERMINATION (NEW) ================= */
+exports.restoreContract = async (contractId, user) => {
+  const businessId = user.businessId;
 
-exports.rejectTermination = async ({ businessId, approvalId, approverId }) => {
-  await subscriptionAuthority.assertActiveSubscription(businessId);
-
-  // 🔒 Ensure approvals feature enabled
-  await subscriptionAuthority.assertFeature(businessId, 'allowApprovals');
-
-  // 🔒 Ensure contracts feature enabled
-  await subscriptionAuthority.assertFeature(businessId, 'allowContracts');
-
-  return prisma.$transaction(async (tx) => {
-    const approval = await approvalEngine.rejectApproval({
-      tx,
-      approvalId,
+  const contract = await prisma.contract.findFirst({
+    where: {
+      id: contractId,
       businessId,
-      approverId,
-    });
-
-    await logAudit({
-      tx,
-      businessId,
-      userId: approverId,
-      entityType: 'CONTRACT',
-      entityId: approval.entityId,
-      action: 'TERMINATION_REJECTED',
-    });
-
-    return true;
+      deletedAt: null,
+    },
+    include: {
+      customer: true,
+    },
   });
+
+  if (!contract) {
+    throw new AppError('general.not_found');
+  }
+
+  if (contract.status !== 'TERMINATED') {
+    throw new AppError('contract.not_terminated');
+  }
+
+  if (
+    !contract.terminationExpiresAt ||
+    new Date() > contract.terminationExpiresAt
+  ) {
+    throw new AppError('contract.restore_window_expired');
+  }
+
+  const restored = await prisma.$transaction(async (tx) => {
+    const updated = await tx.contract.update({
+      where: {
+        id: contract.id,
+      },
+      data: {
+        status: 'ACTIVE',
+        terminatedAt: null,
+        terminatedBy: null,
+        terminationReason: null,
+        terminationExpiresAt: null,
+        restoredAt: new Date(),
+        restoredBy: user.id,
+      },
+    });
+
+    await tx.customer.update({
+      where: {
+        id: contract.customerId,
+      },
+      data: {
+        activeContracts: {
+          increment: 1,
+        },
+        totalOutstanding: {
+          increment: contract.outstandingAmount,
+        },
+      },
+    });
+
+    return updated;
+  });
+
+  await logAudit({
+    businessId,
+    userId: user.id,
+    entityType: 'CONTRACT',
+    entityId: contract.id,
+    action: 'CONTRACT_RESTORED',
+    metadata: {
+      contractNumber: contract.contractNumber,
+    },
+  });
+
+  await createNotification({
+    businessId,
+    customerId: contract.customerId,
+    contractId: contract.id,
+    type: 'CONTRACT',
+    channel: 'SMS',
+    titleKey: 'notification.contract.restored.title',
+    messageKey: 'notification.contract.restored.body',
+    templateVars: {
+      contract: contract.contractNumber,
+    },
+    recipient: contract.customerPhone,
+  });
+
+  if (contract.customer?.whatsappPhone) {
+    await createNotification({
+      businessId,
+      customerId: contract.customerId,
+      contractId: contract.id,
+      type: 'CONTRACT',
+      channel: 'WHATSAPP',
+      titleKey: 'notification.contract.restored.title',
+      messageKey: 'notification.contract.restored.body',
+      templateVars: {
+        contract: contract.contractNumber,
+      },
+      recipient: contract.customer.whatsappPhone,
+    });
+  }
+
+  return restored;
 };
 
 /* ================= COMPLETE ================= */
@@ -625,7 +684,7 @@ exports.completeContract = async ({ businessId, id }) => {
   const contract = await exports.getContractById(id, businessId);
 
   if (contract.outstandingAmount > 0)
-    throw new Error('contract.balance-not-zero');
+    throw new AppError('contract.balance-not-zero');
 
   await prisma.$transaction(async (tx) => {
     await tx.contract.update({
@@ -917,15 +976,15 @@ exports.amendContract = async (contractId, payload, user) => {
   });
 
   if (!contract) {
-    throw new Error('contract.not_found');
+    throw new AppError('contract.not_found');
   }
 
   if (contract.status !== 'ACTIVE') {
-    throw new Error('contract.only_active_can_be_amended');
+    throw new AppError('contract.only_active_can_be_amended');
   }
 
   if (contract.amendmentCount >= 1) {
-    throw new Error('contract.already_amended');
+    throw new AppError('contract.already_amended');
   }
 
   const auditChanges = {};
@@ -1100,7 +1159,7 @@ exports.getSingleContractAmendment = async (businessId, amendmentId) => {
   });
 
   if (!amendment) {
-    throw new Error('contract.amendment_not_found');
+    throw new AppError('contract.amendment_not_found');
   }
 
   return amendment;

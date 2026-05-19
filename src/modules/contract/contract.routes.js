@@ -57,20 +57,10 @@ router.post(
   contractController.terminateContract,
 );
 
-/* APPROVE TERMINATION */
 router.post(
-  '/termination/:approvalId/approve',
+  '/:id/restore',
   role(['BUSINESS_OWNER']),
-  validate(contractValidation.approveTermination),
-  contractController.approveTermination,
-);
-
-/* REJECT TERMINATION */
-router.post(
-  '/termination/:approvalId/reject',
-  role(['BUSINESS_OWNER']),
-  validate(contractValidation.rejectTermination),
-  contractController.rejectTermination,
+  contractController.restoreContract,
 );
 
 /* COMPLETE */

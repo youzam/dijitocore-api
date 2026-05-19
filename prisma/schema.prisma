@@ -330,12 +330,15 @@ model Contract {
 
   status ContractStatus @default(DRAFT)
 
-  activatedAt  DateTime?
-  completedAt  DateTime?
-  terminatedAt DateTime?
+  activatedAt DateTime?
+  completedAt DateTime?
 
-  terminationReason String?
-  terminatedBy      String?
+  terminatedAt         DateTime?
+  terminationReason    String?
+  terminatedBy         String?
+  terminationExpiresAt DateTime?
+  restoredAt           DateTime?
+  restoredBy           String?
 
   requiresApproval Boolean   @default(false)
   approvedBy       String?
@@ -934,6 +937,7 @@ model InstallmentSchedule {
 
   dueDate DateTime
   amount  Int
+  paidAmount Int @default(0)
 
   status ScheduleStatus @default(DUE)
 
@@ -1196,7 +1200,7 @@ model InstallmentPayment {
 
   amount         Int
   channel        String
-  source         String
+  source         String @default(POS)
   reference      String?
   idempotencyKey String?
 
@@ -1207,7 +1211,7 @@ model InstallmentPayment {
 
   status PaymentStatus @default(POSTED)
 
-  attachments Json?
+  attachment String?
 
   recordedBy String
 
@@ -2198,6 +2202,7 @@ enum ReversalStatus {
 enum ScheduleStatus {
   DUE
   PAID
+  PARTIAL
 }
 
 enum SubscriptionPaymentMethod {

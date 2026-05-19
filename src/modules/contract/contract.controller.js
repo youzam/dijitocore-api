@@ -60,49 +60,21 @@ exports.updateContractDraft = catchAsync(async (req, res) => {
 
 exports.terminateContract = catchAsync(async (req, res) => {
   const result = await contractService.terminateContract({
-    businessId: req.user.businessId,
-    id: req.params.id,
-    userId: req.user.id,
-    reason: req.body.reason,
+    contractId: req.params.id,
+    user: req.user,
+    payload: { reason: req.body.reason },
   });
 
-  return response.success(req, res, result, 200, 'contract.terminate_success');
+  return response.success(req, res, result, 200);
 });
 
-/* ================= NEW: APPROVE TERMINATION ================= */
-
-exports.approveTermination = catchAsync(async (req, res) => {
-  const result = await contractService.approveTermination({
-    businessId: req.user.businessId,
-    approvalId: req.params.approvalId,
-    approverId: req.user.id,
-  });
-
-  return response.success(
-    req,
-    res,
-    result,
-    200,
-    'contract.termination_approved',
+exports.restoreContract = catchAsync(async (req, res) => {
+  const contract = await contractService.restoreContract(
+    req.params.id,
+    req.user,
   );
-});
 
-/* ================= NEW: REJECT TERMINATION ================= */
-
-exports.rejectTermination = catchAsync(async (req, res) => {
-  const result = await contractService.rejectTermination({
-    businessId: req.user.businessId,
-    approvalId: req.params.approvalId,
-    approverId: req.user.id,
-  });
-
-  return response.success(
-    req,
-    res,
-    result,
-    200,
-    'contract.termination_rejected',
-  );
+  return response.success(req, res, contract, 200);
 });
 
 exports.completeContract = catchAsync(async (req, res) => {

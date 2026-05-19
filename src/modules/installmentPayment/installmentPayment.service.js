@@ -10,6 +10,7 @@ const subscriptionAuthority = require('../subscription/subscription.authority.se
 const { handleSecurityIncident } = require('../../utils/incidentEngine');
 const AppError = require('../../utils/AppError');
 const ledgerService = require('../../services/ledger.service');
+const storageManager = require('../../utils/storage/storage.manager');
 
 /**
  * Guard: Payment update allowed only via reversal flow.
@@ -57,18 +58,28 @@ exports.recordPayment = async ({
   source,
   reference,
   idempotencyKey,
-  attachments,
+  attachment,
   receivedAt,
   userId,
 }) => {
   // 🔒 SUBSCRIPTION ENFORCEMENT (SAFE INJECTION)
   await subscriptionAuthority.assertActiveSubscription(businessId);
-  await subscriptionAuthority.assertFeature(businessId, 'allowPayments');
+
+  let uploadedAttachment = null;
+
+  if (attachment) {
+    const upload = await storageManager.upload({
+      file: attachment,
+      folder: 'payments/attachments',
+    });
+
+    uploadedAttachment = upload?.key || upload?.url || null;
+  }
 
   const { payment, ledgerContext } = await prisma.$transaction(async (tx) => {
     /* =====================================================
-         IDEMPOTENCY CHECK
-         ===================================================== */
+           IDEMPOTENCY CHECK
+           ===================================================== */
     if (idempotencyKey) {
       const existing = await tx.installmentPayment.findFirst({
         where: {
@@ -88,7 +99,6 @@ exports.recordPayment = async ({
 
         return {
           payment: existing,
-
           ledgerContext: {
             businessId,
             contractId,
@@ -131,8 +141,8 @@ exports.recordPayment = async ({
     }
 
     /* =====================================================
-         VALIDATE CUSTOMER
-         ===================================================== */
+           VALIDATE CUSTOMER
+           ===================================================== */
     const customer = await tx.customer.findFirst({
       where: {
         id: customerId,
@@ -147,8 +157,8 @@ exports.recordPayment = async ({
     }
 
     /* =====================================================
-         VALIDATE CONTRACT
-         ===================================================== */
+           VALIDATE CONTRACT
+           ===================================================== */
     const contract = await tx.contract.findFirst({
       where: {
         id: contractId,
@@ -181,8 +191,8 @@ exports.recordPayment = async ({
     }
 
     /* =====================================================
-         VALIDATE PAYMENT AMOUNT
-         ===================================================== */
+           VALIDATE PAYMENT AMOUNT
+           ===================================================== */
 
     if (amount > contract.outstandingAmount) {
       throw new Error('payment.exceeds_outstanding_amount');
@@ -193,30 +203,45 @@ exports.recordPayment = async ({
     }
 
     /* =====================================================
-         CALCULATE PAYABLE
-         ===================================================== */
+           CALCULATE PAYABLE
+           ===================================================== */
 
     const payable = amount;
 
     let remaining = payable;
 
     const schedules = contract.schedules
-      .filter((s) => s.status === 'DUE')
+      .filter((s) => s.status !== 'PAID')
       .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
 
     for (const s of schedules) {
-      if (remaining < s.amount) break;
+      if (remaining <= 0) break;
+
+      const unpaid = s.amount - (s.paidAmount || 0);
+
+      if (unpaid <= 0) continue;
+
+      const allocation = Math.min(remaining, unpaid);
+
+      const newPaidAmount = (s.paidAmount || 0) + allocation;
+
+      const fullyPaid = newPaidAmount >= s.amount;
 
       await tx.installmentSchedule.update({
-        where: { id: s.id },
+        where: {
+          id: s.id,
+        },
 
         data: {
-          status: 'PAID',
-          paidAt: new Date(),
+          paidAmount: newPaidAmount,
+
+          status: fullyPaid ? 'PAID' : 'PARTIAL',
+
+          paidAt: fullyPaid ? new Date() : null,
         },
       });
 
-      remaining -= s.amount;
+      remaining -= allocation;
     }
 
     const newPaidAmount = contract.paidAmount + payable;
@@ -242,8 +267,8 @@ exports.recordPayment = async ({
     });
 
     /* =====================================================
-         CREATE PAYMENT ENTRY
-         ===================================================== */
+           CREATE PAYMENT ENTRY
+           ===================================================== */
 
     const createdPayment = await tx.installmentPayment.create({
       data: {
@@ -252,10 +277,14 @@ exports.recordPayment = async ({
         customerId,
         amount: payable,
         channel,
-        source,
+
+        source: source || 'POS',
+
         reference,
+
         idempotencyKey,
-        attachments,
+
+        attachment: uploadedAttachment,
 
         receivedAt: receivedAt ? new Date(receivedAt) : new Date(),
 
@@ -440,8 +469,6 @@ exports.requestReversal = async ({
 }) => {
   // 🔒 SUBSCRIPTION ENFORCEMENT (SAFE INJECTION)
   await subscriptionAuthority.assertActiveSubscription(businessId);
-  await subscriptionAuthority.assertFeature(businessId, 'allowReversal');
-  await subscriptionAuthority.assertFeature(businessId, 'allowApprovals');
 
   return prisma.$transaction(async (tx) => {
     const payment = await tx.installmentPayment.findFirst({
@@ -545,7 +572,6 @@ exports.requestReversal = async ({
  */
 exports.approveReversal = async ({
   businessId,
-  approvalId,
   approverId,
   internalPayment,
   internalReversal,
@@ -554,24 +580,6 @@ exports.approveReversal = async ({
   return (tx || prisma).$transaction(async (trx) => {
     let reversal = internalReversal;
     let payment = internalPayment;
-
-    if (!reversal) {
-      const approval = await approvalEngine.approveApproval({
-        tx: trx,
-        approvalId,
-        businessId,
-        approverId,
-      });
-
-      reversal = await trx.installmentPaymentReversal.findFirst({
-        where: { id: approval.entityId },
-        include: { Payment: true },
-      });
-
-      if (!reversal) throw new Error('payment.reversal_not_found');
-
-      payment = reversal.Payment;
-    }
 
     if (payment.status === 'REVERSED') {
       throw new Error('payment.already_reversed');
@@ -591,10 +599,13 @@ exports.approveReversal = async ({
       include: {
         schedules: true,
         business: true,
+        customer: true,
       },
     });
 
-    if (!contract) throw new Error('contract.not_found');
+    if (!contract) {
+      throw new Error('contract.not_found');
+    }
 
     if (contract.completedAt) {
       throw new Error('contract.closed');
@@ -611,11 +622,16 @@ exports.approveReversal = async ({
       .sort((a, b) => new Date(b.dueDate) - new Date(a.dueDate));
 
     for (const s of paidSchedules) {
-      if (rollback < s.amount) break;
+      if (rollback < s.amount) {
+        break;
+      }
 
       await trx.installmentSchedule.update({
         where: { id: s.id },
-        data: { status: 'DUE', paidAt: null },
+        data: {
+          status: 'DUE',
+          paidAt: null,
+        },
       });
 
       rollback -= s.amount;
@@ -629,7 +645,9 @@ exports.approveReversal = async ({
     );
 
     await trx.contract.update({
-      where: { id: payment.contractId },
+      where: {
+        id: payment.contractId,
+      },
       data: {
         paidAmount: newPaidAmount,
         outstandingAmount: newOutstanding,
@@ -645,7 +663,9 @@ exports.approveReversal = async ({
         role: 'TENANT',
       },
       paymentId: payment.id,
-      attemptedChanges: { status: 'REVERSED' },
+      attemptedChanges: {
+        status: 'REVERSED',
+      },
     });
 
     const reversalPayment = await trx.installmentPayment.create({
@@ -720,18 +740,58 @@ exports.approveReversal = async ({
     });
 
     await trx.installmentPayment.update({
-      where: { id: payment.id },
-      data: { status: 'REVERSED' },
+      where: {
+        id: payment.id,
+      },
+      data: {
+        status: 'REVERSED',
+      },
     });
 
     await trx.installmentPaymentReversal.update({
-      where: { id: reversal.id },
+      where: {
+        id: reversal.id,
+      },
       data: {
         status: 'APPROVED',
         approvedBy: approverId,
         approvedAt: new Date(),
       },
     });
+
+    await createNotification({
+      businessId,
+      customerId: payment.customerId,
+      contractId: payment.contractId,
+      installmentPaymentId: payment.id,
+      type: 'PAYMENT',
+      channel: 'SMS',
+      titleKey: 'notification.payment.reversed.title',
+      messageKey: 'notification.payment.reversed.body',
+      templateVars: {
+        amount: payment.amount,
+        receipt: payment.receiptNumber,
+      },
+      recipient: contract.customer?.phone,
+    });
+
+    if (contract.customer?.whatsappPhone) {
+      await createNotification({
+        businessId,
+        customerId: payment.customerId,
+        contractId: payment.contractId,
+        installmentPaymentId: payment.id,
+        type: 'PAYMENT',
+        channel: 'WHATSAPP',
+        titleKey: 'notification.payment.reversed.title',
+        messageKey: 'notification.payment.reversed.body',
+        templateVars: {
+          amount: payment.amount,
+          receipt: payment.receiptNumber,
+        },
+        recipient: contract.customer.whatsappPhone,
+      });
+    }
 
     return true;
   });

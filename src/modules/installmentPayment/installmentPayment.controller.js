@@ -10,6 +10,10 @@ const ledgerService = require('./ledger.service');
    =============================== */
 
 exports.recordPayment = catchAsync(async (req, res) => {
+  if (req.files?.attachment) {
+    req.body.attachment = req.files.attachment;
+  }
+
   const payment = await paymentService.recordPayment({
     businessId: req.user.businessId,
     userId: req.user.id,
