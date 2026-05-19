@@ -1,5 +1,5 @@
-const prisma = require("../../config/prisma");
-const dayjs = require("dayjs");
+const prisma = require('../../config/prisma');
+const dayjs = require('dayjs');
 
 /**
  * ===========================
@@ -8,14 +8,14 @@ const dayjs = require("dayjs");
  * ===========================
  */
 exports.getSnapshotSeries = async (businessId, days = 90) => {
-  const from = dayjs().subtract(days, "day").startOf("day").toDate();
+  const from = dayjs().subtract(days, 'day').startOf('day').toDate();
 
   return prisma.dashboardSnapshot.findMany({
     where: {
       businessId,
       snapshotDate: { gte: from },
     },
-    orderBy: { snapshotDate: "asc" },
+    orderBy: { snapshotDate: 'asc' },
     select: {
       snapshotDate: true,
       portfolio: true,
@@ -31,14 +31,14 @@ exports.getSnapshotSeries = async (businessId, days = 90) => {
  * ===========================
  */
 exports.getHealthTimeline = async (businessId, days = 90) => {
-  const from = dayjs().subtract(days, "day").startOf("day").toDate();
+  const from = dayjs().subtract(days, 'day').startOf('day').toDate();
 
   const snapshots = await prisma.dashboardSnapshot.findMany({
     where: {
       businessId,
       snapshotDate: { gte: from },
     },
-    orderBy: { snapshotDate: "asc" },
+    orderBy: { snapshotDate: 'asc' },
     select: {
       snapshotDate: true,
       portfolio: true,
@@ -66,7 +66,7 @@ exports.getHealthTimeline = async (businessId, days = 90) => {
 exports.generateInsights = async (businessId) => {
   const latest = await prisma.dashboardSnapshot.findMany({
     where: { businessId },
-    orderBy: { snapshotDate: "desc" },
+    orderBy: { snapshotDate: 'desc' },
     take: 14,
   });
 
@@ -79,14 +79,14 @@ exports.generateInsights = async (businessId) => {
 
   const insights = [];
 
-  const recentCollected = sum(recent, "collected");
-  const prevCollected = sum(previous, "collected");
+  const recentCollected = sum(recent, 'collected');
+  const prevCollected = sum(previous, 'collected');
 
   if (prevCollected > 0) {
     const diff = ((recentCollected - prevCollected) / prevCollected) * 100;
 
     insights.push({
-      type: "collections",
+      type: 'collections',
       message:
         diff >= 0
           ? `Collections increased by ${diff.toFixed(1)}%`
@@ -94,14 +94,14 @@ exports.generateInsights = async (businessId) => {
     });
   }
 
-  const recentOverdue = sum(recent, "overdue");
-  const prevOverdue = sum(previous, "overdue");
+  const recentOverdue = sum(recent, 'overdue');
+  const prevOverdue = sum(previous, 'overdue');
 
   if (prevOverdue > 0) {
     const diff = ((recentOverdue - prevOverdue) / prevOverdue) * 100;
 
     insights.push({
-      type: "overdue",
+      type: 'overdue',
       message:
         diff >= 0
           ? `Overdue increased by ${diff.toFixed(1)}%`
@@ -118,7 +118,7 @@ exports.generateInsights = async (businessId) => {
  * ===========================
  */
 exports.getCohorts = async (businessId) => {
-  const thirtyDaysAgo = dayjs().subtract(30, "day").toDate();
+  const thirtyDaysAgo = dayjs().subtract(30, 'day').toDate();
 
   const newCustomers = await prisma.customer.count({
     where: {
@@ -159,7 +159,7 @@ exports.getCohorts = async (businessId) => {
 exports.getProjections = async (businessId) => {
   const schedules = await prisma.installmentSchedule.findMany({
     where: {
-      status: { not: "PAID" },
+      status: { not: 'PAID' },
       contract: { businessId },
     },
     select: {
@@ -177,7 +177,7 @@ exports.getProjections = async (businessId) => {
   const now = dayjs();
 
   schedules.forEach((s) => {
-    const diff = dayjs(s.dueDate).diff(now, "day");
+    const diff = dayjs(s.dueDate).diff(now, 'day');
 
     if (diff <= 30) buckets.next30 += s.amount;
     else if (diff <= 60) buckets.next60 += s.amount;
@@ -195,7 +195,7 @@ exports.getProjections = async (businessId) => {
 exports.getAuditDashboard = async (businessId) => {
   return prisma.auditLog.findMany({
     where: { businessId },
-    orderBy: { createdAt: "desc" },
+    orderBy: { createdAt: 'desc' },
     take: 50,
   });
 };
@@ -207,9 +207,9 @@ exports.getAuditDashboard = async (businessId) => {
  */
 exports.getAdvancedPortfolioMetrics = async (businessId) => {
   // 🔒 Feature Gating
-  await require("../subscription/subscription.authority.service").assertFeature(
+  await require('../subscription/subscription.authority.service').assertFeature(
     businessId,
-    "allowAdvancedAnalytics",
+    'allowAdvancedAnalytics',
   );
 
   const now = new Date();
@@ -220,7 +220,7 @@ exports.getAdvancedPortfolioMetrics = async (businessId) => {
   const activeContracts = await prisma.contract.findMany({
     where: {
       businessId,
-      status: "ACTIVE",
+      status: 'ACTIVE',
       deletedAt: null,
     },
     select: {
@@ -251,11 +251,13 @@ exports.getAdvancedPortfolioMetrics = async (businessId) => {
   ========================= */
   const overdueSchedules = await prisma.installmentSchedule.findMany({
     where: {
-      status: "DUE",
+      status: {
+        in: ['DUE', 'PARTIAL'],
+      },
       dueDate: { lt: now },
       contract: {
         businessId,
-        status: "ACTIVE",
+        status: 'ACTIVE',
       },
     },
     select: {
@@ -291,19 +293,19 @@ exports.getAdvancedPortfolioMetrics = async (businessId) => {
      OVERDUE AGING BUCKETS
   ========================= */
   const aging = {
-    "0_30": 0,
-    "31_60": 0,
-    "61_90": 0,
-    "90_plus": 0,
+    '0_30': 0,
+    '31_60': 0,
+    '61_90': 0,
+    '90_plus': 0,
   };
 
   overdueSchedules.forEach((s) => {
     const days = (now - new Date(s.dueDate)) / (1000 * 60 * 60 * 24);
 
-    if (days <= 30) aging["0_30"] += s.amount;
-    else if (days <= 60) aging["31_60"] += s.amount;
-    else if (days <= 90) aging["61_90"] += s.amount;
-    else aging["90_plus"] += s.amount;
+    if (days <= 30) aging['0_30'] += s.amount;
+    else if (days <= 60) aging['31_60'] += s.amount;
+    else if (days <= 90) aging['61_90'] += s.amount;
+    else aging['90_plus'] += s.amount;
   });
 
   /* =========================
@@ -316,7 +318,7 @@ exports.getAdvancedPortfolioMetrics = async (businessId) => {
     where: {
       businessId,
       receivedAt: { gte: sixMonthsAgo },
-      status: "POSTED",
+      status: 'POSTED',
     },
     select: {
       amount: true,
@@ -330,7 +332,7 @@ exports.getAdvancedPortfolioMetrics = async (businessId) => {
     const d = new Date(p.receivedAt);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
       2,
-      "0",
+      '0',
     )}`;
 
     if (!monthlyCashflow[key]) monthlyCashflow[key] = 0;

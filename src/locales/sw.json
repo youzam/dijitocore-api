@@ -85,6 +85,19 @@
     "escalation": {
       "title": "Tahadhari ya escalation",
       "body": "{{customer}} amechelewa kwa siku {{days}} ({{amount}})."
+    },
+    "payment": {
+      "title": "Malipo Yamepokelewa",
+      "body": "Malipo yako ya {{amount}} yamepokelewa kwa mafanikio. Kumbukumbu: {{reference}}",
+
+      "staff": {
+        "title": "Malipo ya Mteja Yameingizwa",
+        "body": "Malipo ya mteja ya {{amount}} yameingizwa. Kumbukumbu: {{reference}}"
+      },
+      "reversed": {
+        "title": "Malipo Yamebatilishwa",
+        "body": "Malipo yako ya {{amount}} yenye risiti {{receipt}} yamebatilishwa."
+      }
     }
   },
   "business": {

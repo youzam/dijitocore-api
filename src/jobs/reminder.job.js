@@ -1,7 +1,7 @@
-const prisma = require("../config/prisma");
+const prisma = require('../config/prisma');
 const {
   createNotification,
-} = require("../services/notifications/notification.service");
+} = require('../services/notifications/notification.service');
 
 const BATCH_SIZE = 500;
 const MAX_LOOPS = 1000;
@@ -30,12 +30,14 @@ async function run() {
       loopGuard++;
 
       if (loopGuard >= MAX_LOOPS) {
-        throw new Error("Job loop guard triggered");
+        throw new Error('Job loop guard triggered');
       }
 
       const schedules = await prisma.installmentSchedule.findMany({
         where: {
-          status: "DUE",
+          status: {
+            in: ['DUE', 'PARTIAL'],
+          },
           dueDate: {
             lte: upcomingWindow,
           },
@@ -52,7 +54,7 @@ async function run() {
           skip: 1,
           cursor: { id: cursor },
         }),
-        orderBy: { id: "asc" },
+        orderBy: { id: 'asc' },
       });
 
       if (!schedules.length) break;
@@ -86,12 +88,12 @@ async function run() {
         const business = businessMap.get(s.contract.businessId);
 
         if (!business) continue;
-        if (customer.status !== "ACTIVE") continue;
+        if (customer.status !== 'ACTIVE') continue;
 
         const setting = business.notificationSettings[0] || null;
 
         const daysBeforeDue =
-          typeof setting?.daysBeforeDue === "number"
+          typeof setting?.daysBeforeDue === 'number'
             ? setting.daysBeforeDue
             : 3;
 
@@ -104,20 +106,20 @@ async function run() {
           startOfDay(addDays(today, daysBeforeDue)).getTime()
         ) {
           await Promise.all(
-            ["IN_APP", "PUSH", "SMS", "WHATSAPP"].map((channel) =>
+            ['IN_APP', 'PUSH', 'SMS', 'WHATSAPP'].map((channel) =>
               createNotification({
                 businessId: business.id,
                 customerId: customer.id,
                 contractId: s.contract.id,
-                type: "UPCOMING",
+                type: 'UPCOMING',
                 channel,
-                titleKey: "notification.upcoming.title",
-                messageKey: "notification.upcoming.body",
+                titleKey: 'notification.upcoming.title',
+                messageKey: 'notification.upcoming.body',
                 templateVars: {
                   name: customer.fullName,
                   amount: s.amount,
                 },
-                recipient: channel === "IN_APP" ? customer.id : customer.phone,
+                recipient: channel === 'IN_APP' ? customer.id : customer.phone,
               }),
             ),
           );
@@ -126,20 +128,20 @@ async function run() {
         // DUE TODAY
         if (dueDate.getTime() === today.getTime()) {
           await Promise.all(
-            ["IN_APP", "PUSH", "SMS", "WHATSAPP"].map((channel) =>
+            ['IN_APP', 'PUSH', 'SMS', 'WHATSAPP'].map((channel) =>
               createNotification({
                 businessId: business.id,
                 customerId: customer.id,
                 contractId: s.contract.id,
-                type: "DUE",
+                type: 'DUE',
                 channel,
-                titleKey: "notification.due.title",
-                messageKey: "notification.due.body",
+                titleKey: 'notification.due.title',
+                messageKey: 'notification.due.body',
                 templateVars: {
                   name: customer.fullName,
                   amount: s.amount,
                 },
-                recipient: channel === "IN_APP" ? customer.id : customer.phone,
+                recipient: channel === 'IN_APP' ? customer.id : customer.phone,
               }),
             ),
           );
@@ -150,7 +152,7 @@ async function run() {
           const existingToday = await prisma.notification.findFirst({
             where: {
               contractId: s.contract.id,
-              type: "OVERDUE",
+              type: 'OVERDUE',
               createdAt: {
                 gte: today,
               },
@@ -160,20 +162,20 @@ async function run() {
           if (existingToday) continue;
 
           await Promise.all(
-            ["IN_APP", "PUSH"].map((channel) =>
+            ['IN_APP', 'PUSH'].map((channel) =>
               createNotification({
                 businessId: business.id,
                 customerId: customer.id,
                 contractId: s.contract.id,
-                type: "OVERDUE",
+                type: 'OVERDUE',
                 channel,
-                titleKey: "notification.overdue.title",
-                messageKey: "notification.overdue.body",
+                titleKey: 'notification.overdue.title',
+                messageKey: 'notification.overdue.body',
                 templateVars: {
                   name: customer.fullName,
                   amount: s.amount,
                 },
-                recipient: channel === "IN_APP" ? customer.id : customer.phone,
+                recipient: channel === 'IN_APP' ? customer.id : customer.phone,
               }),
             ),
           );
@@ -184,10 +186,10 @@ async function run() {
                 businessId: business.id,
                 userId: u.id,
                 contractId: s.contract.id,
-                type: "OVERDUE",
-                channel: "IN_APP",
-                titleKey: "notification.staff_overdue.title",
-                messageKey: "notification.staff_overdue.body",
+                type: 'OVERDUE',
+                channel: 'IN_APP',
+                titleKey: 'notification.staff_overdue.title',
+                messageKey: 'notification.staff_overdue.body',
                 templateVars: {
                   customer: customer.fullName,
                   amount: s.amount,
@@ -200,10 +202,10 @@ async function run() {
                   businessId: business.id,
                   userId: u.id,
                   contractId: s.contract.id,
-                  type: "OVERDUE",
-                  channel: "EMAIL",
-                  titleKey: "notification.staff_overdue.title",
-                  messageKey: "notification.staff_overdue.body",
+                  type: 'OVERDUE',
+                  channel: 'EMAIL',
+                  titleKey: 'notification.staff_overdue.title',
+                  messageKey: 'notification.staff_overdue.body',
                   templateVars: {
                     customer: customer.fullName,
                     amount: s.amount,
@@ -216,7 +218,7 @@ async function run() {
         }
       }
     }
-  } catch (error)  {
+  } catch (error) {
     throw error;
   }
 }

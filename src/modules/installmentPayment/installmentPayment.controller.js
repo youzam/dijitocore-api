@@ -16,21 +16,29 @@ exports.recordPayment = catchAsync(async (req, res) => {
 
   const payment = await paymentService.recordPayment({
     businessId: req.user.businessId,
+    contractId: req.body.contractId,
+    customerId: req.body.customerId,
+    amount: Number(req.body.amount),
+    channel: req.body.channel,
+    source: req.body.source,
+    reference: req.body.reference,
+    idempotencyKey: req.body.idempotencyKey,
+    attachment: req.files?.attachment || null,
+    receivedAt: req.body.receivedAt,
     userId: req.user.id,
-    payload: req.body,
   });
 
-  return response.success(req, res, payment, 201, 'payment.recorded');
+  return response.success(req, res, payment, 201);
 });
 
 exports.listPayments = catchAsync(async (req, res) => {
   const result = await paymentService.listPayments(req);
-  return response.success(req, res, result, 200, 'payment.fetched');
+  return response.success(req, res, result, 200);
 });
 
 exports.listReversals = catchAsync(async (req, res) => {
   const result = await paymentService.listReversals(req);
-  return response.success(req, res, result, 200, 'payment.reversals_fetched');
+  return response.success(req, res, result, 200);
 });
 
 exports.requestReversal = catchAsync(async (req, res) => {
@@ -39,19 +47,20 @@ exports.requestReversal = catchAsync(async (req, res) => {
     userId: req.user.id,
     paymentId: req.params.id,
     reason: req.body.reason,
+    role: req.user.role,
   });
 
-  return response.success(req, res, result, 200, 'payment.reversal_requested');
+  return response.success(req, res, result, 200);
 });
 
 exports.approveReversal = catchAsync(async (req, res) => {
   const result = await paymentService.approveReversal({
     businessId: req.user.businessId,
-    userId: req.user.id,
+    approverId: req.user.id,
     reversalId: req.params.id,
   });
 
-  return response.success(req, res, result, 200, 'payment.reversal_approved');
+  return response.success(req, res, result, 200);
 });
 
 exports.rejectReversal = catchAsync(async (req, res) => {

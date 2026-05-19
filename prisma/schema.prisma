@@ -358,9 +358,10 @@ model Contract {
   amendmentCount Int       @default(0)
   lastAmendedAt  DateTime?
 
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @default(now()) @updatedAt
-  contractAmendments ContractAmendment[]
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @default(now()) @updatedAt
+  contractAmendments  ContractAmendment[]
+  installmentPayments InstallmentPayment[]
 
   @@index([businessId])
   @@index([customerId])
@@ -531,9 +532,10 @@ model Customer {
   deletedAt DateTime?
   deletedBy String?
 
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @default(now()) @updatedAt
-  fraudFlags FraudFlag[]
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @default(now()) @updatedAt
+  fraudFlags          FraudFlag[]
+  installmentPayments InstallmentPayment[]
 
   @@unique([phone, businessId])
 }
@@ -935,9 +937,9 @@ model InstallmentSchedule {
 
   contractId String
 
-  dueDate DateTime
-  amount  Int
-  paidAmount Int @default(0)
+  dueDate    DateTime
+  amount     Int
+  paidAmount Int      @default(0)
 
   status ScheduleStatus @default(DUE)
 
@@ -1200,7 +1202,7 @@ model InstallmentPayment {
 
   amount         Int
   channel        String
-  source         String @default(POS)
+  source         String  @default("POS")
   reference      String?
   idempotencyKey String?
 
@@ -1214,6 +1216,9 @@ model InstallmentPayment {
   attachment String?
 
   recordedBy String
+
+  contract Contract @relation(fields: [contractId], references: [id])
+  customer Customer @relation(fields: [customerId], references: [id])
 
   reversals PaymentReversal[]
 
