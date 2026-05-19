@@ -217,3 +217,29 @@ exports.assertLimit = async (businessId, limitKey) => {
 
   return true;
 };
+
+exports.assertFeature = async (businessId, featureKey) => {
+  const subscription = await prisma.subscription.findFirst({
+    where: {
+      businessId,
+      status: {
+        in: ['ACTIVE', 'GRACE'],
+      },
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+  });
+
+  if (!subscription) {
+    throw new AppError('subscription.not_found', 404);
+  }
+
+  const features = subscription.featuresSnapshot || {};
+
+  if (!features[featureKey]) {
+    throw new AppError('subscription.feature_not_available', 403);
+  }
+
+  return true;
+};

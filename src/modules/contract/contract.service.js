@@ -35,7 +35,7 @@ const generateScheduleDates = ({ startDate, frequency, customDays, total }) => {
 };
 
 /* ================= CREATE ================= */
-exports.createContract = async ({ businessId, userId, payload }) => {
+exports.createContract = async (businessId, payload, userId) => {
   const {
     customerId,
     title,
@@ -50,50 +50,67 @@ exports.createContract = async ({ businessId, userId, payload }) => {
   } = payload;
 
   await subscriptionAuthority.assertActiveSubscription(businessId);
-  await subscriptionAuthority.assertFeature(businessId, 'allowContracts');
 
-  const activeContractsCount = await prisma.contract.count({
+  if (downPayment > totalValue) {
+    throw new Error('contract.invalid-downpayment');
+  }
+
+  if (installmentAmount <= 0) {
+    throw new Error('contract.invalid-installment');
+  }
+
+  if (frequency === 'CUSTOM' && !customDays) {
+    throw new Error('contract.custom-days-required');
+  }
+
+  const customer = await prisma.customer.findFirst({
     where: {
+      id: customerId,
       businessId,
-      status: 'ACTIVE',
-      deletedAt: null,
     },
   });
 
-  await subscriptionAuthority.assertLimit(
-    businessId,
-    'maxActiveContracts',
-    activeContractsCount,
-  );
-
-  if (downPayment > totalValue) throw new Error('contract.invalid-downpayment');
-  if (installmentAmount <= 0) throw new Error('contract.invalid-installment');
-  if (frequency === 'CUSTOM' && !customDays)
-    throw new Error('contract.custom-days-required');
-
-  const customer = await prisma.customer.findFirst({
-    where: { id: customerId, businessId },
-  });
-
-  if (!customer) throw new Error('contract.customer-not-found');
+  if (!customer) {
+    throw new Error('contract.customer-not-found');
+  }
 
   if (customer.status === 'INACTIVE' || customer.isBlacklisted) {
     throw new Error('customer.inactiveBlacklisted');
   }
 
-  const balance = totalValue - downPayment;
-  const totalInstallments = Math.ceil(balance / installmentAmount);
-  const contractNumber = await generateContractNumber(businessId);
+  const assetNames = assets.map((a) => a.name.trim().toLowerCase());
 
-  const dates = generateScheduleDates({
-    startDate,
-    frequency,
-    customDays,
-    total: totalInstallments,
+  const existingContract = await prisma.contract.findFirst({
+    where: {
+      businessId,
+      customerId,
+      status: {
+        in: ['DRAFT', 'ACTIVE'],
+      },
+      deletedAt: null,
+      assets: {
+        some: {
+          name: {
+            in: assetNames,
+            mode: 'insensitive',
+          },
+        },
+      },
+    },
   });
 
+  if (existingContract) {
+    throw new Error('contract.customer_already_has_asset');
+  }
+
+  const balance = totalValue - downPayment;
+
+  const totalInstallments = Math.ceil(balance / installmentAmount);
+
+  const contractNumber = await generateContractNumber(businessId);
+
   const contract = await prisma.$transaction(async (tx) => {
-    const created = await tx.contract.create({
+    return tx.contract.create({
       data: {
         businessId,
         customerId,
@@ -112,8 +129,7 @@ exports.createContract = async ({ businessId, userId, payload }) => {
         frequency,
         customDays,
         startDate: new Date(startDate),
-        status: 'ACTIVE',
-        activatedAt: new Date(),
+        status: 'DRAFT',
         createdBy: userId,
         assets: {
           create: assets.map((a) => ({
@@ -124,25 +140,6 @@ exports.createContract = async ({ businessId, userId, payload }) => {
         },
       },
     });
-
-    await tx.installmentSchedule.createMany({
-      data: dates.map((d) => ({
-        contractId: created.id,
-        dueDate: d,
-        amount: installmentAmount,
-      })),
-    });
-
-    await tx.customer.update({
-      where: { id: customerId },
-      data: {
-        totalContracts: { increment: 1 },
-        activeContracts: { increment: 1 },
-        totalOutstanding: { increment: balance },
-      },
-    });
-
-    return created;
   });
 
   await logAudit({
@@ -153,13 +150,111 @@ exports.createContract = async ({ businessId, userId, payload }) => {
     action: 'CONTRACT_CREATED',
     metadata: {
       contractNumber: contract.contractNumber,
+      status: 'DRAFT',
+      totalValue: contract.totalValue,
+    },
+  });
+
+  return contract;
+};
+
+exports.activateContract = async (businessId, contractId, userId) => {
+  await subscriptionAuthority.assertActiveSubscription(businessId);
+
+  const contract = await prisma.contract.findFirst({
+    where: {
+      id: contractId,
+      businessId,
+      deletedAt: null,
+    },
+    include: {
+      customer: true,
+    },
+  });
+
+  if (!contract) {
+    throw new Error('contract.not-found');
+  }
+
+  if (contract.status !== 'DRAFT') {
+    throw new Error('contract.invalid_activation');
+  }
+
+  const activeContractsCount = await prisma.contract.count({
+    where: {
+      businessId,
+      status: 'ACTIVE',
+      deletedAt: null,
+    },
+  });
+
+  await subscriptionAuthority.assertLimit(
+    businessId,
+    'maxActiveContracts',
+    activeContractsCount,
+  );
+
+  const dates = generateScheduleDates({
+    startDate: contract.startDate,
+    frequency: contract.frequency,
+    customDays: contract.customDays,
+    total: contract.totalInstallments,
+  });
+
+  const activated = await prisma.$transaction(async (tx) => {
+    const updated = await tx.contract.update({
+      where: {
+        id: contract.id,
+      },
+      data: {
+        status: 'ACTIVE',
+        activatedAt: new Date(),
+      },
+    });
+
+    await tx.installmentSchedule.createMany({
+      data: dates.map((d) => ({
+        contractId: contract.id,
+        dueDate: d,
+        amount: contract.installmentAmount,
+      })),
+    });
+
+    await tx.customer.update({
+      where: {
+        id: contract.customerId,
+      },
+      data: {
+        totalContracts: {
+          increment: 1,
+        },
+        activeContracts: {
+          increment: 1,
+        },
+        totalOutstanding: {
+          increment: contract.balance,
+        },
+      },
+    });
+
+    return updated;
+  });
+
+  await logAudit({
+    businessId,
+    userId,
+    entityType: 'CONTRACT',
+    entityId: contract.id,
+    action: 'CONTRACT_ACTIVATED',
+    metadata: {
+      contractNumber: contract.contractNumber,
       totalValue: contract.totalValue,
     },
   });
 
   await createNotification({
     businessId,
-    customerId,
+    customerId: contract.customerId,
     contractId: contract.id,
     type: 'CONTRACT',
     channel: 'IN_APP',
@@ -169,12 +264,12 @@ exports.createContract = async ({ businessId, userId, payload }) => {
       contract: contract.contractNumber,
       amount: contract.totalValue,
     },
-    recipient: customerId,
+    recipient: contract.customerId,
   });
 
   await createNotification({
     businessId,
-    customerId,
+    customerId: contract.customerId,
     contractId: contract.id,
     type: 'CONTRACT',
     channel: 'SMS',
@@ -184,11 +279,31 @@ exports.createContract = async ({ businessId, userId, payload }) => {
       contract: contract.contractNumber,
       amount: contract.totalValue,
     },
-    recipient: customer.phone,
+    recipient: contract.customerPhone,
   });
 
+  if (contract.customer?.whatsappPhone) {
+    await createNotification({
+      businessId,
+      customerId: contract.customerId,
+      contractId: contract.id,
+      type: 'CONTRACT',
+      channel: 'WHATSAPP',
+      titleKey: 'notification.contract.active.title',
+      messageKey: 'notification.contract.active.body',
+      templateVars: {
+        contract: contract.contractNumber,
+        amount: contract.totalValue,
+      },
+      recipient: contract.customer.whatsappPhone,
+    });
+  }
+
   const businessUsers = await prisma.user.findMany({
-    where: { businessId, status: 'ACTIVE' },
+    where: {
+      businessId,
+      status: 'ACTIVE',
+    },
   });
 
   for (const u of businessUsers) {
@@ -201,14 +316,14 @@ exports.createContract = async ({ businessId, userId, payload }) => {
       titleKey: 'notification.contract.active.staff.title',
       messageKey: 'notification.contract.active.staff.body',
       templateVars: {
-        customer: customer.fullName,
+        customer: contract.customerName,
         amount: contract.totalValue,
       },
       recipient: u.id,
     });
   }
 
-  return contract;
+  return activated;
 };
 
 /* ================= READ ================= */
@@ -223,7 +338,22 @@ exports.getContracts = async ({ businessId, query = {} }) => {
       where,
       skip: (page - 1) * limit,
       take: Number(limit),
-      include: { assets: true, schedules: true },
+      include: {
+        assets: true,
+
+        schedules: {
+          take: 10,
+          orderBy: {
+            dueDate: 'asc',
+          },
+        },
+
+        _count: {
+          select: {
+            schedules: true,
+          },
+        },
+      },
       orderBy: { createdAt: 'desc' },
     }),
     prisma.contract.count({ where }),
@@ -239,10 +369,25 @@ exports.getContracts = async ({ businessId, query = {} }) => {
   };
 };
 
-exports.getContractById = async ({ businessId, id }) => {
+exports.getContractById = async (id, businessId) => {
   const contract = await prisma.contract.findFirst({
     where: { id, businessId, deletedAt: null },
-    include: { assets: true, schedules: true },
+    include: {
+      assets: true,
+
+      schedules: {
+        take: 10,
+        orderBy: {
+          dueDate: 'asc',
+        },
+      },
+
+      _count: {
+        select: {
+          schedules: true,
+        },
+      },
+    },
   });
 
   if (!contract) throw new Error('contract.not-found');
@@ -250,22 +395,66 @@ exports.getContractById = async ({ businessId, id }) => {
   return contract;
 };
 
-/* ================= UPDATE ================= */
+/* ================= UPDATE DRAFT================= */
+exports.updateContractDraft = async (businessId, id, payload) => {
+  const contract = await exports.getContractById(id, businessId);
 
-exports.updateContract = async ({ businessId, id, payload }) => {
-  const contract = await exports.getContractById({ businessId, id });
-
-  // 🔒 Only DRAFT contracts can be edited
   if (contract.status !== 'DRAFT') {
     throw new AppError('contract.edit_not_allowed', 400);
   }
 
+  const forbiddenFields = [
+    'id',
+    'businessId',
+    'contractNumber',
+    'createdBy',
+    'activatedAt',
+    'paidAmount',
+    'amendmentCount',
+    'status',
+    'deletedAt',
+    'createdAt',
+    'updatedAt',
+  ];
+
+  forbiddenFields.forEach((field) => {
+    delete payload[field];
+  });
+
+  if (
+    payload.totalValue !== undefined ||
+    payload.downPayment !== undefined ||
+    payload.installmentAmount !== undefined
+  ) {
+    const totalValue = payload.totalValue ?? contract.totalValue;
+
+    const downPayment = payload.downPayment ?? contract.downPayment;
+
+    const installmentAmount =
+      payload.installmentAmount ?? contract.installmentAmount;
+
+    const balance = totalValue - downPayment;
+
+    payload.balance = balance;
+
+    payload.outstandingAmount = balance;
+
+    payload.totalInstallments = Math.ceil(balance / installmentAmount);
+  }
+
+  if (payload.startDate) {
+    payload.startDate = new Date(payload.startDate);
+  }
+
+  if (payload.endDate) {
+    payload.endDate = new Date(payload.endDate);
+  }
+
   const updated = await prisma.contract.update({
-    where: { id },
-    data: {
-      title: payload.title,
-      description: payload.description,
+    where: {
+      id,
     },
+    data: payload,
   });
 
   await logAudit({
@@ -280,17 +469,10 @@ exports.updateContract = async ({ businessId, id, payload }) => {
 };
 
 /* === TERMINATE CONTRACT === */
-
 exports.terminateContract = async ({ businessId, id, userId, reason }) => {
   await subscriptionAuthority.assertActiveSubscription(businessId);
 
-  // 🔒 Ensure contracts feature enabled
-  await subscriptionAuthority.assertFeature(businessId, 'allowContracts');
-
-  // 🔒 Ensure approvals feature enabled
-  await subscriptionAuthority.assertFeature(businessId, 'allowApprovals');
-
-  const contract = await exports.getContractById({ businessId, id });
+  const contract = await exports.getContractById(id, businessId);
 
   if (['TERMINATED', 'COMPLETED'].includes(contract.status)) {
     throw new AppError('contract.invalid_termination', 400);
@@ -440,7 +622,7 @@ exports.rejectTermination = async ({ businessId, approvalId, approverId }) => {
 /* ================= COMPLETE ================= */
 
 exports.completeContract = async ({ businessId, id }) => {
-  const contract = await exports.getContractById({ businessId, id });
+  const contract = await exports.getContractById(id, businessId);
 
   if (contract.outstandingAmount > 0)
     throw new Error('contract.balance-not-zero');
@@ -504,7 +686,7 @@ exports.completeContract = async ({ businessId, id }) => {
 /* ================= SOFT DELETE ================= */
 
 exports.deleteContract = async ({ businessId, id }) => {
-  const contract = await exports.getContractById({ businessId, id });
+  const contract = await exports.getContractById(id, businessId);
 
   const deleted = await prisma.$transaction(async (tx) => {
     if (contract.status === 'ACTIVE') {
@@ -549,7 +731,19 @@ exports.getCustomerContracts = async ({ id }) => {
     where: { customerId },
     include: {
       assets: true,
-      schedules: true,
+
+      schedules: {
+        take: 10,
+        orderBy: {
+          dueDate: 'asc',
+        },
+      },
+
+      _count: {
+        select: {
+          schedules: true,
+        },
+      },
     },
     orderBy: { createdAt: 'desc' },
   });
@@ -597,7 +791,19 @@ exports.getCustomerContractById = async ({ contractId, customerId }) => {
     },
     include: {
       assets: true,
-      schedules: true,
+
+      schedules: {
+        take: 10,
+        orderBy: {
+          dueDate: 'asc',
+        },
+      },
+
+      _count: {
+        select: {
+          schedules: true,
+        },
+      },
     },
   });
 
@@ -680,4 +886,222 @@ exports.listTerminationApprovals = async ({ businessId, status }) => {
     where,
     orderBy: { createdAt: 'desc' },
   });
+};
+
+exports.amendContract = async (contractId, payload, user) => {
+  const businessId = user.businessId;
+
+  const { reason, changes } = payload;
+
+  await subscriptionAuthority.assertActiveSubscription(businessId);
+
+  const contract = await prisma.contract.findFirst({
+    where: {
+      id: contractId,
+      businessId,
+      deletedAt: null,
+    },
+    include: {
+      customer: true,
+      schedules: {
+        where: {
+          status: {
+            not: 'PAID',
+          },
+        },
+        orderBy: {
+          dueDate: 'asc',
+        },
+      },
+    },
+  });
+
+  if (!contract) {
+    throw new Error('contract.not_found');
+  }
+
+  if (contract.status !== 'ACTIVE') {
+    throw new Error('contract.only_active_can_be_amended');
+  }
+
+  if (contract.amendmentCount >= 1) {
+    throw new Error('contract.already_amended');
+  }
+
+  const auditChanges = {};
+
+  Object.keys(changes).forEach((key) => {
+    auditChanges[key] = {
+      old: contract[key],
+      new: changes[key],
+    };
+  });
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const updatedContract = await tx.contract.update({
+      where: {
+        id: contract.id,
+      },
+      data: {
+        ...changes,
+        amendmentCount: {
+          increment: 1,
+        },
+        lastAmendedAt: new Date(),
+      },
+    });
+
+    const affectsSchedules =
+      changes.installmentAmount ||
+      changes.totalInstallments ||
+      changes.startDate ||
+      changes.frequency ||
+      changes.customDays;
+
+    if (affectsSchedules) {
+      await tx.installmentSchedule.deleteMany({
+        where: {
+          contractId: contract.id,
+          status: {
+            not: 'PAID',
+          },
+        },
+      });
+
+      const balanceRemaining = updatedContract.outstandingAmount;
+
+      const installmentAmount =
+        changes.installmentAmount || updatedContract.installmentAmount;
+
+      const totalInstallments =
+        changes.totalInstallments ||
+        Math.ceil(balanceRemaining / installmentAmount);
+
+      const dates = generateScheduleDates({
+        startDate: changes.startDate || updatedContract.startDate,
+        frequency: changes.frequency || updatedContract.frequency,
+        customDays: changes.customDays || updatedContract.customDays,
+        total: totalInstallments,
+      });
+
+      await tx.installmentSchedule.createMany({
+        data: dates.map((d, index) => {
+          const isLast = index === dates.length - 1;
+
+          const amount = isLast
+            ? balanceRemaining - installmentAmount * (dates.length - 1)
+            : installmentAmount;
+
+          return {
+            contractId: contract.id,
+            dueDate: d,
+            amount,
+          };
+        }),
+      });
+    }
+
+    await tx.contractAmendment.create({
+      data: {
+        businessId,
+        contractId: contract.id,
+        changedBy: user.id,
+        reason,
+        changes: auditChanges,
+      },
+    });
+
+    return updatedContract;
+  });
+
+  await logAudit({
+    businessId,
+    userId: user.id,
+    entityType: 'CONTRACT',
+    entityId: contract.id,
+    action: 'CONTRACT_AMENDED',
+    metadata: {
+      reason,
+      changes: auditChanges,
+    },
+  });
+
+  await createNotification({
+    businessId,
+    customerId: contract.customerId,
+    contractId: contract.id,
+    type: 'CONTRACT',
+    channel: 'SMS',
+    titleKey: 'notification.contract.amended.title',
+    messageKey: 'notification.contract.amended.body',
+    templateVars: {
+      contract: contract.contractNumber,
+    },
+    recipient: contract.customerPhone,
+  });
+
+  if (contract.customer?.whatsappPhone) {
+    await createNotification({
+      businessId,
+      customerId: contract.customerId,
+      contractId: contract.id,
+      type: 'CONTRACT',
+      channel: 'WHATSAPP',
+      titleKey: 'notification.contract.amended.title',
+      messageKey: 'notification.contract.amended.body',
+      templateVars: {
+        contract: contract.contractNumber,
+      },
+      recipient: contract.customer.whatsappPhone,
+    });
+  }
+
+  return updated;
+};
+
+exports.getContractAmendments = async (businessId, contractId) => {
+  await exports.getContractById(contractId, businessId);
+
+  return prisma.contractAmendment.findMany({
+    where: {
+      businessId,
+      contractId,
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+  });
+};
+
+exports.getSingleContractAmendment = async (businessId, amendmentId) => {
+  const amendment = await prisma.contractAmendment.findFirst({
+    where: {
+      id: amendmentId,
+      businessId,
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
+    },
+  });
+
+  if (!amendment) {
+    throw new Error('contract.amendment_not_found');
+  }
+
+  return amendment;
 };

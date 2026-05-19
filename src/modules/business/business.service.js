@@ -190,8 +190,7 @@ exports.getMyBusiness = async (user) => {
       users: {
         select: {
           id: true,
-          firstName: true,
-          lastName: true,
+          name: true,
           email: true,
           role: true,
           status: true,

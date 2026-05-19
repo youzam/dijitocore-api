@@ -1,7 +1,9 @@
-const send = async ({ to, message }) => {
-  console.log("📱 [DEV SMS]");
-  console.log("To:", to);
-  console.log("Message:", message);
+const send = async ({ notification, recipient }) => {
+  console.log('📱 [DEV SMS]');
+
+  console.log('To:', recipient || notification?.metadata?.phone || null);
+
+  console.log('Message:', notification?.message || null);
 };
 
 module.exports = { send };

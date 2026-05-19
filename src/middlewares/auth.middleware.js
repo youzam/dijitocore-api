@@ -90,6 +90,7 @@ const authMiddleware = async (req, res, next) => {
       const allowedPaths = [
         '/api/v1/businesses',
         '/api/v1/subscriptions',
+        '/api/v1/gateways',
         '/auth/logout',
       ];
 

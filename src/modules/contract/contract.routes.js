@@ -21,6 +21,12 @@ router.post(
   contractController.createContract,
 );
 
+router.post(
+  '/:id/activate',
+  role(['BUSINESS_OWNER', 'MANAGER']),
+  contractController.activateContract,
+);
+
 /* LIST */
 router.get(
   '/',
@@ -40,7 +46,7 @@ router.patch(
   '/:id',
   role(['BUSINESS_OWNER', 'MANAGER']),
   validate(contractValidation.updateContract),
-  contractController.updateContract,
+  contractController.updateContractDraft,
 );
 
 /* TERMINATE */
@@ -104,6 +110,25 @@ router.get(
   role(['CUSTOMER']),
   subscriptionFeature('allowCustomerPortal'),
   contractController.downloadMyContractStatement,
+);
+
+router.post(
+  '/:id/amend',
+  role(['BUSINESS_OWNER']),
+  validate(contractValidation.amendContract),
+  contractController.amendContract,
+);
+
+router.get(
+  '/:id/amendments',
+  role(['BUSINESS_OWNER']),
+  contractController.getContractAmendments,
+);
+
+router.get(
+  '/amendments/:amendmentId',
+  role(['BUSINESS_OWNER']),
+  contractController.getSingleContractAmendment,
 );
 
 module.exports = router;

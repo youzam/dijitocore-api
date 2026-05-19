@@ -1,9 +1,9 @@
-const Joi = require("joi");
+const Joi = require('joi');
 
 exports.createContract = Joi.object({
   customerId: Joi.string().uuid().required(),
   title: Joi.string().required(),
-  description: Joi.string().allow("", null),
+  description: Joi.string().allow('', null),
 
   assets: Joi.array()
     .items(
@@ -21,11 +21,11 @@ exports.createContract = Joi.object({
   installmentAmount: Joi.number().integer().min(1).required(),
 
   frequency: Joi.string()
-    .valid("DAILY", "WEEKLY", "MONTHLY", "CUSTOM")
+    .valid('DAILY', 'WEEKLY', 'MONTHLY', 'CUSTOM')
     .required(),
 
-  customDays: Joi.when("frequency", {
-    is: "CUSTOM",
+  customDays: Joi.when('frequency', {
+    is: 'CUSTOM',
     then: Joi.number().integer().min(1).required(),
     otherwise: Joi.forbidden(),
   }),
@@ -35,7 +35,7 @@ exports.createContract = Joi.object({
 
 exports.updateContract = Joi.object({
   title: Joi.string().optional(),
-  description: Joi.string().allow("", null).optional(),
+  description: Joi.string().allow('', null).optional(),
 });
 
 exports.terminateContract = Joi.object({
@@ -48,4 +48,32 @@ exports.approveTermination = Joi.object({
 
 exports.rejectTermination = Joi.object({
   approvalId: Joi.string().uuid().required(),
+});
+
+exports.amendContract = Joi.object({
+  reason: Joi.string().trim().required(),
+
+  changes: Joi.object({
+    customerName: Joi.string(),
+
+    customerPhone: Joi.string(),
+
+    totalValue: Joi.number(),
+
+    downPayment: Joi.number(),
+
+    installmentAmount: Joi.number(),
+
+    totalInstallments: Joi.number(),
+
+    frequency: Joi.string(),
+
+    customDays: Joi.number(),
+
+    startDate: Joi.date(),
+
+    endDate: Joi.date(),
+  })
+    .min(1)
+    .required(),
 });

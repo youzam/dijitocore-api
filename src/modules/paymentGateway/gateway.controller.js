@@ -1,6 +1,6 @@
-const catchAsync = require("../../utils/catchAsync");
-const { success } = require("../../utils/response");
-const paymentGatewayService = require("./gateway.service");
+const catchAsync = require('../../utils/catchAsync');
+const { success } = require('../../utils/response');
+const paymentGatewayService = require('./gateway.service');
 
 /*
 |--------------------------------------------------------------------------
@@ -10,5 +10,5 @@ const paymentGatewayService = require("./gateway.service");
 exports.getActivePaymentGateways = catchAsync(async (req, res) => {
   const data = await paymentGatewayService.getActivePaymentGateways();
 
-  return success(req, res, data, 200, "payment.gateways_fetched");
+  return success(req, res, data, 200);
 });

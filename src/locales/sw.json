@@ -59,7 +59,16 @@
       "title": "Malipo yamechelewa",
       "body": "Habari {{name}}, malipo yako ya {{amount}} yamechelewa."
     },
-
+    "contract": {
+      "active": {
+        "title": "Mkataba Umewezeshwa",
+        "body": "Mkataba wako umewezeshwa kikamilifu.",
+        "staff": {
+          "title": "Mkataba Mpya Umeundwa",
+          "body": "Mkataba mpya umeundwa kikamilifu."
+        }
+      }
+    },
     "staff_overdue": {
       "title": "Mteja amechelewa",
       "body": "{{customer}} ana malipo ya {{amount}} yaliyochelewa."
@@ -124,7 +133,9 @@
     "terminate_success": "Ombi la kusitisha mkataba limetumwa",
     "termination_approved": "Kusitisha mkataba kumeidhinishwa",
     "termination_rejected": "Kusitisha mkataba kumeakataliwa",
-    "approval_not_found": "Ombi la idhini halijapatikana"
+    "approval_not_found": "Ombi la idhini halijapatikana",
+    "already_amended": "Mkataba huu tayari umefanyiwa marekebisho",
+    "only_active_can_be_amended": "Ni mikataba iliyo hai pekee inaweza kufanyiwa marekebisho"
   },
   "payment": {
     "created": "Malipo yamehifadhiwa kikamilifu",

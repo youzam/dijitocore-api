@@ -48,6 +48,7 @@ const DATA_GRAPH = {
   // 👥 CUSTOMER (belongs to business)
   customer: [
     { model: 'contract', foreignKey: 'customerId' },
+
     { model: 'customerCredit', foreignKey: 'customerId' },
     { model: 'customerImportLog', foreignKey: 'customerId' },
     { model: 'notification', foreignKey: 'customerId' },
@@ -55,7 +56,10 @@ const DATA_GRAPH = {
   ],
 
   // 📄 CONTRACT
-  contract: [{ model: 'installmentSchedule', foreignKey: 'contractId' }],
+  contract: [
+    { model: 'installmentSchedule', foreignKey: 'contractId' },
+    { model: 'contractAmendment', foreignKey: 'contractId' },
+  ],
 
   // 📆 INSTALLMENT SCHEDULE
   installmentSchedule: [

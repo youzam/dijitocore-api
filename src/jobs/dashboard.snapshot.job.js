@@ -136,6 +136,10 @@ async function run() {
             });
 
             for (const a of assets) {
+              if (!a.assetId) {
+                continue;
+              }
+
               await tx.dashboardAssetMetric.create({
                 data: {
                   businessId,

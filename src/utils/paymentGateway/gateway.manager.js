@@ -1,8 +1,8 @@
-const AppError = require("../AppError");
+const AppError = require('../AppError');
 
-const selcomGateway = require("./selcom.gateway");
-const mpesaGateway = require("./mpesa.gateway");
-const airtelGateway = require("./airtel.gateway");
+const selcomGateway = require('./selcom.gateway');
+const mpesaGateway = require('./mpesa.gateway');
+const airtelGateway = require('./airtel.gateway');
 
 /**
  * =====================================================
@@ -10,34 +10,38 @@ const airtelGateway = require("./airtel.gateway");
  * Manual provider routing only
  * =====================================================
  */
-exports.initiate = async ({ provider, amount, reference, businessId }) => {
-  if (!provider) {
-    throw new AppError("payment.no_provider", 500);
+exports.initiate = async ({
+  gateway,
+  amount,
+  reference,
+  business,
+  user,
+  phone,
+}) => {
+  if (!gateway) {
+    throw new AppError('payment.no_gateway', 500);
   }
 
-  switch (provider) {
-    case "SELCOM":
-      return selcomGateway.initiate({
-        amount,
-        reference,
-        businessId,
-      });
+  const payload = {
+    gateway,
+    amount,
+    reference,
+    business,
+    user,
+    phone,
+  };
 
-    case "MPESA":
-      return mpesaGateway.initiate({
-        amount,
-        reference,
-        businessId,
-      });
+  switch (gateway) {
+    case 'SELCOM':
+      return selcomGateway.initiate(payload);
 
-    case "AIRTEL":
-      return airtelGateway.initiate({
-        amount,
-        reference,
-        businessId,
-      });
+    case 'MPESA':
+      return mpesaGateway.initiate(payload);
+
+    case 'AIRTEL':
+      return airtelGateway.initiate(payload);
 
     default:
-      throw new AppError("payment.invalid_gateway", 500);
+      throw new AppError('payment.invalid_gateway', 500);
   }
 };

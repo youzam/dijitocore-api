@@ -5,6 +5,7 @@ const { SubscriptionStatus } = require('@prisma/client');
 const { validateDowngradeLimits } = require('../../utils/featureFlags');
 const registry = require('../../utils/subscriptionFeatureRegistry');
 const couponService = require('./subscription.coupon.service');
+const subscriptionService = require('./subscription.payment.service');
 
 /* ===========================
    INTERNAL
@@ -185,15 +186,17 @@ exports.applyCouponToSubscription = async ({
   };
 };
 
-exports.createSubscription = async ({
-  businessId,
-  packageId,
-  billingCycle,
-  paymentMethod,
-  phone,
-  couponId,
-  userId,
-}) => {
+exports.createSubscription = async (body, userId) => {
+  const {
+    businessId,
+    packageId,
+    billingCycle,
+    paymentMethod,
+    gateway,
+    phone,
+    couponId,
+  } = body;
+
   if (!['MONTHLY', 'YEARLY'].includes(billingCycle)) {
     throw new AppError('subscription.invalid_billing_cycle', 400);
   }
@@ -280,9 +283,10 @@ exports.createSubscription = async ({
     });
   }
 
-  const payment = await exports.initiatePayment({
+  const payment = await subscriptionService.initiatePayment({
     subscriptionId: subscription.id,
     paymentMethod,
+    gateway,
     phone,
     couponId,
     userId,

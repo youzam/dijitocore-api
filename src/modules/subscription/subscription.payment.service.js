@@ -11,6 +11,7 @@ const {
 } = require('../../utils/paymentGateway/supportedGateways');
 const env = require('../../config/env');
 const ledgerService = require('../../services/ledger.service');
+const paymentGatewayService = require('../paymentGateway/gateway.service');
 
 /* ======================================================
    OPTIONAL SIGNATURE VERIFY (NON-BREAKING)
@@ -375,6 +376,7 @@ exports.initiatePayment = async ({
   businessId,
   subscriptionId,
   userId,
+  gateway,
   couponId = null,
   paymentMethod,
   phone,
@@ -386,7 +388,18 @@ exports.initiatePayment = async ({
     `;
 
     const subscription = await tx.subscription.findFirst({
-      where: { id: subscriptionId, businessId },
+      where: {
+        id: subscriptionId,
+      },
+      include: {
+        business: {
+          include: {
+            users: {
+              take: 1,
+            },
+          },
+        },
+      },
     });
 
     if (!subscription) {
@@ -529,16 +542,20 @@ exports.initiatePayment = async ({
     }
 
     // 🔥 GATEWAY VALIDATION
-    if (!SUPPORTED_PAYMENT_GATEWAYS.includes(paymentMethod)) {
+    if (!SUPPORTED_PAYMENT_GATEWAYS.includes(gateway)) {
       throw new AppError('payment.invalid_gateway', 400);
     }
-
-    const paymentGatewayService = require('../paymentGateway/paymentGateway.service');
 
     const availableGateways =
       await paymentGatewayService.getActivePaymentGateways();
 
-    if (!availableGateways.includes(paymentMethod)) {
+    const normalizedGateway = gateway?.toUpperCase();
+
+    const normalizedAvailableGateways = availableGateways.map((item) =>
+      item.toUpperCase(),
+    );
+
+    if (!normalizedAvailableGateways.includes(normalizedGateway)) {
       throw new AppError('payment.gateway_not_available', 400);
     }
 
@@ -580,18 +597,18 @@ exports.initiatePayment = async ({
 
     const systemGateways = systemSetting.activePaymentGateways || [];
 
-    if (!systemGateways.includes(paymentMethod)) {
+    if (!systemGateways.includes(gateway)) {
       throw new AppError('payment.gateway_not_allowed', 403);
     }
 
-    const finalGateway = paymentMethod;
+    const finalGateway = gateway;
 
     const healthService = require('../../utils/paymentGateway/gateway.health');
 
     const gatewayStatus = await healthService.getStatus(finalGateway);
 
-    if (gatewayStatus !== 'UP') {
-      throw new AppError('payment.provider_down', 503);
+    if (gatewayStatus !== 'HEALTHY' && gatewayStatus !== 'UNKNOWN') {
+      throw new AppError('payment.gateway_unavailable', 503);
     }
 
     // 🔥 ZERO FLOW
@@ -622,13 +639,17 @@ exports.initiatePayment = async ({
     }
 
     // 🔥 NORMAL FLOW (FIXED activeGateway bug)
+    const settings = await tx.systemSetting.findFirst();
     const payment = await tx.subscriptionPayment.create({
       data: {
         subscriptionId,
         businessId,
         amount: safeAmount,
-        method: finalGateway,
+        currency: settings.currency,
+        gateway: finalGateway,
+        method: paymentMethod,
         status: 'PENDING',
+        type: 'SUBSCRIPTION',
         couponId: couponId || null,
         metadata: {
           adjustmentIds,
@@ -639,11 +660,11 @@ exports.initiatePayment = async ({
     });
 
     const gatewayResponse = await gatewayManager.initiate({
-      provider: finalGateway,
+      gateway: finalGateway,
       amount: safeAmount,
       reference: payment.id,
-      businessId,
-      phone: cleanPhone, // 🔥 FIXED
+      business: subscription.business,
+      phone: subscription.business?.phone,
     });
 
     await auditHelper.logAudit({

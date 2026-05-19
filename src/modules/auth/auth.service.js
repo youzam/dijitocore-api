@@ -14,7 +14,7 @@ const env = require('../../config/env');
  * OWNER SIGNUP (NO JWT – SEND 6 DIGIT CODE)
  */
 
-const ownerSignup = async ({ email, password }) => {
+const ownerSignup = async ({ email, name, password }) => {
   const existing = await prisma.user.findFirst({ where: { email } });
 
   if (existing) {
@@ -32,6 +32,7 @@ const ownerSignup = async ({ email, password }) => {
 
   const user = await prisma.user.create({
     data: {
+      name,
       email,
       passwordHash,
       role: 'BUSINESS_OWNER',

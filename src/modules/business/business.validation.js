@@ -13,7 +13,3 @@ exports.updateSettings = Joi.object({
   currency: Joi.string().min(2).optional(),
   timezone: Joi.string().optional(),
 });
-
-exports.getBusinessDetails = Joi.object({
-  businessId: Joi.string().required(),
-});

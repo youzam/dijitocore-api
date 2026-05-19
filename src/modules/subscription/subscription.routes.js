@@ -9,14 +9,11 @@ const auth = require('../../middlewares/auth.middleware');
 const tenant = require('../../middlewares/tenant.middleware');
 const role = require('../../middlewares/role.middleware');
 
-/* ===========================
-   BUSINESS ROUTES
-   =========================== */
+router.use(auth);
 
 /* CREATE SUBSCRIPTION */
 router.post(
   '/',
-  auth,
   role(['BUSINESS_OWNER']),
   validate(subscriptionValidation.createSubscription),
   subscriptionController.createSubscription,
@@ -25,7 +22,7 @@ router.post(
 /* UPGRADE SUBSCRIPTION */
 router.post(
   '/:id/upgrade',
-  auth,
+
   role(['BUSINESS_OWNER']),
   tenant,
   validate(subscriptionValidation.upgradeSubscription),
@@ -35,7 +32,7 @@ router.post(
 /* INITIATE PAYMENT */
 router.post(
   '/:id/pay',
-  auth,
+
   role(['BUSINESS_OWNER']),
   validate(subscriptionValidation.initiatePayment),
   subscriptionController.initiatePayment,
@@ -44,7 +41,7 @@ router.post(
 /* GET CURRENT SUBSCRIPTION */
 router.get(
   '/current',
-  auth,
+
   role(['BUSINESS_OWNER', 'MANAGER']),
   tenant,
   subscriptionController.getCurrentSubscription,
@@ -60,7 +57,7 @@ router.get('/packages', subscriptionController.getActivePackages);
 /* CALCULATE PRICE */
 router.post(
   '/:id/calculate-price',
-  auth,
+
   role(['BUSINESS_OWNER']),
   subscriptionController.calculatePrice,
 );
@@ -68,7 +65,7 @@ router.post(
 /* APPLY COUPON */
 router.post(
   '/:id/apply-coupon',
-  auth,
+
   role(['BUSINESS_OWNER']),
   validate(subscriptionValidation.applyCoupon),
   subscriptionController.applyCoupon,

@@ -6,7 +6,7 @@ const Joi = require('joi');
 |--------------------------------------------------------------------------
 */
 exports.updateGateway = Joi.object({
-  gateway: Joi.array().items(Joi.string()).min(1).required(),
+  gateways: Joi.array().items(Joi.string()).min(1).required(),
 });
 
 /*

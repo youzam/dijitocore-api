@@ -1,15 +1,15 @@
-const prisma = require("../../config/prisma");
+const prisma = require('../../config/prisma');
 
 exports.markHealthy = async (code) => {
   await prisma.gatewayHealth.upsert({
     where: { code },
     update: {
-      status: "HEALTHY",
+      status: 'HEALTHY',
       lastCheck: new Date(),
     },
     create: {
       code,
-      status: "HEALTHY",
+      status: 'HEALTHY',
       lastCheck: new Date(),
     },
   });
@@ -19,12 +19,12 @@ exports.markDown = async (code) => {
   await prisma.gatewayHealth.upsert({
     where: { code },
     update: {
-      status: "DOWN",
+      status: 'DOWN',
       lastCheck: new Date(),
     },
     create: {
       code,
-      status: "DOWN",
+      status: 'DOWN',
       lastCheck: new Date(),
     },
   });
@@ -35,5 +35,5 @@ exports.getStatus = async (code) => {
     where: { code },
   });
 
-  return record ? record.status : "UNKNOWN";
+  return record ? record.status : 'UNKNOWN';
 };

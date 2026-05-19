@@ -14,8 +14,11 @@ const uuidSchema = Joi.string().uuid().required();
 
 exports.createSubscription = Joi.object({
   packageId: uuidSchema,
+  gateway: Joi.string().valid('SELCOM', 'MPESA', 'AIRTEL').required(),
   billingCycle: billingCycleSchema,
-  paymentMethod: Joi.string().required(),
+  paymentMethod: Joi.string()
+    .valid('MPESA', 'AIRTEL', 'TIGOPESA', 'HALOPESA', 'CARD')
+    .required(),
   phone: Joi.string().optional(),
   couponId: Joi.string().optional(),
 });
@@ -48,6 +51,8 @@ exports.createPackage = Joi.object({
   // Must not be empty object
   features: Joi.object().min(1).required(),
 
+  gateway: Joi.string().valid('SELCOM', 'MPESA', 'AIRTEL').required(),
+
   isActive: Joi.boolean().optional(),
 });
 
@@ -65,13 +70,17 @@ exports.updatePackage = Joi.object({
   features: Joi.object().min(1).optional(),
 
   isActive: Joi.boolean().optional(),
-})
-  // Prevent empty PATCH body
-  .min(1);
+});
+
 exports.initiatePayment = Joi.object({
-  paymentMethod: Joi.string().required(),
+  gateway: Joi.string().valid('SELCOM', 'MPESA', 'AIRTEL').required(),
+  paymentMethod: Joi.string()
+    .valid('MPESA', 'AIRTEL', 'TIGOPESA', 'HALOPESA', 'CARD')
+    .required(),
+  billingCycle: Joi.string().optional(),
   phone: Joi.string().optional(),
   couponId: Joi.string().optional(),
+  packageId: Joi.string().optional(),
 });
 
 exports.applyCoupon = Joi.object({

@@ -214,8 +214,9 @@ model Business {
   deletedAt DateTime?
   deletedBy String?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @default(now()) @updatedAt
+  contractAmendments ContractAmendment[]
 
   @@index([country])
 }
@@ -351,8 +352,12 @@ model Contract {
   deletedAt DateTime?
   deletedBy String?
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
+  amendmentCount Int       @default(0)
+  lastAmendedAt  DateTime?
+
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @default(now()) @updatedAt
+  contractAmendments ContractAmendment[]
 
   @@index([businessId])
   @@index([customerId])
@@ -381,6 +386,27 @@ model ContractAsset {
   updatedAt DateTime @default(now()) @updatedAt
 
   @@index([contractId])
+}
+
+model ContractAmendment {
+  id String @id @default(uuid())
+
+  businessId String
+  contractId String
+  changedBy  String
+
+  reason  String
+  changes Json
+
+  createdAt DateTime @default(now())
+
+  business Business @relation(fields: [businessId], references: [id])
+  contract Contract @relation(fields: [contractId], references: [id])
+  user     User     @relation(fields: [changedBy], references: [id])
+
+  @@index([businessId])
+  @@index([contractId])
+  @@map("contract_amendments")
 }
 
 //////////////////////////////////////////////////////
@@ -444,11 +470,11 @@ model CouponUsage {
 model Customer {
   id String @id @default(uuid())
 
-  businessId String
-  fullName   String
-  phone      String
-  altPhone   String?
-  email      String?
+  businessId    String
+  fullName      String
+  phone         String
+  whatsappPhone String?
+  email         String?
 
   gender      String?
   dateOfBirth DateTime?
@@ -1559,6 +1585,7 @@ model SubscriptionPayment {
 
   type    String
   gateway String?
+  method  String?
 
   paidAt DateTime?
 
@@ -1989,9 +2016,10 @@ model User {
   deletedAt DateTime?
   deletedBy String?
 
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @default(now()) @updatedAt
-  fraudFlags FraudFlag[]
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @default(now()) @updatedAt
+  fraudFlags         FraudFlag[]
+  contractAmendments ContractAmendment[]
 
   @@unique([email, businessId])
 }
@@ -2067,7 +2095,6 @@ enum ContractStatus {
 enum CustomerStatus {
   ACTIVE
   INACTIVE
-  SUSPENDED
 }
 
 enum DataRequestStatus {

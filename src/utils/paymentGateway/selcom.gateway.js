@@ -1,7 +1,8 @@
 const axios = require('axios');
 const crypto = require('crypto');
+// const prisma = require('../../config/prisma');
 const AppError = require('../AppError');
-const health = require('./gateway.health');
+// const health = require('./gateway.health');
 const env = require('../../config/env');
 
 /**
@@ -52,58 +53,68 @@ const generateChecksum = (payload) => {
 /**
  * Initiate Payment
  */
-exports.initiate = async ({ amount, reference, businessId }) => {
-  validateConfig();
-
-  const payload = {
-    vendor: vendorId,
-    order_id: reference,
-    buyer_email: 'no-reply@yourapp.com',
-    buyer_name: `Business-${businessId}`,
-    buyer_phone: '0000000000',
-    amount,
-    currency: 'TZS',
-    callback_url: callbackUrl,
-  };
-
-  const checksum = generateChecksum(payload);
-
+exports.initiate = async ({ amount, reference, business, phone }) => {
   try {
-    const response = await axios.post(
-      `${baseUrl}/checkout/create-order`,
-      payload,
-      {
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'X-Checksum': checksum,
-          'Content-Type': 'application/json',
-        },
-        timeout: 15000,
+    const selcomConfig = env.payments.selcom;
+
+    const baseUrl = selcomConfig.isLive
+      ? selcomConfig.liveBaseUrl
+      : selcomConfig.sandboxBaseUrl;
+
+    const payload = {
+      merchant_id: selcomConfig.vendorId,
+      order_id: reference,
+      amount: Number(amount),
+      currency: 'TZS',
+      customer_email: business?.email || 'no-reply@dijitopay.com',
+      customer_phone: phone.startsWith('255')
+        ? phone
+        : `255${phone.replace(/^0/, '')}`,
+
+      callback_url: selcomConfig.callbackUrl,
+      cancel_url: 'https://dijitopay.com/payment-cancelled',
+      success_url: 'https://dijitopay.com/payment-success',
+    };
+
+    const signature = crypto
+      .createHmac('sha256', selcomConfig.apiSecret)
+      .update(JSON.stringify(payload))
+      .digest('hex');
+
+    console.log('SELCOM PAYLOAD:', payload);
+
+    const response = await axios.post(`${baseUrl}/checkout/create`, payload, {
+      headers: {
+        'Content-Type': 'application/json',
+
+        Authorization: `Bearer ${selcomConfig.apiKey}`,
+
+        Digest: signature,
       },
-    );
 
-    if (!response.data || !response.data.checkout_url) {
-      await health.markDown('SELCOM');
-      throw new AppError('payment.selcom_invalid_response', 502);
-    }
+      timeout: 15000,
+    });
 
-    await health.markHealthy('SELCOM');
+    console.log('SELCOM RESPONSE:', response.data);
 
     return {
-      provider: 'SELCOM',
-      mode: isLive ? 'LIVE' : 'SANDBOX',
-      checkoutUrl: response.data.checkout_url,
+      success: true,
+      gateway: 'SELCOM',
       reference,
-      amount,
+
+      response: response.data,
+
+      checkoutUrl:
+        response.data?.data?.checkout_url ||
+        response.data?.checkout_url ||
+        null,
+
+      raw: response.data,
     };
   } catch (error) {
-    await health.markDown('SELCOM');
+    console.log('GATEWAY ERROR:', error.response?.data || error.message);
 
-    if (error.response) {
-      throw new AppError('payment.selcom_request_failed', 502);
-    }
-
-    throw new AppError('payment.selcom_unreachable', 503);
+    throw new AppError('payment.gateway_request_failed', 500);
   }
 };
 

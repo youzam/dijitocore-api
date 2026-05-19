@@ -13,16 +13,16 @@ const subscriptionAuthority = require('../subscription/subscription.authority.se
  * =========================
  */
 exports.createCustomer = async (businessId, payload, req) => {
-  const { phone, altPhone, nationalId } = payload;
+  const { phone, whatsappPhone, nationalId } = payload;
 
   const duplicate = await prisma.customer.findFirst({
     where: {
       businessId,
       OR: [
         { phone },
-        { altPhone: phone },
-        { phone: altPhone },
-        { altPhone },
+        { whatsappPhone: phone },
+        { phone: whatsappPhone },
+        { whatsappPhone },
         { nationalId },
       ].filter(Boolean),
     },
@@ -141,18 +141,18 @@ exports.getCustomer = async (businessId, id) => {
 exports.updateCustomer = async (businessId, id, payload, context) => {
   await exports.getCustomer(businessId, id);
 
-  const { phone, altPhone, nationalId } = payload;
+  const { phone, whatsappPhone, nationalId } = payload;
 
-  if (phone || altPhone || nationalId) {
+  if (phone || whatsappPhone || nationalId) {
     const duplicate = await prisma.customer.findFirst({
       where: {
         businessId,
         NOT: { id },
         OR: [
           { phone },
-          { altPhone: phone },
-          { phone: altPhone },
-          { altPhone },
+          { whatsappPhone: phone },
+          { phone: whatsappPhone },
+          { whatsappPhone },
           { nationalId },
         ].filter(Boolean),
       },
@@ -246,9 +246,11 @@ exports.importCustomers = async (businessId, req, context) => {
   if (!req.files || !req.files.file) {
     throw new AppError('customer.file_required', 400);
   }
+
   await subscriptionAuthority.assertFeature(businessId, 'allowImportCustomers');
 
   const file = req.files.file;
+
   let rows = [];
 
   if (file.name.endsWith('.csv')) {
@@ -272,11 +274,14 @@ exports.importCustomers = async (businessId, req, context) => {
         skipped++;
         continue;
       }
+      console.log('content: ', r);
+
+      const phone = r.phone ? String(r.phone).trim() : null;
 
       const exists = await tx.customer.findFirst({
         where: {
           businessId,
-          OR: [{ phone: r.phone }, { altPhone: r.phone }],
+          OR: [{ phone }],
         },
       });
 
@@ -289,7 +294,7 @@ exports.importCustomers = async (businessId, req, context) => {
         data: {
           businessId,
           fullName: r.fullName,
-          phone: r.phone,
+          phone: phone,
           email: r.email,
           nationalId: r.nationalId,
           status: 'ACTIVE',

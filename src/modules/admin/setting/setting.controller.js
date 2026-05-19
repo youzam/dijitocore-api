@@ -1,6 +1,6 @@
-const settingService = require("./setting.service");
-const catchAsync = require("../../../utils/catchAsync");
-const { success } = require("../../../utils/response");
+const settingService = require('./setting.service');
+const catchAsync = require('../../../utils/catchAsync');
+const { success } = require('../../../utils/response');
 
 /*
 |--------------------------------------------------------------------------
@@ -10,7 +10,7 @@ const { success } = require("../../../utils/response");
 exports.getSettings = catchAsync(async (req, res) => {
   const data = await settingService.getSettings();
 
-  return success(req, res, data, 200, "settings.fetched");
+  return success(req, res, data, 200, 'settings.fetched');
 });
 
 /*
@@ -21,7 +21,7 @@ exports.getSettings = catchAsync(async (req, res) => {
 exports.getSettingsHistory = catchAsync(async (req, res) => {
   const data = await settingService.getSettingsHistory();
 
-  return success(req, res, data, 200, "settings.history_fetched");
+  return success(req, res, data, 200, 'settings.history_fetched');
 });
 
 /*
@@ -34,15 +34,12 @@ exports.updateActiveGateways = catchAsync(async (req, res) => {
 
   // 🔥 basic validation (light — service does heavy validation)
   if (!Array.isArray(gateways) || gateways.length === 0) {
-    throw new Error("Invalid gateways payload");
+    throw new Error('Invalid gateways payload');
   }
 
-  const data = await settingService.updateActiveGateways(
-    gateways,
-    req.admin.id,
-  );
+  const data = await settingService.updateActiveGateways(gateways, req.auth.id);
 
-  return success(req, res, data, 200, "settings.updated");
+  return success(req, res, data, 200, 'settings.updated');
 });
 
 /*
@@ -56,5 +53,5 @@ exports.updateSecurityConfig = catchAsync(async (req, res) => {
     req.admin.id,
   );
 
-  return success(req, res, data, 200, "settings.updated");
+  return success(req, res, data, 200, 'settings.updated');
 });

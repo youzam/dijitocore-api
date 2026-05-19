@@ -1,9 +1,9 @@
-const catchAsync = require("../../utils/catchAsync");
-const AppError = require("../../utils/AppError");
-const response = require("../../utils/response");
+const catchAsync = require('../../utils/catchAsync');
+const AppError = require('../../utils/AppError');
+const response = require('../../utils/response');
 
-const contractService = require("./contract.service");
-const generateStatement = require("../../utils/statement.generator");
+const contractService = require('./contract.service');
+const generateStatement = require('../../utils/statement.generator');
 
 /* ======================================================
    EXISTING BUSINESS / STAFF CONTROLLERS
@@ -11,8 +11,22 @@ const generateStatement = require("../../utils/statement.generator");
    ====================================================== */
 
 exports.createContract = catchAsync(async (req, res) => {
-  const contract = await contractService.createContract(req.body, req.user);
-  return response.success(req, res, contract, 201, "contract.create.success");
+  const contract = await contractService.createContract(
+    req.user.businessId,
+    req.body,
+    req.user.id,
+  );
+  return response.success(req, res, contract, 201);
+});
+
+exports.activateContract = catchAsync(async (req, res) => {
+  const contract = await contractService.activateContract(
+    req.user.businessId,
+    req.params.id,
+    req.user.id,
+  );
+
+  return response.success(req, res, contract, 200);
 });
 
 exports.getContracts = catchAsync(async (req, res) => {
@@ -20,30 +34,26 @@ exports.getContracts = catchAsync(async (req, res) => {
     businessId: req.user.businessId,
   });
 
-  return response.success(req, res, result, 200, "contract.fetch.success");
+  return response.success(req, res, result, 200);
 });
 
-exports.getContractById = catchAsync(async (req, res, next) => {
+exports.getContractById = catchAsync(async (req, res) => {
   const contract = await contractService.getContractById(
     req.params.id,
-    req.user,
+    req.user.businessId,
   );
 
-  if (!contract) {
-    return next(new AppError("contract.not_found", 404));
-  }
-
-  return response.success(req, res, contract, 200, "contract.fetch.success");
+  return response.success(req, res, contract, 200);
 });
 
-exports.updateContract = catchAsync(async (req, res) => {
-  const contract = await contractService.updateContract(
+exports.updateContractDraft = catchAsync(async (req, res) => {
+  const contract = await contractService.updateContractDraft(
+    req.user.businessId,
     req.params.id,
     req.body,
-    req.user,
   );
 
-  return response.success(req, res, contract, 200, "contract.update.success");
+  return response.success(req, res, contract, 200);
 });
 
 /* ================= PATCHED TERMINATE ================= */
@@ -56,7 +66,7 @@ exports.terminateContract = catchAsync(async (req, res) => {
     reason: req.body.reason,
   });
 
-  return response.success(req, res, result, 200, "contract.terminate_success");
+  return response.success(req, res, result, 200, 'contract.terminate_success');
 });
 
 /* ================= NEW: APPROVE TERMINATION ================= */
@@ -73,7 +83,7 @@ exports.approveTermination = catchAsync(async (req, res) => {
     res,
     result,
     200,
-    "contract.termination_approved",
+    'contract.termination_approved',
   );
 });
 
@@ -91,7 +101,7 @@ exports.rejectTermination = catchAsync(async (req, res) => {
     res,
     result,
     200,
-    "contract.termination_rejected",
+    'contract.termination_rejected',
   );
 });
 
@@ -101,13 +111,13 @@ exports.completeContract = catchAsync(async (req, res) => {
     req.user,
   );
 
-  return response.success(req, res, contract, 200, "contract.complete_success");
+  return response.success(req, res, contract, 200, 'contract.complete_success');
 });
 
 exports.deleteContract = catchAsync(async (req, res) => {
   await contractService.deleteContract(req.params.id, req.user);
 
-  return response.success(req, res, null, 200, "contract.delete_success");
+  return response.success(req, res, null, 200, 'contract.delete_success');
 });
 
 /* ======================================================
@@ -128,7 +138,7 @@ exports.getMyContractById = catchAsync(async (req, res, next) => {
   });
 
   if (!contract) {
-    return next(new AppError("contract.not_found", 404));
+    return next(new AppError('contract.not_found', 404));
   }
 
   return response.success(req, res, contract, 200);
@@ -141,14 +151,14 @@ exports.downloadMyContractStatement = catchAsync(async (req, res, next) => {
   );
 
   if (!result) {
-    return next(new AppError("contract.not_found", 404));
+    return next(new AppError('contract.not_found', 404));
   }
 
   const pdf = generateStatement(result);
 
-  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader('Content-Type', 'application/pdf');
   res.setHeader(
-    "Content-Disposition",
+    'Content-Disposition',
     `attachment; filename=statement-${result.contract.contractNumber}.pdf`,
   );
 
@@ -162,4 +172,33 @@ exports.listTerminationApprovals = catchAsync(async (req, res) => {
   });
 
   return response.success(req, res, approvals, 200);
+});
+
+exports.amendContract = catchAsync(async (req, res) => {
+  const contract = await contractService.amendContract(
+    req.params.id,
+    req.body,
+    req.user,
+  );
+
+  return response.success(req, res, contract, 200);
+});
+
+exports.getContractAmendments = catchAsync(async (req, res) => {
+  const amendments = await contractService.getContractAmendments(
+    req.user.businessId,
+    req.params.id,
+  );
+
+  return response.success(req, res, amendments);
+});
+
+exports.getSingleContractAmendment = catchAsync(async (req, res) => {
+  const amendment = await contractService.getSingleContractAmendment(
+    req.user.businessId,
+    req.params.id,
+    req.params.amendmentId,
+  );
+
+  return response.success(req, res, amendment);
 });

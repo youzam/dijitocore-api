@@ -29,15 +29,10 @@ exports.applyCoupon = catchAsync(async (req, res) => {
 });
 
 exports.createSubscription = catchAsync(async (req, res) => {
-  const subscription = await subscriptionService.createSubscription({
-    businessId: req.user.businessId,
-    packageId: req.body.packageId,
-    billingCycle: req.body.billingCycle,
-    paymentMethod: req.body.paymentMethod,
-    phone: req.body.phone,
-    couponId: req.body.couponId,
-    userId: req.user.id,
-  });
+  const subscription = await subscriptionService.createSubscription(
+    req.body,
+    req.user.id,
+  );
 
   return success(req, res, subscription, 201, 'subscription.created');
 });

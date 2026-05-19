@@ -1,6 +1,6 @@
-const prisma = require("../../config/prisma");
-const dayjs = require("dayjs");
-const redis = require("../../utils/redis");
+const prisma = require('../../config/prisma');
+const dayjs = require('dayjs');
+const redis = require('../../utils/redis');
 
 /**
  * Redis cache helper
@@ -16,7 +16,7 @@ const cache = async (key, ttl, resolver) => {
   }
 
   const fresh = await resolver();
-  await redis.set(key, JSON.stringify(fresh), "EX", ttl);
+  await redis.set(key, JSON.stringify(fresh), 'EX', ttl);
   return fresh;
 };
 
@@ -26,20 +26,20 @@ const cache = async (key, ttl, resolver) => {
  * ===========================
  */
 exports.getTimeComparisons = async (businessId) => {
-  const today = dayjs().startOf("day");
-  const yesterday = today.subtract(1, "day");
+  const today = dayjs().startOf('day');
+  const yesterday = today.subtract(1, 'day');
 
-  const weekStart = today.startOf("week");
-  const lastWeekStart = weekStart.subtract(7, "day");
+  const weekStart = today.startOf('week');
+  const lastWeekStart = weekStart.subtract(7, 'day');
 
-  const monthStart = today.startOf("month");
-  const lastMonthStart = monthStart.subtract(1, "month");
+  const monthStart = today.startOf('month');
+  const lastMonthStart = monthStart.subtract(1, 'month');
 
   return cache(`dash:time:${businessId}`, 300, async () => {
     const currentDay = await prisma.installmentPayment.aggregate({
       where: {
         businessId,
-        reversals: { none: { status: "APPROVED" } },
+        reversals: { none: { status: 'APPROVED' } },
         createdAt: { gte: today.toDate() },
       },
       _sum: { amount: true },
@@ -48,7 +48,7 @@ exports.getTimeComparisons = async (businessId) => {
     const previousDay = await prisma.installmentPayment.aggregate({
       where: {
         businessId,
-        reversals: { none: { status: "APPROVED" } },
+        reversals: { none: { status: 'APPROVED' } },
         createdAt: {
           gte: yesterday.toDate(),
           lt: today.toDate(),
@@ -60,7 +60,7 @@ exports.getTimeComparisons = async (businessId) => {
     const thisWeek = await prisma.installmentPayment.aggregate({
       where: {
         businessId,
-        reversals: { none: { status: "APPROVED" } },
+        reversals: { none: { status: 'APPROVED' } },
         createdAt: { gte: weekStart.toDate() },
       },
       _sum: { amount: true },
@@ -69,7 +69,7 @@ exports.getTimeComparisons = async (businessId) => {
     const lastWeek = await prisma.installmentPayment.aggregate({
       where: {
         businessId,
-        reversals: { none: { status: "APPROVED" } },
+        reversals: { none: { status: 'APPROVED' } },
         createdAt: {
           gte: lastWeekStart.toDate(),
           lt: weekStart.toDate(),
@@ -81,7 +81,7 @@ exports.getTimeComparisons = async (businessId) => {
     const thisMonth = await prisma.installmentPayment.aggregate({
       where: {
         businessId,
-        reversals: { none: { status: "APPROVED" } },
+        reversals: { none: { status: 'APPROVED' } },
         createdAt: { gte: monthStart.toDate() },
       },
       _sum: { amount: true },
@@ -90,7 +90,7 @@ exports.getTimeComparisons = async (businessId) => {
     const lastMonth = await prisma.installmentPayment.aggregate({
       where: {
         businessId,
-        reversals: { none: { status: "APPROVED" } },
+        reversals: { none: { status: 'APPROVED' } },
         createdAt: {
           gte: lastMonthStart.toDate(),
           lt: monthStart.toDate(),
@@ -118,7 +118,7 @@ exports.getTimeComparisons = async (businessId) => {
 exports.getStaffMetrics = async (businessId) => {
   return cache(`dash:staff:${businessId}`, 300, async () => {
     const staffs = await prisma.user.findMany({
-      where: { businessId, role: "STAFF" },
+      where: { businessId, role: 'STAFF' },
       select: { id: true, email: true },
     });
 
@@ -128,7 +128,7 @@ exports.getStaffMetrics = async (businessId) => {
       const collected = await prisma.installmentPayment.aggregate({
         where: {
           businessId,
-          reversals: { none: { status: "APPROVED" } },
+          reversals: { none: { status: 'APPROVED' } },
           contract: {
             customer: { assignedStaffId: staff.id },
           },
@@ -143,7 +143,7 @@ exports.getStaffMetrics = async (businessId) => {
             customer: { assignedStaffId: staff.id },
           },
           dueDate: { lt: new Date() },
-          status: { not: "PAID" },
+          status: { not: 'PAID' },
         },
         _sum: { amount: true },
       });
@@ -182,13 +182,23 @@ exports.getStaffMetrics = async (businessId) => {
 exports.getAssetMetrics = async (businessId) => {
   return cache(`dash:assets:${businessId}`, 300, async () => {
     const assets = await prisma.contractAsset.findMany({
-      where: { contract: { businessId } },
-      include: { contract: true },
+      where: {
+        contract: {
+          businessId,
+        },
+      },
+
+      include: {
+        contract: true,
+      },
     });
 
     const map = {};
 
     for (const a of assets) {
+      if (!a.assetId) {
+        continue;
+      }
       if (!map[a.assetId]) {
         map[a.assetId] = {
           assetId: a.assetId,
@@ -210,7 +220,7 @@ exports.getAssetMetrics = async (businessId) => {
             },
           },
           dueDate: { lt: new Date() },
-          status: { not: "PAID" },
+          status: { not: 'PAID' },
         },
         _sum: { amount: true },
       });
@@ -229,7 +239,7 @@ exports.getAssetMetrics = async (businessId) => {
  */
 exports.getRiskContracts = async (businessId) => {
   return cache(`dash:risk:${businessId}`, 300, async () => {
-    const sevenDaysAgo = dayjs().subtract(7, "day").toDate();
+    const sevenDaysAgo = dayjs().subtract(7, 'day').toDate();
 
     return prisma.contract.findMany({
       where: {
@@ -237,7 +247,7 @@ exports.getRiskContracts = async (businessId) => {
         schedules: {
           some: {
             dueDate: { lt: sevenDaysAgo },
-            status: { not: "PAID" },
+            status: { not: 'PAID' },
           },
         },
       },
@@ -254,13 +264,13 @@ exports.getRiskContracts = async (businessId) => {
 exports.getCashflow = async (businessId) => {
   return cache(`dash:cash:${businessId}`, 300, async () => {
     const compute = async (days) => {
-      const future = dayjs().add(days, "day").toDate();
+      const future = dayjs().add(days, 'day').toDate();
 
       const agg = await prisma.installmentSchedule.aggregate({
         where: {
           contract: { businessId },
           dueDate: { lte: future },
-          status: { not: "PAID" },
+          status: { not: 'PAID' },
         },
         _sum: { amount: true },
       });
@@ -287,16 +297,16 @@ exports.getFunnelMetrics = async (businessId) => {
     const contracts = await prisma.contract.count({ where: { businessId } });
 
     const firstPayments = await prisma.installmentPayment.groupBy({
-      by: ["contractId"],
+      by: ['contractId'],
       where: {
         businessId,
-        reversals: { none: { status: "APPROVED" } },
+        reversals: { none: { status: 'APPROVED' } },
       },
       _count: { _all: true },
     });
 
     const completed = await prisma.contract.count({
-      where: { businessId, status: "COMPLETED" },
+      where: { businessId, status: 'COMPLETED' },
     });
 
     return {
@@ -318,7 +328,7 @@ exports.getHealthScore = async (businessId) => {
     const collectedAgg = await prisma.installmentPayment.aggregate({
       where: {
         businessId,
-        reversals: { none: { status: "APPROVED" } },
+        reversals: { none: { status: 'APPROVED' } },
       },
       _sum: { amount: true },
     });
@@ -327,7 +337,7 @@ exports.getHealthScore = async (businessId) => {
       where: {
         contract: { businessId },
         dueDate: { lt: new Date() },
-        status: { not: "PAID" },
+        status: { not: 'PAID' },
       },
       _sum: { amount: true },
     });

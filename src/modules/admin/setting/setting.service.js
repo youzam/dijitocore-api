@@ -1,9 +1,9 @@
-const prisma = require("../../../config/prisma");
-const AppError = require("../../../utils/AppError");
-const auditHelper = require("../../../utils/audit.helper");
+const prisma = require('../../../config/prisma');
+const AppError = require('../../../utils/AppError');
+const auditHelper = require('../../../utils/audit.helper');
 const {
   SUPPORTED_PAYMENT_GATEWAYS,
-} = require("../../../utils/paymentGateway/supportedGateways");
+} = require('../../../utils/paymentGateway/supportedGateways');
 
 /*
 |--------------------------------------------------------------------------
@@ -14,7 +14,7 @@ exports.getSettings = async () => {
   const settings = await prisma.systemSetting.findFirst();
 
   if (!settings) {
-    throw new AppError("settings.not_found", 404);
+    throw new AppError('settings.not_found', 404);
   }
 
   return settings;
@@ -29,7 +29,7 @@ const getSettingsRow = async () => {
   const settings = await prisma.systemSetting.findFirst();
 
   if (!settings) {
-    throw new AppError("settings.not_found", 404);
+    throw new AppError('settings.not_found', 404);
   }
 
   return settings;
@@ -47,12 +47,12 @@ exports.updateActiveGateways = async (gateways, adminId) => {
 
   // 🔥 validate array
   if (!Array.isArray(gateways) || gateways.length === 0) {
-    throw new AppError("settings.invalid_gateways", 400);
+    throw new AppError('settings.invalid_gateways', 400);
   }
 
   for (const g of gateways) {
     if (!supportedGateways.includes(g)) {
-      throw new AppError("settings.invalid_gateway", 400);
+      throw new AppError('settings.invalid_gateway', 400);
     }
   }
 
@@ -65,11 +65,11 @@ exports.updateActiveGateways = async (gateways, adminId) => {
 
   await auditHelper.logAudit({
     userId: adminId,
-    entityType: "SYSTEM_SETTING",
+    entityType: 'SYSTEM_SETTING',
     entityId: settings.id,
-    action: "UPDATE_PAYMENT_GATEWAYS",
-    module: "SETTINGS",
-    actorType: "ADMIN",
+    action: 'UPDATE_PAYMENT_GATEWAYS',
+    module: 'SETTINGS',
+    actorType: 'ADMIN',
     metadata: {
       oldValue: settings.activePaymentGateways,
       newValue: gateways,
@@ -97,11 +97,11 @@ exports.updateSecurityConfig = async (data, adminId) => {
 
   await auditHelper.logAudit({
     userId: adminId,
-    entityType: "SYSTEM_SETTING",
+    entityType: 'SYSTEM_SETTING',
     entityId: settings.id,
-    action: "UPDATE_SECURITY_CONFIG",
-    module: "SETTINGS",
-    actorType: "ADMIN",
+    action: 'UPDATE_SECURITY_CONFIG',
+    module: 'SETTINGS',
+    actorType: 'ADMIN',
     metadata: {
       oldValue: {
         maxLoginAttempts: settings.maxLoginAttempts,
@@ -122,10 +122,10 @@ exports.updateSecurityConfig = async (data, adminId) => {
 exports.getSettingsHistory = async () => {
   const logs = await prisma.auditLog.findMany({
     where: {
-      module: "SETTINGS",
+      module: 'SETTINGS',
     },
     orderBy: {
-      createdAt: "desc",
+      createdAt: 'desc',
     },
   });
 

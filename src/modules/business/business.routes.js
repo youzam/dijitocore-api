@@ -47,7 +47,6 @@ router.get(
   '/:businessId',
   tenant,
   role(['BUSINESS_OWNER']),
-  validate(validation.getBusinessDetails),
   controller.getBusinessDetails,
 );
 

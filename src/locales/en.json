@@ -59,6 +59,16 @@
       "title": "Payment overdue",
       "body": "Hello {{name}}, your payment of {{amount}} is overdue."
     },
+    "contract": {
+      "active": {
+        "title": "Contract Activated",
+        "body": "Your contract has been activated successfully.",
+        "staff": {
+          "title": "New Contract Created",
+          "body": "A new contract has been created successfully."
+        }
+      }
+    },
 
     "staff_overdue": {
       "title": "Customer overdue",
@@ -123,7 +133,9 @@
     "terminate_success": "Termination request submitted successfully",
     "termination_approved": "Contract termination approved successfully",
     "termination_rejected": "Contract termination rejected successfully",
-    "approval_not_found": "Approval request not found"
+    "approval_not_found": "Approval request not found",
+    "already_amended": "Contract has already been amended",
+    "only_active_can_be_amended": "Only active contracts can be amended"
   },
   "payment": {
     "created": "Payment recorded successfully",

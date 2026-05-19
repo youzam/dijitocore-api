@@ -47,11 +47,19 @@ const getNotificationSetting = async ({ businessId, userId }) => {
     if (userSetting) return userSetting;
   }
 
+  if (!userId) {
+    return prisma.notificationSetting.findFirst({
+      where: {
+        businessId,
+        userId: null,
+      },
+    });
+  }
   return prisma.notificationSetting.findUnique({
     where: {
       businessId_userId: {
         businessId,
-        userId: null,
+        userId,
       },
     },
   });
@@ -195,7 +203,7 @@ const createNotification = async ({
   channel,
   titleKey,
   messageKey,
-  locale = 'sw',
+  locale,
   templateVars = {},
   recipient,
 }) => {
@@ -289,7 +297,7 @@ const createNotification = async ({
 
       await adapter.send({
         notification,
-        recipient, // only for WhatsApp fallback
+        recipient,
       });
 
       if (channel === 'SMS') {
@@ -390,7 +398,7 @@ const retryNotifications = async () => {
 
             // NOTE: using stored title/message only
             await adapter.send({
-              recipient: n.customerId || n.userId,
+              to: n.recipient,
               title: n.title,
               message: n.message,
             });

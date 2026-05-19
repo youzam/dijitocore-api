@@ -36,28 +36,33 @@ exports.getActivePaymentGateways = async () => {
   const systemGateways = settings.activePaymentGateways || [];
 
   if (systemGateways.length === 0) {
-    cache = { data: [], expiresAt: now + CACHE_TTL };
+    cache = {
+      data: [],
+      expiresAt: now + CACHE_TTL,
+    };
+
     return [];
   }
 
   const availableGateways = [];
 
-  for (const gateway of systemGateways) {
-    const status = await healthService.getStatus(gateway);
+  await Promise.all(
+    systemGateways.map(async (gateway) => {
+      const status = await healthService.getStatus(gateway);
 
-    if (status === 'UP') {
-      availableGateways.push(gateway);
-    }
-  }
+      /**
+       * ✅ HEALTHY
+       */
+      if (status === 'HEALTHY' || status === 'UNKNOWN') {
+        availableGateways.push(gateway);
+      }
+    }),
+  );
 
   /**
    * 🔥 BUSINESS RULE
    */
   let finalGateways = availableGateways;
-
-  if (availableGateways.includes('SELCOM')) {
-    finalGateways = ['SELCOM'];
-  }
 
   /**
    * 💾 SAVE TO CACHE
