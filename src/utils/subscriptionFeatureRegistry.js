@@ -87,18 +87,6 @@ const subscriptionFeatureRegistry = {
       description: 'Maximum number of active users allowed.',
     },
 
-    maxActiveContracts: {
-      type: 'number',
-
-      label: 'Maximum Active Contracts',
-
-      template: 'Up to {value} active contracts',
-
-      allowUnlimited: true,
-
-      description: 'Maximum number of active contracts allowed.',
-    },
-
     maxMonthlySms: {
       type: 'number',
 
