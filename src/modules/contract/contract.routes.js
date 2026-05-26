@@ -84,21 +84,21 @@ router.delete(
 router.get(
   '/customer/my-contracts',
   role(['CUSTOMER']),
-  subscriptionFeature('allowCustomerPortal'),
+  subscriptionFeature('hasCustomerPortal'),
   contractController.getMyContracts,
 );
 
 router.get(
   '/customer/my-contracts/:id',
   role(['CUSTOMER']),
-  subscriptionFeature('allowCustomerPortal'),
+  subscriptionFeature('hasCustomerPortal'),
   contractController.getMyContractById,
 );
 
 router.get(
   '/customer/my-contracts/:id/statement',
   role(['CUSTOMER']),
-  subscriptionFeature('allowCustomerPortal'),
+  subscriptionFeature('hasCustomerPortal'),
   contractController.downloadMyContractStatement,
 );
 

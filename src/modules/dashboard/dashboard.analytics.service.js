@@ -209,7 +209,7 @@ exports.getAdvancedPortfolioMetrics = async (businessId) => {
   // 🔒 Feature Gating
   await require('../subscription/subscription.authority.service').assertFeature(
     businessId,
-    'allowAdvancedAnalytics',
+    'hasAdvancedAnalytics',
   );
 
   const now = new Date();

@@ -1,19 +1,23 @@
-const jwt = require("jsonwebtoken");
-const jwtConfig = require("../config/jwt");
+const jwt = require('jsonwebtoken');
+const jwtConfig = require('../config/jwt');
 
-/**
- * =====================================================
- * SIGN TOKENS (ACCESS + REFRESH)
- * =====================================================
- */
 const signToken = (payload) => {
   const accessToken = jwt.sign(payload, jwtConfig.accessSecret, {
     expiresIn: jwtConfig.accessExpiresIn,
   });
 
-  const refreshToken = jwt.sign({ sub: payload.sub }, jwtConfig.refreshSecret, {
-    expiresIn: jwtConfig.refreshExpiresIn,
-  });
+  const refreshToken = jwt.sign(
+    {
+      sub: payload.sub,
+      identity_type: payload.identity_type,
+      businessId: payload.businessId || null,
+      tokenVersion: payload.tokenVersion ?? 0,
+    },
+    jwtConfig.refreshSecret,
+    {
+      expiresIn: jwtConfig.refreshExpiresIn,
+    },
+  );
 
   return {
     accessToken,
@@ -21,11 +25,6 @@ const signToken = (payload) => {
   };
 };
 
-/**
- * =====================================================
- * VERIFY TOKEN (USED INTERNALLY)
- * =====================================================
- */
 const verifyToken = (token, secret) => {
   return jwt.verify(token, secret);
 };

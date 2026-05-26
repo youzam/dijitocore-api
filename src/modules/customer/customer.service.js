@@ -247,7 +247,7 @@ exports.importCustomers = async (businessId, req, context) => {
     throw new AppError('customer.file_required', 400);
   }
 
-  await subscriptionAuthority.assertFeature(businessId, 'allowImportCustomers');
+  await subscriptionAuthority.assertFeature(businessId, 'hasCustomerImport');
 
   const file = req.files.file;
 

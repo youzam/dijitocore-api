@@ -110,5 +110,5 @@ exports.getPackageSchema = catchAsync(async (req, res) => {
 exports.getActivePackages = catchAsync(async (req, res) => {
   const data = await subscriptionService.getActivePackages();
 
-  return success(req, res, data, 200, 'subscription.packages_fetched');
+  return success(req, res, data, 200);
 });

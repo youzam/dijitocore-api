@@ -9,20 +9,47 @@ const coreAuth = require('./core.auth.service');
 const securityService = require('../admin/security/security.service');
 const notificationService = require('../../services/notifications/notification.service');
 const env = require('../../config/env');
+const privacyService = require('../privacy/privacy.service');
 
 /**
  * OWNER SIGNUP (NO JWT – SEND 6 DIGIT CODE)
  */
 
-const ownerSignup = async ({ email, name, password }) => {
+const ownerSignup = async (
+  {
+    email,
+    name,
+    password,
+    packageId,
+    billingCycle,
+    acceptedTerms,
+    acceptedPrivacy,
+  },
+  req,
+) => {
   const existing = await prisma.user.findFirst({ where: { email } });
 
   if (existing) {
     throw new AppError('auth.email_exists', 409);
   }
 
-  const passwordHash = await bcrypt.hash(password, 12);
+  const pkg = await prisma.subscriptionPackage.findFirst({
+    where: {
+      id: packageId,
+      isActive: true,
+      isDeleted: false,
+    },
+  });
 
+  if (!pkg) {
+    throw new AppError('subscription.package_not_available', 404);
+  }
+
+  if (billingCycle === 'YEARLY' && !pkg.priceYearly) {
+    throw new AppError('subscription.yearly_not_available', 400);
+  }
+
+  const passwordHash = await bcrypt.hash(password, 12);
   const verifyCode = Math.floor(100000 + Math.random() * 900000).toString();
 
   const verifyHash = crypto
@@ -30,17 +57,46 @@ const ownerSignup = async ({ email, name, password }) => {
     .update(verifyCode)
     .digest('hex');
 
-  const user = await prisma.user.create({
-    data: {
-      name,
-      email,
-      passwordHash,
-      role: 'BUSINESS_OWNER',
-      status: 'PENDING',
-      emailVerified: false,
-      emailVerifyToken: verifyHash,
-      emailVerifyExpires: new Date(Date.now() + 15 * 60 * 1000),
-    },
+  const user = await prisma.$transaction(async (tx) => {
+    const createdUser = await tx.user.create({
+      data: {
+        name,
+        email,
+        passwordHash,
+        role: 'BUSINESS_OWNER',
+        status: 'PENDING',
+        emailVerified: false,
+        emailVerifyToken: verifyHash,
+        emailVerifyExpires: new Date(Date.now() + 15 * 60 * 1000),
+      },
+    });
+
+    await tx.userOnboarding.create({
+      data: {
+        userId: createdUser.id,
+        packageId,
+        billingCycle,
+        step: 'SIGNUP_STARTED',
+      },
+    });
+
+    await privacyService.acceptTermsAndPrivacy({
+      actorType: 'USER',
+      userId: createdUser.id,
+      businessId: null,
+      source: 'SIGNUP',
+      metadata: {
+        acceptedTerms,
+        acceptedPrivacy,
+        packageId,
+        billingCycle,
+      },
+      ipAddress: req?.ip,
+      userAgent: req?.headers?.['user-agent'],
+      deviceId: req?.headers?.['x-device-id'] || null,
+    });
+
+    return createdUser;
   });
 
   await notifications.sendEmailVerification({
@@ -49,19 +105,27 @@ const ownerSignup = async ({ email, name, password }) => {
   });
 
   await logAudit({
-    businessId: user.businessId,
+    businessId: null,
     userId: user.id,
     entityType: 'AUTH',
     entityId: user.id,
     action: 'USER_SIGNUP',
+    metadata: {
+      packageId,
+      billingCycle,
+    },
   });
 
-  return {};
+  return {
+    onboarding: {
+      step: 'SIGNUP_STARTED',
+      packageId,
+      billingCycle,
+      emailVerificationRequired: true,
+    },
+  };
 };
 
-/**
- * VERIFY EMAIL VIA 6 DIGIT CODE → ISSUE JWT
- */
 const verifyEmail = async (code) => {
   const hash = crypto.createHash('sha256').update(code).digest('hex');
 
@@ -70,46 +134,94 @@ const verifyEmail = async (code) => {
       emailVerifyToken: hash,
       emailVerifyExpires: { gt: new Date() },
     },
+    include: {
+      onboarding: {
+        include: {
+          package: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+              priceMonthly: true,
+              priceYearly: true,
+              setupFee: true,
+            },
+          },
+        },
+      },
+    },
   });
 
   if (!user) {
     throw new AppError('auth.token_invalid', 400);
   }
 
-  await prisma.user.update({
-    where: { id: user.id },
-    data: {
-      emailVerified: true,
-      status: 'ACTIVE',
-      emailVerifyToken: null,
-      emailVerifyExpires: null,
-    },
+  const updatedUser = await prisma.$transaction(async (tx) => {
+    const verifiedUser = await tx.user.update({
+      where: { id: user.id },
+      data: {
+        emailVerified: true,
+        status: 'ACTIVE',
+        emailVerifyToken: null,
+        emailVerifyExpires: null,
+      },
+    });
+
+    if (user.onboarding) {
+      await tx.userOnboarding.update({
+        where: { userId: user.id },
+        data: {
+          step: 'EMAIL_VERIFIED',
+        },
+      });
+    }
+
+    return verifiedUser;
+  });
+
+  const tokens = coreAuth.generateAuthTokens({
+    sub: updatedUser.id,
+    identity_type: 'business',
+    role: updatedUser.role,
+    businessId: updatedUser.businessId,
+    tokenVersion: updatedUser.tokenVersion,
+  });
+
+  await coreAuth.createUserSession({
+    userId: updatedUser.id,
+    refreshToken: tokens.refreshToken,
   });
 
   await logAudit({
-    businessId: user.businessId,
-    userId: user.id,
+    businessId: updatedUser.businessId,
+    userId: updatedUser.id,
     entityType: 'AUTH',
-    entityId: user.id,
+    entityId: updatedUser.id,
     action: 'EMAIL_VERIFIED',
   });
 
-  // 🔥 PATCH — CONSENT CHECK
-  const existingConsent = await prisma.consentLog.findFirst({
-    where: {
-      userId: user.id,
-    },
-  });
-
-  const forceConsent = !existingConsent;
+  const forceConsent = !(await privacyService.hasAcceptedLatestTermsAndPrivacy({
+    actorType: 'USER',
+    userId: updatedUser.id,
+  }));
 
   return {
     user: {
-      id: user.id,
-      email: user.email,
-      role: user.role,
+      id: updatedUser.id,
+      name: updatedUser.name,
+      email: updatedUser.email,
+      role: updatedUser.role,
+      businessId: updatedUser.businessId,
     },
+    tokens,
     forceConsent,
+    onboarding: {
+      step: 'EMAIL_VERIFIED',
+      nextStep: user.onboarding ? 'CREATE_BUSINESS' : 'SELECT_PACKAGE',
+      packageId: user.onboarding?.packageId || null,
+      billingCycle: user.onboarding?.billingCycle || null,
+      package: user.onboarding?.package || null,
+    },
   };
 };
 
@@ -239,6 +351,11 @@ const login = async ({ email, password }, req) => {
     action: 'LOGIN_SUCCESS',
   });
 
+  const forceConsent = !(await privacyService.hasAcceptedLatestTermsAndPrivacy({
+    actorType: 'USER',
+    userId: user.id,
+  }));
+
   return {
     user: {
       id: user.id,
@@ -247,6 +364,7 @@ const login = async ({ email, password }, req) => {
       businessId: user.businessId,
     },
     tokens,
+    forceConsent,
   };
 };
 
@@ -256,40 +374,40 @@ const login = async ({ email, password }, req) => {
  * =====================================================
  */
 const refresh = async (refreshToken) => {
-  // 🔥 CORE handles:
-  // - token verification
-  // - session validation
-  // - user validation (isDeleted, lockUntil, etc.)
-  // - rotation (revoke old + create new)
-  const tokens = await coreAuth.rotateUserSession({
+  return coreAuth.rotateSession({
     refreshToken,
   });
-
-  return tokens;
 };
 /**
  * =====================================================
  * LOGOUT
  * =====================================================
  */
-const logout = async (auth) => {
-  if (!auth || !auth.refreshToken) return true;
+const logout = async (auth, refreshToken) => {
+  if (!auth) return true;
 
-  const token = await prisma.refreshToken.updateMany({
-    where: {
-      token: auth.refreshToken,
-      revokedAt: null,
-    },
-    data: {
-      revokedAt: new Date(),
-    },
-  });
+  if (refreshToken) {
+    await prisma.refreshToken.updateMany({
+      where: {
+        token: refreshToken,
+        revokedAt: null,
+      },
+      data: {
+        revokedAt: new Date(),
+      },
+    });
+  } else if (auth.identityType === 'customer') {
+    await coreAuth.revokeCustomerSessions({ customerId: auth.id });
+  } else {
+    await coreAuth.revokeUserSessions({ userId: auth.id });
+  }
 
   await logAudit({
-    businessId: token?.user.businessId,
-    userId: token?.user.id,
+    businessId: auth.businessId || null,
+    userId: auth.identityType === 'business' ? auth.id : null,
+    customerId: auth.identityType === 'customer' ? auth.id : null,
     entityType: 'AUTH',
-    entityId: token?.user.id,
+    entityId: auth.id,
     action: 'LOGOUT',
   });
 

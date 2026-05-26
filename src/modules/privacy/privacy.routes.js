@@ -15,18 +15,6 @@ router.post(
 router.get('/requests', auth, controller.getMyDataRequests);
 router.get('/requests/:id', auth, controller.getMyDataRequestById);
 
-router.post(
-  '/consents',
-  auth,
-  validate(privacyValidation.createConsent),
-  controller.createConsent,
-);
-router.patch(
-  '/consents',
-  auth,
-  validate(privacyValidation.updateConsent),
-  controller.updateConsent,
-);
 router.get('/consents', auth, controller.getMyConsents);
 router.get('/data-requests/:id/download', auth, controller.downloadExport);
 

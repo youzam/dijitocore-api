@@ -2,6 +2,94 @@ const prisma = require('../../config/prisma');
 const AppError = require('../../utils/AppError');
 const auditHelper = require('../../utils/audit.helper');
 
+const getActiveLegalPolicies = async () => {
+  const [terms, privacy] = await Promise.all([
+    prisma.legalPolicyDocument.findFirst({
+      where: { type: 'TERMS', isActive: true },
+      orderBy: { createdAt: 'desc' },
+    }),
+    prisma.legalPolicyDocument.findFirst({
+      where: { type: 'PRIVACY', isActive: true },
+      orderBy: { createdAt: 'desc' },
+    }),
+  ]);
+
+  if (!terms || !privacy) {
+    throw new AppError('privacy.active_policy_missing', 500);
+  }
+
+  return { terms, privacy };
+};
+
+exports.hasAcceptedLatestTermsAndPrivacy = async ({
+  actorType,
+  userId = null,
+  customerId = null,
+}) => {
+  const { terms, privacy } = await getActiveLegalPolicies();
+
+  const consent = await prisma.consentLog.findFirst({
+    where: {
+      actorType,
+      userId,
+      customerId,
+      type: 'TERMS_AND_PRIVACY',
+      status: 'GRANTED',
+      termsVersion: terms.version,
+      privacyVersion: privacy.version,
+      isDeleted: false,
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  return Boolean(consent);
+};
+
+exports.acceptTermsAndPrivacy = async ({
+  actorType,
+  userId = null,
+  customerId = null,
+  businessId = null,
+  source = 'SYSTEM',
+  metadata = {},
+  ipAddress = null,
+  userAgent = null,
+  deviceId = null,
+}) => {
+  const { terms, privacy } = await getActiveLegalPolicies();
+
+  const consent = await prisma.consentLog.create({
+    data: {
+      actorType,
+      userId,
+      customerId,
+      businessId,
+      type: 'TERMS_AND_PRIVACY',
+      status: 'GRANTED',
+      termsVersion: terms.version,
+      privacyVersion: privacy.version,
+      source,
+      metadata,
+      ipAddress,
+      userAgent,
+      deviceId,
+    },
+  });
+
+  await auditHelper.logAudit({
+    businessId,
+    userId,
+    customerId,
+    entityType: 'CONSENT',
+    entityId: consent.id,
+    action: 'CONSENT_GRANTED',
+    module: 'PRIVACY',
+    actorType,
+  });
+
+  return consent;
+};
+
 exports.createDataRequest = async (data, dbUser, dbCustomer) => {
   return await prisma.$transaction(async (tx) => {
     let requestedByUserId = null;
@@ -121,75 +209,6 @@ exports.getMyDataRequestById = async (id, user) => {
   }
 
   return request;
-};
-
-/**
- * Create consent (GRANT)
- */
-exports.createConsent = async (data, user) => {
-  const consent = await prisma.consentLog.create({
-    data: {
-      userId: user.id || null,
-      businessId: user.businessId || null,
-      type: data.type,
-      status: 'GRANTED',
-      source: data.source || 'SYSTEM',
-      metadata: data.metadata || {},
-    },
-  });
-
-  await auditHelper.logAudit({
-    userId: user.id || null,
-    entityType: 'CONSENT',
-    entityId: consent.id,
-    action: 'CONSENT_GRANTED',
-    module: 'PRIVACY',
-    actorType: 'USER',
-  });
-
-  return consent;
-};
-
-/**
- * Update consent (GRANT / REVOKE)
- */
-exports.updateConsent = async (data, user) => {
-  const existing = await prisma.consentLog.findFirst({
-    where: {
-      type: data.type,
-      OR: [
-        { userId: user.id || null },
-        { businessId: user.businessId || null },
-      ],
-    },
-    orderBy: { createdAt: 'desc' },
-  });
-
-  if (!existing) {
-    throw new AppError('Consent not found');
-  }
-
-  const consent = await prisma.consentLog.create({
-    data: {
-      userId: user.id || null,
-      businessId: user.businessId || null,
-      type: data.type,
-      status: data.status, // GRANTED / REVOKED
-      source: data.source || 'USER_ACTION',
-      metadata: data.metadata || {},
-    },
-  });
-
-  await auditHelper.logAudit({
-    userId: user.id || null,
-    entityType: 'CONSENT',
-    entityId: consent.id,
-    action: data.status === 'GRANTED' ? 'CONSENT_GRANTED' : 'CONSENT_REVOKED',
-    module: 'PRIVACY',
-    actorType: 'USER',
-  });
-
-  return consent;
 };
 
 /**

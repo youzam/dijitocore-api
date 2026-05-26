@@ -13,7 +13,8 @@ const whatsappChannel = require('./channels/whatsapp.channel');
 const subscriptionAuthority = require('../../modules/subscription/subscription.authority.service');
 const env = require('../../config/env');
 
-const isProd = env.NODE_ENV !== 'development';
+const isProd = env.NODE_ENV === 'production';
+
 const emailChannel = isProd ? emailProd : emailDev;
 const smsChannel = isProd ? smsProd : smsDev;
 
@@ -26,12 +27,6 @@ const CHANNEL_MAP = {
 };
 
 const MAX_NOTIFICATION_RETRIES = 3;
-
-/**
- * =====================================================
- * INTERNAL HELPERS (USING EXISTING MODELS ONLY)
- * =====================================================
- */
 
 const getNotificationSetting = async ({ businessId, userId }) => {
   if (userId) {
@@ -55,6 +50,7 @@ const getNotificationSetting = async ({ businessId, userId }) => {
       },
     });
   }
+
   return prisma.notificationSetting.findUnique({
     where: {
       businessId_userId: {
@@ -73,12 +69,6 @@ const isWithinQuietHours = (setting) => {
 
   return current >= setting.quietHoursStart && current <= setting.quietHoursEnd;
 };
-
-/**
- * =====================================================
- * EXISTING FUNCTIONS (UNCHANGED)
- * =====================================================
- */
 
 const sendPasswordReset = async ({ to, locale = 'en', resetUrl }) => {
   const subject = translate('notification.password_reset.subject', locale);
@@ -141,58 +131,49 @@ const sendOnboardingNotice = async ({ email, businessName, stage }) => {
 
   if (stage === 'FIRST_WARNING') {
     subject = 'Complete your onboarding';
-
     body = `
-      Hello,
+Hello,
 
-      Your business "${businessName}" onboarding is still incomplete.
+Your business "${businessName}" onboarding is still incomplete.
 
-      Please complete setup to activate your business account.
+Please complete setup to activate your business account.
 
-      DijitoTrack
-    `;
+DijitoPay
+`;
   }
 
   if (stage === 'SECOND_WARNING') {
     subject = 'Second onboarding reminder';
-
     body = `
-      Hello,
+Hello,
 
-      Your business "${businessName}" onboarding is still pending.
+Your business "${businessName}" onboarding is still pending.
 
-      Please complete onboarding to avoid automatic cleanup.
+Please complete onboarding to avoid automatic cleanup.
 
-      DijitoTrack
-    `;
+DijitoPay
+`;
   }
 
   if (stage === 'FINAL_WARNING') {
     subject = 'Final onboarding warning';
-
     body = `
-      Hello,
+Hello,
 
-      Your onboarding for "${businessName}" remains incomplete.
+Your onboarding for "${businessName}" remains incomplete.
 
-      Your business will soon be removed automatically if onboarding is not completed.
+Your business will soon be removed automatically if onboarding is not completed.
 
-      DijitoTrack
-    `;
+DijitoPay
+`;
   }
 
-  await emailChannel.send({
+  return emailChannel.send({
     to: email,
     subject,
     body,
   });
 };
-
-/**
- * =====================================================
- * MODULE 7 — NOTIFICATION CORE (UNCHANGED)
- * =====================================================
- */
 
 const createNotification = async ({
   businessId,
@@ -240,7 +221,9 @@ const createNotification = async ({
       message,
       status: 'QUEUED',
       metadata: {
-        phone: recipient || null, // 🔥 muhimu
+        recipient: recipient || null,
+        phone: channel === 'SMS' ? recipient || null : null,
+        email: channel === 'EMAIL' ? recipient || null : null,
       },
     },
   });
@@ -282,13 +265,14 @@ const createNotification = async ({
       }
     } else {
       const adapter = CHANNEL_MAP[channel];
+
       if (!adapter) {
         throw new Error(`Unsupported channel: ${channel}`);
       }
 
       if (channel === 'SMS') {
         await subscriptionAuthority.assertActiveSubscription(businessId);
-        await subscriptionAuthority.assertFeature(businessId, 'allowSMS');
+        await subscriptionAuthority.assertFeature(businessId, 'hasSmsNotification');
         await subscriptionAuthority.assertMonthlyLimit(
           businessId,
           'maxMonthlySms',
@@ -298,6 +282,9 @@ const createNotification = async ({
       await adapter.send({
         notification,
         recipient,
+        to: recipient,
+        title,
+        message,
       });
 
       if (channel === 'SMS') {
@@ -337,12 +324,6 @@ const createNotification = async ({
     return null;
   }
 };
-
-/**
- * =====================================================
- * HARDENED RETRY NOTIFICATIONS (ONLY THIS CHANGED)
- * =====================================================
- */
 
 const retryNotifications = async () => {
   const BATCH_SIZE = 200;
@@ -396,9 +377,10 @@ const retryNotifications = async () => {
             const adapter = CHANNEL_MAP[n.channel];
             if (!adapter) continue;
 
-            // NOTE: using stored title/message only
             await adapter.send({
-              to: n.recipient,
+              notification: n,
+              to: n.metadata?.email || n.metadata?.recipient || null,
+              recipient: n.metadata?.recipient || null,
               title: n.title,
               message: n.message,
             });

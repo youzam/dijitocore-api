@@ -2,108 +2,152 @@
  * Subscription Feature Registry
  * -----------------------------------
  * Single source of truth for:
- * - Allowed feature keys
- * - Allowed limit keys
+ * - Allowed package feature keys
+ * - Allowed package limit keys
  * - Type validation
  * - UI metadata
  *
  * IMPORTANT:
- * - Do NOT put business logic here
- * - Do NOT read DB here
- * - This file is configuration only
- *
- * NOTE:
- * - Core platform capabilities SHOULD NOT live here
- * - This registry should contain ONLY
- *   commercial/package entitlements
+ * - Core package values are stored in SubscriptionPackage.features + limits.
+ * - features = boolean availability.
+ * - limits = numeric quota/capacity. null means unlimited.
  */
 
 const subscriptionFeatureRegistry = {
-  /**
-   * COMMERCIAL FEATURES
-   * -----------------------------------
-   * These features represent:
-   * - upsells
-   * - optional modules
-   * - premium capabilities
-   */
-
   features: {
-    allowImportCustomers: {
+    hasCustomerManagement: {
       type: 'boolean',
-      label: 'Allow Customers Import',
-      category: 'advanced',
-
-      description: 'Allows bulk import of customers via CSV or Excel.',
+      label: 'Customer Management',
+      category: 'core',
+      description:
+        'Manage customer profiles, contacts, records, and histories.',
     },
 
-    allowSMS: {
+    hasInstallmentPayments: {
       type: 'boolean',
-      label: 'Allow SMS',
+      label: 'Installment Payments',
+      category: 'core',
+      description:
+        'Record and monitor payments made against installment contracts.',
+    },
+
+    hasCustomerPortal: {
+      type: 'boolean',
+      label: 'Customer Portal',
+      category: 'core',
+      description: 'Allow customers to view balances, schedules, and progress.',
+    },
+
+    hasBasicAnalytics: {
+      type: 'boolean',
+      label: 'Basic Analytics',
+      category: 'analytics',
+      description:
+        'View essential summaries for contracts, payments, and customers.',
+    },
+
+    hasAdvancedAnalytics: {
+      type: 'boolean',
+      label: 'Advanced Analytics',
+      category: 'analytics',
+      description:
+        'Access deeper operational insights and business performance views.',
+    },
+
+    hasSmsNotification: {
+      type: 'boolean',
+      label: 'SMS Notifications',
       category: 'communication',
-
-      description: 'Allows sending SMS notifications.',
+      description: 'Send SMS reminders and alerts to customers.',
     },
 
-    allowCustomerPortal: {
+    hasWhatsappNotification: {
       type: 'boolean',
-      label: 'Allow Customer Portal',
-      category: 'advanced',
-
-      description: 'Allows customers to access their portal.',
+      label: 'WhatsApp Notifications',
+      category: 'communication',
+      description:
+        'Send important customer and business notifications via WhatsApp.',
     },
 
-    allowMultiUser: {
+    hasCustomerImport: {
       type: 'boolean',
-      label: 'Allow Multi User',
+      label: 'Import Customers',
       category: 'advanced',
-
-      description: 'Allows adding multiple system users.',
+      description: 'Bulk import customer records using Excel or CSV files.',
     },
 
-    allowAdvancedAnalytics: {
+    hasAuditLogs: {
       type: 'boolean',
-      label: 'Allow Advanced Analytics',
-      category: 'advanced',
+      label: 'Activity Logs & Audit Trail',
+      category: 'governance',
+      description: 'Track important system actions and operational activities.',
+    },
 
-      description: 'Allows access to advanced analytics and reports.',
+    hasSupportTickets: {
+      type: 'boolean',
+      label: 'Support Tickets',
+      category: 'support',
+      description: 'Create and manage support requests inside the platform.',
+    },
+
+    hasPrioritySupport: {
+      type: 'boolean',
+      label: 'Priority Support',
+      category: 'support',
+      description:
+        'Get faster assistance for operational and technical issues.',
+    },
+
+    hasMultiBranches: {
+      type: 'boolean',
+      label: 'Multi-Branch Support',
+      category: 'operations',
+      description: 'Manage multiple branches from one centralized workspace.',
+    },
+
+    hasMultiUsers: {
+      type: 'boolean',
+      label: 'Multi-User Access',
+      category: 'operations',
+      description: 'Allow multiple team members to access the workspace.',
     },
   },
 
-  /**
-   * PACKAGE LIMITS
-   */
-
   limits: {
+    maxBranches: {
+      type: 'number',
+      label: 'Branches',
+      template: '{value} branches',
+      allowUnlimited: true,
+      description: 'Number of business branches supported by the plan.',
+    },
+
     maxUsers: {
       type: 'number',
-
-      label: 'Maximum Users',
-
-      template: 'Up to {value} users',
-
+      label: 'System Users',
+      template: '{value} users',
       allowUnlimited: true,
+      description:
+        'Number of active team members who can access the workspace.',
+    },
 
-      description: 'Maximum number of active users allowed.',
+    maxContracts: {
+      type: 'number',
+      label: 'Installment Contracts',
+      template: '{value} contracts',
+      allowUnlimited: true,
+      description: 'Create and manage customer installment agreements.',
     },
 
     maxMonthlySms: {
       type: 'number',
-
-      label: 'Maximum Monthly SMS',
-
-      template: '{value} SMS per month',
-
+      label: 'SMS Notifications',
+      template: '{value} / month',
       allowUnlimited: true,
-
-      description: 'Maximum SMS messages allowed per month.',
+      description: 'Included monthly SMS quota for reminders and alerts.',
     },
   },
 };
-
-/**
- * Helper functions
- */
 
 subscriptionFeatureRegistry.isValidFeatureKey = (key) => {
   return Object.prototype.hasOwnProperty.call(
@@ -125,6 +169,32 @@ subscriptionFeatureRegistry.getFeatureKeys = () => {
 
 subscriptionFeatureRegistry.getLimitKeys = () => {
   return Object.keys(subscriptionFeatureRegistry.limits);
+};
+
+subscriptionFeatureRegistry.getFeatureLabels = () => {
+  return Object.fromEntries(
+    Object.entries(subscriptionFeatureRegistry.features).map(([key, value]) => [
+      key,
+      value.label,
+    ]),
+  );
+};
+
+subscriptionFeatureRegistry.getLimitLabels = () => {
+  return Object.fromEntries(
+    Object.entries(subscriptionFeatureRegistry.limits).map(([key, value]) => [
+      key,
+      value.template,
+    ]),
+  );
+};
+
+subscriptionFeatureRegistry.getFeatureMeta = () => {
+  return subscriptionFeatureRegistry.features;
+};
+
+subscriptionFeatureRegistry.getLimitMeta = () => {
+  return subscriptionFeatureRegistry.limits;
 };
 
 module.exports = subscriptionFeatureRegistry;

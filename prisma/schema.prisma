@@ -193,6 +193,8 @@ model Business {
   status         BusinessStatus @default(PENDING)
   setupCompleted Boolean        @default(false)
 
+  consentLogs ConsentLog[]
+
   users    User[]
   invites  BusinessInvite[]
   settings BusinessSettings?
@@ -270,18 +272,48 @@ model BusinessSettings {
 //////////////////////////////////////////////////////
 // CONSENT LOG — Compliance tracking
 //////////////////////////////////////////////////////
+model LegalPolicyDocument {
+  id String @id @default(uuid())
+
+  type     LegalPolicyType
+  version  String
+  title    String
+  content  String
+  isActive Boolean         @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([type, version])
+  @@index([type])
+  @@index([isActive])
+}
 
 model ConsentLog {
   id String @id @default(uuid())
 
+  actorType ConsentActorType
+
   userId     String?
+  customerId String?
   businessId String?
 
-  type   String
-  status String
+  user     User?     @relation(fields: [userId], references: [id])
+  customer Customer? @relation(fields: [customerId], references: [id])
+  business Business? @relation(fields: [businessId], references: [id])
+
+  type   ConsentType
+  status ConsentStatus
+
+  termsVersion   String?
+  privacyVersion String?
 
   source   String?
   metadata Json?
+
+  ipAddress String?
+  userAgent String?
+  deviceId  String?
 
   isDeleted Boolean   @default(false)
   deletedAt DateTime?
@@ -290,9 +322,12 @@ model ConsentLog {
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
 
+  @@index([actorType])
   @@index([userId])
+  @@index([customerId])
   @@index([businessId])
   @@index([type])
+  @@index([status])
 }
 
 //////////////////////////////////////////////////////
@@ -482,6 +517,8 @@ model Customer {
 
   gender      String?
   dateOfBirth DateTime?
+
+  consentLogs ConsentLog[]
 
   addressLine String?
   ward        String?
@@ -1564,6 +1601,7 @@ model SubscriptionPackage {
   isActive Boolean @default(true)
 
   subscriptions Subscription[]
+  userOnboardings UserOnboarding[]
 
   configVersion Int @default(1)
 
@@ -1999,6 +2037,8 @@ model User {
   role   UserRole
   status UserStatus
 
+  consentLogs ConsentLog[]
+
   businessId String?
   business   Business? @relation(fields: [businessId], references: [id])
 
@@ -2021,6 +2061,8 @@ model User {
 
   tokenVersion Int @default(0)
 
+  onboarding UserOnboarding?
+
   isDeleted Boolean   @default(false)
   deletedAt DateTime?
   deletedBy String?
@@ -2031,6 +2073,27 @@ model User {
   contractAmendments ContractAmendment[]
 
   @@unique([email, businessId])
+}
+
+model UserOnboarding {
+  id String @id @default(uuid())
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  packageId String?
+  package   SubscriptionPackage? @relation(fields: [packageId], references: [id])
+
+  billingCycle BillingCycle?
+
+  step OnboardingStep @default(SIGNUP_STARTED)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([userId])
+  @@index([packageId])
+  @@index([step])
 }
 
 //////////////////////////////////////////////////////
@@ -2085,6 +2148,27 @@ enum BusinessStatus {
   PENDING
   SUSPENDED
   TERMINATED
+}
+
+enum ConsentActorType {
+  USER
+  CUSTOMER
+}
+
+enum ConsentType {
+  TERMS_AND_PRIVACY
+  MARKETING
+  DATA_PROCESSING
+}
+
+enum ConsentStatus {
+  GRANTED
+  REVOKED
+}
+
+enum LegalPolicyType {
+  TERMS
+  PRIVACY
 }
 
 enum ContractAction {
@@ -2184,6 +2268,14 @@ enum LedgerStatus {
   POSTED
   FAILED
   REVERSED
+}
+
+enum OnboardingStep {
+  SIGNUP_STARTED
+  EMAIL_VERIFIED
+  BUSINESS_CREATED
+  CHECKOUT_STARTED
+  CHECKOUT_COMPLETED
 }
 
 enum PaymentStatus {

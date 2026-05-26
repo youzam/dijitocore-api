@@ -9,6 +9,13 @@ const auth = require('../../middlewares/auth.middleware');
 const tenant = require('../../middlewares/tenant.middleware');
 const role = require('../../middlewares/role.middleware');
 
+/*
+|--------------------------------------------------------------------------
+| PUBLIC PACKAGES
+|--------------------------------------------------------------------------
+*/
+router.get('/packages', subscriptionController.getActivePackages);
+
 router.use(auth);
 
 /* CREATE SUBSCRIPTION */
@@ -46,13 +53,6 @@ router.get(
   tenant,
   subscriptionController.getCurrentSubscription,
 );
-
-/*
-|--------------------------------------------------------------------------
-| PUBLIC PACKAGES
-|--------------------------------------------------------------------------
-*/
-router.get('/packages', subscriptionController.getActivePackages);
 
 /* CALCULATE PRICE */
 router.post(

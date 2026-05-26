@@ -4,31 +4,16 @@ const catchAsync = require('../../utils/catchAsync.js');
 const response = require('../../utils/response');
 const { translate } = require('../../utils/i18n.js');
 
-/**
- * =====================================================
- * BUSINESS OWNER SIGNUP
- * =====================================================
- */
 exports.ownerSignup = catchAsync(async (req, res) => {
-  const result = await authService.ownerSignup(req.body);
+  const result = await authService.ownerSignup(req.body, req);
   return response.success(req, res, result, 201);
 });
 
-/**
- * =====================================================
- * VERIFY EMAIL ADDRESS
- * =====================================================
- */
 exports.verifyEmail = catchAsync(async (req, res) => {
   const result = await authService.verifyEmail(req.body.code);
   return response.success(req, res, result);
 });
 
-/**
- * =====================================================
- * LOGIN / REFRESH / LOGOUT
- * =====================================================
- */
 exports.login = catchAsync(async (req, res) => {
   const result = await authService.login(req.body, req);
   return response.success(req, res, result);
@@ -40,15 +25,10 @@ exports.refresh = catchAsync(async (req, res) => {
 });
 
 exports.logout = catchAsync(async (req, res) => {
-  await authService.logout(req.auth);
-  res.status(204).send();
+  await authService.logout(req.auth, req.body.refresh_token);
+  return res.status(204).send();
 });
 
-/**
- * =====================================================
- * PASSWORD RESET
- * =====================================================
- */
 exports.requestPasswordReset = catchAsync(async (req, res) => {
   await authService.requestPasswordReset(req.body.email);
   return response.success(req, res, {});
@@ -63,9 +43,6 @@ exports.resetPassword = catchAsync(async (req, res) => {
   return response.success(req, res, result);
 });
 
-/**
- * Request OTP
- */
 exports.requestOtp = catchAsync(async (req, res) => {
   const { phone, businessCode } = req.body;
 
@@ -76,39 +53,27 @@ exports.requestOtp = catchAsync(async (req, res) => {
   });
 });
 
-/**
- * Verify OTP
- */
 exports.verifyOtp = catchAsync(async (req, res) => {
   const { phone, businessCode, otp } = req.body;
 
-  const customer = await customerAuthService.verifyOtp(
+  const result = await customerAuthService.verifyOtp(
     phone,
     businessCode,
     otp,
+    req,
   );
 
-  return response.success(req, res, {
-    customerId: customer.id,
-  });
+  return response.success(req, res, result);
 });
 
-/**
- * Set PIN
- */
 exports.setPin = catchAsync(async (req, res) => {
-  const { customerId, pin } = req.body;
-
-  await customerAuthService.setPin(customerId, pin);
+  await customerAuthService.setPin(req.auth.id, req.body.pin, req);
 
   return response.success(req, res, {
     message: translate('auth.pin_set_success', req.locale),
   });
 });
 
-/**
- * Login with PIN
- */
 exports.loginWithPin = catchAsync(async (req, res) => {
   const { phone, businessCode, pin } = req.body;
 

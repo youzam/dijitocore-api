@@ -48,8 +48,15 @@ const env = {
      EMAIL
   ======================== */
   email: {
-    provider: optional('EMAIL_PROVIDER', 'console'),
-    from: optional('EMAIL_FROM'),
+    from: required('EMAIL_FROM'),
+
+    mailtrap: {
+      host: optional('MAILTRAP_HOST', 'sandbox.smtp.mailtrap.io'),
+      port: Number(optional('MAILTRAP_PORT', 2525)),
+      user: optional('MAILTRAP_USER'),
+      pass: optional('MAILTRAP_PASS'),
+    },
+
     sendgridKey: optional('SENDGRID_API_KEY'),
   },
 

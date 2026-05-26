@@ -149,6 +149,9 @@ const SYSTEM_MODELS = [
   'suspiciousActivity',
   'fraudFlag',
 
+  // Terms and privcy policies versioning
+  'legalPolicyDocument',
+
   '_prisma_migrations',
 ];
 

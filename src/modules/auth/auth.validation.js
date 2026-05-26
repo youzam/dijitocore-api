@@ -1,54 +1,34 @@
-const Joi = require("joi");
+const Joi = require('joi');
 
-/**
- * =====================================================
- * BUSINESS OWNER SIGNUP
- * =====================================================
- */
 exports.ownerSignup = Joi.object({
+  name: Joi.string().trim().min(2).max(100).required(),
   email: Joi.string().email().required(),
-  password: Joi.string()
-    .min(8)
-    .max(128)
-    .pattern(/[A-Z]/, "uppercase")
-    .pattern(/[a-z]/, "lowercase")
-    .pattern(/[0-9]/, "number")
-    .required(),
+  password: Joi.string().min(8).max(128).required(),
+
+  packageId: Joi.string().required(),
+  billingCycle: Joi.string().valid('MONTHLY', 'YEARLY').required(),
+
+  acceptedTerms: Joi.boolean().valid(true).required(),
+  acceptedPrivacy: Joi.boolean().valid(true).required(),
 });
 
-/**
- * =====================================================
- * VERIFY EMAIL
- * =====================================================
- */
 exports.verifyEmail = Joi.object({
   code: Joi.string().length(6).required(),
 });
 
-/**
- * =====================================================
- * LOGIN (SYSTEM / BUSINESS USERS)
- * =====================================================
- */
 exports.login = Joi.object({
   email: Joi.string().email().required(),
   password: Joi.string().required(),
 });
 
-/**
- * =====================================================
- * REFRESH TOKEN
- * =====================================================
- */
 exports.refresh = Joi.object({
   refresh_token: Joi.string().required(),
 });
 
-/**
- * =====================================================
- * PASSWORD RESET
- * =====================================================
- */
+exports.logout = Joi.object({
+  refresh_token: Joi.string().optional(),
+});
+
 exports.passwordResetRequest = Joi.object({
   email: Joi.string().email().required(),
 });
@@ -58,72 +38,37 @@ exports.passwordReset = Joi.object({
   password: Joi.string()
     .min(8)
     .max(128)
-    .pattern(/[A-Z]/, "uppercase")
-    .pattern(/[a-z]/, "lowercase")
-    .pattern(/[0-9]/, "number")
+    .pattern(/[A-Z]/, 'uppercase')
+    .pattern(/[a-z]/, 'lowercase')
+    .pattern(/[0-9]/, 'number')
     .required(),
 });
 
-/**
- * =====================================================
- * CUSTOMER AUTH – PHONE + OTP
- * =====================================================
- */
-
-/**
- * STEP 1: Identify customer
- */
-exports.customerIdentify = Joi.object({
-  phone: Joi.string()
-    .pattern(/^[0-9]{9,15}$/)
-    .required(),
-});
-
-/**
- * STEP 2: Request OTP
- */
 exports.customerRequestOtp = Joi.object({
-  phone: Joi.string()
-    .pattern(/^[0-9]{9,15}$/)
-    .required(),
-  businessId: Joi.string().uuid().required(),
+  phone: Joi.string().required(),
+  businessCode: Joi.string().required(),
 });
 
-/**
- * STEP 3: Verify OTP
- */
 exports.customerVerifyOtp = Joi.object({
-  phone: Joi.string()
-    .pattern(/^[0-9]{9,15}$/)
-    .required(),
-  businessId: Joi.string().uuid().required(),
-  otp: Joi.string()
-    .length(6)
-    .pattern(/^[0-9]+$/)
-    .required(),
+  phone: Joi.string().required(),
+  businessCode: Joi.string().required(),
+  otp: Joi.string().length(6).required(),
 });
 
-/**
- * =====================================================
- * CUSTOMER PIN AUTH
- * =====================================================
- */
 exports.setPin = Joi.object({
-  customerId: Joi.string().uuid().required(),
   pin: Joi.string().min(4).max(6).required(),
+  acceptedTerms: Joi.boolean().valid(true).required(),
+  acceptedPrivacy: Joi.boolean().valid(true).required(),
 });
 
 exports.loginWithPin = Joi.object({
-  phone: Joi.string().required(),
-  businessCode: Joi.string().required(),
+  phone: Joi.string()
+    .pattern(/^[0-9]{9,15}$/)
+    .required(),
+  businessCode: Joi.string().trim().required(),
   pin: Joi.string().required(),
 });
 
-/**
- * =====================================================
- * SYSTEM (SUPER ADMIN) LOGIN
- * =====================================================
- */
 exports.adminLogin = Joi.object({
   email: Joi.string().email().required(),
   password: Joi.string().required(),

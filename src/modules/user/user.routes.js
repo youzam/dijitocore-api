@@ -17,7 +17,7 @@ router.post(
   auth,
   tenant,
   role(['BUSINESS_OWNER']),
-  subscriptionFeature('allowMultiUser'),
+  subscriptionFeature('hasMultiUsers'),
   validate({ body: validation.inviteUser }),
   controller.inviteUser,
 );

@@ -3,7 +3,6 @@ const AppError = require('../../utils/AppError');
 const auditHelper = require('../../utils/audit.helper');
 const { SubscriptionStatus } = require('@prisma/client');
 const { validateDowngradeLimits } = require('../../utils/featureFlags');
-const registry = require('../../utils/subscriptionFeatureRegistry');
 const couponService = require('./subscription.coupon.service');
 const subscriptionService = require('./subscription.payment.service');
 
@@ -581,51 +580,101 @@ exports.extendGracePeriod = async (subscriptionId, data, req) => {
 | GET ACTIVE PACKAGES (UI READY)
 |--------------------------------------------------------------------------
 */
+const formatMoney = (value) => {
+  if (value === null || value === undefined) return null;
+
+  return `TZS ${Number(value).toLocaleString('en-US')}`;
+};
+
+const formatLimitValue = (key, value) => {
+  if (value === null || value === undefined) {
+    return 'Unlimited';
+  }
+
+  if (key === 'maxBranches') {
+    return Number(value) === 1 ? '1 branch' : `${value} branches`;
+  }
+
+  if (key === 'maxUsers') {
+    return Number(value) === 1 ? '1 user' : `${value} users`;
+  }
+
+  if (key === 'maxMonthlySms') {
+    return `${Number(value).toLocaleString('en-US')} / month`;
+  }
+
+  return value;
+};
+
 exports.getActivePackages = async () => {
   const packages = await prisma.subscriptionPackage.findMany({
-    where: { isActive: true },
+    where: {
+      isActive: true,
+      isDeleted: false,
+    },
     orderBy: { priceMonthly: 'asc' },
   });
 
-  const featureLabels = registry.getFeatureLabels();
-  const limitLabels = registry.getLimitLabels();
-
   return packages.map((pkg) => {
-    const features = [];
-    const limits = [];
+    const yearlyFullPrice =
+      pkg.priceMonthly && pkg.priceYearly ? pkg.priceMonthly * 12 : null;
 
-    // 🔥 FEATURES
-    for (const key in pkg.features || {}) {
-      if (pkg.features[key]) {
-        features.push(featureLabels[key] || key);
-      }
-    }
+    const hasYearlyDiscount =
+      yearlyFullPrice && pkg.priceYearly && pkg.priceYearly < yearlyFullPrice;
 
-    // 🔥 LIMITS
-    for (const key in pkg.limits || {}) {
-      const value = pkg.limits[key];
-
-      if (value !== null && value !== undefined) {
-        const labelTemplate = limitLabels[key] || key;
-
-        limits.push(labelTemplate.replace('{value}', value));
-      }
-    }
+    const discountPercent = hasYearlyDiscount
+      ? Math.round(
+          ((yearlyFullPrice - pkg.priceYearly) / yearlyFullPrice) * 100,
+        )
+      : 0;
 
     return {
-      name: pkg.name,
+      id: pkg.id,
       code: pkg.code,
+      key: String(pkg.code).toLowerCase(),
+      name: pkg.name,
       description: pkg.description,
 
-      price: {
-        monthly: pkg.priceMonthly,
-        yearly: pkg.priceYearly,
+      priceMonthly: pkg.priceMonthly,
+      priceYearly: pkg.priceYearly,
+      setupFee: pkg.setupFee,
+
+      display: {
+        monthlyPrice: formatMoney(pkg.priceMonthly),
+        yearlyPrice: formatMoney(pkg.priceYearly),
+        monthlyEquivalent: pkg.priceMonthly
+          ? `${formatMoney(pkg.priceMonthly)} / month`
+          : null,
+        originalYearlyPrice: yearlyFullPrice
+          ? formatMoney(yearlyFullPrice)
+          : null,
+        discount: discountPercent > 0 ? `${discountPercent}% OFF` : null,
       },
 
-      features,
-      limits,
+      features: pkg.features || {},
+      limits: pkg.limits || {},
 
-      isPopular: pkg.code === 'STANDARD',
+      values: {
+        branches: formatLimitValue('maxBranches', pkg.limits?.maxBranches),
+        users: formatLimitValue('maxUsers', pkg.limits?.maxUsers),
+        contracts: formatLimitValue('maxContracts', pkg.limits?.maxContracts),
+
+        customers: Boolean(pkg.features?.hasCustomerManagement),
+        payments: Boolean(pkg.features?.hasInstallmentPayments),
+        portal: Boolean(pkg.features?.hasCustomerPortal),
+        basicAnalytics: Boolean(pkg.features?.hasBasicAnalytics),
+        advancedAnalytics: Boolean(pkg.features?.hasAdvancedAnalytics),
+        sms: pkg.features?.hasSmsNotification
+          ? formatLimitValue('maxMonthlySms', pkg.limits?.maxMonthlySms)
+          : false,
+        whatsapp: Boolean(pkg.features?.hasWhatsappNotification),
+        importCustomers: Boolean(pkg.features?.hasCustomerImport),
+        audit: Boolean(pkg.features?.hasAuditLogs),
+        tickets: Boolean(pkg.features?.hasSupportTickets),
+        prioritySupport: Boolean(pkg.features?.hasPrioritySupport),
+      },
+
+      isPopular: pkg.code === 'GROWTH',
     };
   });
 };

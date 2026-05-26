@@ -4,16 +4,10 @@ const controller = require('./auth.controller');
 const validate = require('../../middlewares/validate.middleware');
 const { authRateLimiter } = require('../../middlewares/rateLimit.middleware');
 const authMiddleware = require('../../middlewares/auth.middleware');
-
 const validation = require('./auth.validation');
 
 const router = express.Router();
 
-/**
- * =====================================================
- * PUBLIC AUTH – BUSINESS OWNER
- * =====================================================
- */
 router.post(
   '/signup',
   authRateLimiter,
@@ -41,13 +35,13 @@ router.post(
   controller.refresh,
 );
 
-router.post('/logout', authMiddleware, controller.logout);
+router.post(
+  '/logout',
+  authMiddleware,
+  validate(validation.logout),
+  controller.logout,
+);
 
-/**
- * =====================================================
- * PASSWORD RESET
- * =====================================================
- */
 router.post(
   '/password/request-reset',
   authRateLimiter,
@@ -63,16 +57,6 @@ router.post(
 );
 
 router.post(
-  '/customer/set-pin',
-  validate(validation.setPin),
-  controller.setPin,
-);
-
-// =====================================================
-// CUSTOMER OTP AUTH
-// =====================================================
-
-router.post(
   '/customer/request-otp',
   authRateLimiter,
   validate(validation.customerRequestOtp),
@@ -84,6 +68,13 @@ router.post(
   authRateLimiter,
   validate(validation.customerVerifyOtp),
   controller.verifyOtp,
+);
+
+router.post(
+  '/customer/set-pin',
+  authMiddleware,
+  validate(validation.setPin),
+  controller.setPin,
 );
 
 router.post(

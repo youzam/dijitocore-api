@@ -44,7 +44,7 @@ router.get("/analytics", notAnalyticController.getAnalytics);
 router.post(
   "/bulk",
   role(["BUSINESS_OWNER", "MANAGER", "STAFF"]),
-  subscriptionFeature("allowSMS"),
+  subscriptionFeature("hasSmsNotification"),
   subscriptionLimit("maxMonthlySms"),
   controller.bulkNotify,
 );

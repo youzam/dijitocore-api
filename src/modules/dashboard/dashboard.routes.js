@@ -51,42 +51,42 @@ router.get(
 router.get(
   '/analytics/snapshots',
   role(['BUSINESS_OWNER', 'MANAGER', 'STAFF']),
-  subscriptionFeature('allowAdvancedAnalytics'),
+  subscriptionFeature('hasAdvancedAnalytics'),
   controller.getSnapshotSeries,
 );
 
 router.get(
   '/analytics/health-timeline',
   role(['BUSINESS_OWNER', 'MANAGER', 'STAFF']),
-  subscriptionFeature('allowAdvancedAnalytics'),
+  subscriptionFeature('hasAdvancedAnalytics'),
   controller.getHealthTimeline,
 );
 
 router.get(
   '/analytics/insights',
   role(['BUSINESS_OWNER', 'MANAGER']),
-  subscriptionFeature('allowAdvancedAnalytics'),
+  subscriptionFeature('hasAdvancedAnalytics'),
   controller.getAnalyticsInsights,
 );
 
 router.get(
   '/analytics/cohorts',
   role(['BUSINESS_OWNER', 'MANAGER']),
-  subscriptionFeature('allowAdvancedAnalytics'),
+  subscriptionFeature('hasAdvancedAnalytics'),
   controller.getCohorts,
 );
 
 router.get(
   '/analytics/projections',
   role(['BUSINESS_OWNER', 'MANAGER']),
-  subscriptionFeature('allowAdvancedAnalytics'),
+  subscriptionFeature('hasAdvancedAnalytics'),
   controller.getProjections,
 );
 
 router.get(
   '/analytics/audit',
   role(['BUSINESS_OWNER']),
-  subscriptionFeature('allowAdvancedAnalytics'),
+  subscriptionFeature('hasAdvancedAnalytics'),
   controller.getAuditDashboard,
 );
 
@@ -99,7 +99,7 @@ router.get(
 router.get(
   '/analytics/advanced-metrics',
   role(['BUSINESS_OWNER', 'MANAGER']),
-  subscriptionFeature('allowAdvancedAnalytics'),
+  subscriptionFeature('hasAdvancedAnalytics'),
   controller.getAdvancedPortfolioMetrics,
 );
 

@@ -19,7 +19,7 @@ exports.inviteUser = async (owner, payload) => {
 
   const { email, role } = payload;
 
-  await subscriptionAuthority.assertFeature(owner.businessId, "allowMultiUser");
+  await subscriptionAuthority.assertFeature(owner.businessId, "hasMultiUsers");
 
   const existingUser = await prisma.user.findUnique({
     where: {
@@ -107,7 +107,7 @@ exports.acceptInvite = async ({ token, password }) => {
 
   await subscriptionAuthority.assertFeature(
     invite.businessId,
-    "allowMultiUser",
+    "hasMultiUsers",
   );
 
   // 🔥 FIXED (NO MANUAL COUNT)

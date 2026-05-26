@@ -3,25 +3,12 @@ const AppError = require('../../utils/AppError');
 const jwtConfig = require('../../config/jwt');
 const { signToken, verifyToken } = require('../../utils/auth.helper');
 
-// ======================================================
-// 🧠 USER VALIDATION
-// ======================================================
 const validateUserAccess = (user) => {
-  if (!user) {
-    throw new AppError('auth.unauthorized', 401);
-  }
-
-  if (user.isDeleted) {
-    throw new AppError('auth.account_deleted', 403);
-  }
-
-  if (user.status !== 'ACTIVE') {
+  if (!user) throw new AppError('auth.unauthorized', 401);
+  if (user.isDeleted) throw new AppError('auth.account_deleted', 403);
+  if (user.status !== 'ACTIVE')
     throw new AppError('auth.account_inactive', 403);
-  }
-
-  if (!user.emailVerified) {
-    throw new AppError('auth.email_not_verified', 403);
-  }
+  if (!user.emailVerified) throw new AppError('auth.email_not_verified', 403);
 
   if (user.lockUntil && user.lockUntil > new Date()) {
     throw new AppError('auth.account_locked', 423);
@@ -34,25 +21,12 @@ const validateUserAccess = (user) => {
   return user;
 };
 
-// ======================================================
-// 🧠 CUSTOMER VALIDATION
-// ======================================================
 const validateCustomerAccess = (customer, business) => {
-  if (!customer) {
-    throw new AppError('auth.unauthorized', 401);
-  }
-
-  if (customer.isDeleted) {
-    throw new AppError('auth.account_deleted', 403);
-  }
-
-  if (customer.status !== 'ACTIVE') {
+  if (!customer) throw new AppError('auth.unauthorized', 401);
+  if (customer.isDeleted) throw new AppError('auth.account_deleted', 403);
+  if (customer.status !== 'ACTIVE')
     throw new AppError('customer.inactive', 403);
-  }
-
-  if (customer.isBlacklisted) {
-    throw new AppError('customer.blacklisted', 403);
-  }
+  if (customer.isBlacklisted) throw new AppError('customer.blacklisted', 403);
 
   if (business && business.isDeleted) {
     throw new AppError('business.deleted', 403);
@@ -61,16 +35,8 @@ const validateCustomerAccess = (customer, business) => {
   return customer;
 };
 
-// ======================================================
-// 🔐 TOKEN GENERATION
-// ======================================================
-const generateAuthTokens = (payload) => {
-  return signToken(payload);
-};
+const generateAuthTokens = (payload) => signToken(payload);
 
-// ======================================================
-// 💾 CREATE USER SESSION
-// ======================================================
 const createUserSession = async ({ userId, refreshToken, tx }) => {
   const client = tx || prisma;
 
@@ -83,9 +49,6 @@ const createUserSession = async ({ userId, refreshToken, tx }) => {
   });
 };
 
-// ======================================================
-// 💾 CREATE CUSTOMER SESSION
-// ======================================================
 const createCustomerSession = async ({ customerId, refreshToken, tx }) => {
   const client = tx || prisma;
 
@@ -98,12 +61,8 @@ const createCustomerSession = async ({ customerId, refreshToken, tx }) => {
   });
 };
 
-// ======================================================
-// 🔄 ROTATE USER SESSION
-// ======================================================
 const rotateUserSession = async ({ refreshToken, tx }) => {
   const client = tx || prisma;
-
   const payload = verifyToken(refreshToken, jwtConfig.refreshSecret);
 
   const storedToken = await client.refreshToken.findUnique({
@@ -112,6 +71,7 @@ const rotateUserSession = async ({ refreshToken, tx }) => {
 
   if (
     !storedToken ||
+    !storedToken.userId ||
     storedToken.revokedAt ||
     storedToken.expiresAt < new Date()
   ) {
@@ -124,6 +84,14 @@ const rotateUserSession = async ({ refreshToken, tx }) => {
   });
 
   validateUserAccess(user);
+
+  if (user.id !== storedToken.userId) {
+    throw new AppError('auth.session_invalid', 401);
+  }
+
+  if (user.tokenVersion !== (payload.tokenVersion ?? 0)) {
+    throw new AppError('auth.session_expired', 401);
+  }
 
   const newTokens = generateAuthTokens({
     sub: user.id,
@@ -153,12 +121,8 @@ const rotateUserSession = async ({ refreshToken, tx }) => {
   return newTokens;
 };
 
-// ======================================================
-// 🔄 ROTATE CUSTOMER SESSION
-// ======================================================
 const rotateCustomerSession = async ({ refreshToken, tx }) => {
   const client = tx || prisma;
-
   const payload = verifyToken(refreshToken, jwtConfig.refreshSecret);
 
   const storedToken = await client.refreshToken.findUnique({
@@ -167,6 +131,7 @@ const rotateCustomerSession = async ({ refreshToken, tx }) => {
 
   if (
     !storedToken ||
+    !storedToken.customerId ||
     storedToken.revokedAt ||
     storedToken.expiresAt < new Date()
   ) {
@@ -175,20 +140,25 @@ const rotateCustomerSession = async ({ refreshToken, tx }) => {
 
   const customer = await client.customer.findUnique({
     where: { id: payload.sub },
+    include: { business: true },
   });
 
-  const business = await client.business.findUnique({
-    where: { id: payload.businessId },
-  });
+  validateCustomerAccess(customer, customer?.business);
 
-  validateCustomerAccess(customer, business);
+  if (customer.id !== storedToken.customerId) {
+    throw new AppError('auth.session_invalid', 401);
+  }
+
+  if (customer.tokenVersion !== (payload.tokenVersion ?? 0)) {
+    throw new AppError('auth.session_expired', 401);
+  }
 
   const newTokens = generateAuthTokens({
     sub: customer.id,
     identity_type: 'customer',
     businessId: customer.businessId,
     role: 'CUSTOMER',
-    tokenVersion: customer.tokenVersion || 0,
+    tokenVersion: customer.tokenVersion,
   });
 
   await client.$transaction([
@@ -211,13 +181,10 @@ const rotateCustomerSession = async ({ refreshToken, tx }) => {
   return newTokens;
 };
 
-// ======================================================
-// 🚫 REVOKE USER SESSIONS
-// ======================================================
 const revokeUserSessions = async ({ userId, tx }) => {
   const client = tx || prisma;
 
-  await client.refreshToken.updateMany({
+  return client.refreshToken.updateMany({
     where: {
       userId,
       revokedAt: null,
@@ -228,13 +195,10 @@ const revokeUserSessions = async ({ userId, tx }) => {
   });
 };
 
-// ======================================================
-// 🚫 REVOKE CUSTOMER SESSIONS
-// ======================================================
 const revokeCustomerSessions = async ({ customerId, tx }) => {
   const client = tx || prisma;
 
-  await client.refreshToken.updateMany({
+  return client.refreshToken.updateMany({
     where: {
       customerId,
       revokedAt: null,
@@ -242,6 +206,22 @@ const revokeCustomerSessions = async ({ customerId, tx }) => {
     data: {
       revokedAt: new Date(),
     },
+  });
+};
+
+const rotateSession = async ({ refreshToken, tx }) => {
+  const payload = verifyToken(refreshToken, jwtConfig.refreshSecret);
+
+  if (payload.identity_type === 'customer') {
+    return rotateCustomerSession({
+      refreshToken,
+      tx,
+    });
+  }
+
+  return rotateUserSession({
+    refreshToken,
+    tx,
   });
 };
 
@@ -253,6 +233,7 @@ module.exports = {
   createCustomerSession,
   rotateUserSession,
   rotateCustomerSession,
+  rotateSession,
   revokeUserSessions,
   revokeCustomerSessions,
 };

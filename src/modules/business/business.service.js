@@ -1,6 +1,7 @@
 const prisma = require('../../config/prisma');
 const AppError = require('../../utils/AppError');
 const authHelper = require('../../utils/auth.helper');
+const coreAuth = require('../auth/core.auth.service');
 
 /**
  * Generate professional business code
@@ -97,16 +98,58 @@ exports.createBusiness = async (user, payload) => {
     },
   });
 
+  const updatedUser = await prisma.user.findUnique({
+    where: { id: user.id },
+    include: {
+      onboarding: {
+        include: {
+          package: {
+            select: {
+              id: true,
+              name: true,
+              code: true,
+              priceMonthly: true,
+              priceYearly: true,
+              setupFee: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (updatedUser?.onboarding) {
+    await prisma.userOnboarding.update({
+      where: { userId: user.id },
+      data: {
+        step: 'BUSINESS_CREATED',
+      },
+    });
+  }
+
   const tokens = authHelper.signToken({
     sub: user.id,
     role: 'BUSINESS_OWNER',
-    business_id: business.id,
+    businessId: business.id,
     identity_type: 'business',
+    tokenVersion: updatedUser?.tokenVersion ?? 0,
+  });
+
+  await coreAuth.createUserSession({
+    userId: user.id,
+    refreshToken: tokens.refreshToken,
   });
 
   return {
     business,
     tokens,
+    onboarding: {
+      step: 'BUSINESS_CREATED',
+      nextStep: 'CHECKOUT',
+      packageId: updatedUser?.onboarding?.packageId || null,
+      billingCycle: updatedUser?.onboarding?.billingCycle || null,
+      package: updatedUser?.onboarding?.package || null,
+    },
   };
 };
 

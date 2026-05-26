@@ -5,6 +5,7 @@ const notificationService = require('../../services/notifications/notification.s
 const coreAuth = require('./core.auth.service');
 const { logAudit } = require('../../utils/audit.helper');
 const securityService = require('../admin/security/security.service');
+const privacyService = require('../privacy/privacy.service');
 
 const generateOtp = () =>
   Math.floor(100000 + Math.random() * 900000).toString();
@@ -152,6 +153,11 @@ exports.verifyOtp = async (phone, businessCode, otp, req) => {
     action: 'CUSTOMER_OTP_VERIFIED',
   });
 
+  const forceConsent = !(await privacyService.hasAcceptedLatestTermsAndPrivacy({
+    actorType: 'CUSTOMER',
+    customerId: customer.id,
+  }));
+
   return {
     customer: {
       id: customer.id,
@@ -159,19 +165,51 @@ exports.verifyOtp = async (phone, businessCode, otp, req) => {
       businessId: customer.businessId,
     },
     tokens,
+    forceConsent,
   };
 };
 
 /**
  * Set PIN
  */
-exports.setPin = async (customerId, pin) => {
+exports.setPin = async (customerId, pin, req) => {
+  const customer = await prisma.customer.findUnique({
+    where: { id: customerId },
+    include: { business: true },
+  });
+
+  coreAuth.validateCustomerAccess(customer, customer?.business);
+
   const pinHash = await bcrypt.hash(pin, 10);
 
   await prisma.customer.update({
     where: { id: customerId },
     data: { pinHash },
   });
+
+  await privacyService.acceptTermsAndPrivacy({
+    actorType: 'CUSTOMER',
+    customerId: customer.id,
+    businessId: customer.businessId,
+    source: 'CUSTOMER_PIN_SET',
+    metadata: {
+      acceptedTerms: true,
+      acceptedPrivacy: true,
+    },
+    ipAddress: req.ip,
+    userAgent: req.headers['user-agent'],
+    deviceId: req.headers['x-device-id'] || null,
+  });
+
+  await logAudit({
+    businessId: customer.businessId,
+    customerId: customer.id,
+    entityType: 'AUTH',
+    entityId: customer.id,
+    action: 'CUSTOMER_PIN_SET',
+  });
+
+  return true;
 };
 
 /**
@@ -260,13 +298,10 @@ exports.loginWithPin = async (phone, businessCode, pin, req) => {
   });
 
   // 🔥 PATCH — CONSENT CHECK
-  const existingConsent = await prisma.consent.findFirst({
-    where: {
-      customerId: customer.id,
-    },
-  });
-
-  const forceConsent = !existingConsent;
+  const forceConsent = !(await privacyService.hasAcceptedLatestTermsAndPrivacy({
+    actorType: 'CUSTOMER',
+    customerId: customer.id,
+  }));
 
   return {
     customer: {

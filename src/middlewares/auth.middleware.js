@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const prisma = require('../config/prisma.js');
 const jwtConfig = require('../config/jwt.js');
 const AppError = require('../utils/AppError.js');
+const privacyService = require('../modules/privacy/privacy.service');
 
 const authMiddleware = async (req, res, next) => {
   let token;
@@ -50,6 +51,7 @@ const authMiddleware = async (req, res, next) => {
         status: true,
         isDeleted: true,
         businessId: true,
+        lockUntil: true,
         role: true,
         tokenVersion: true, // 🔥 PATCH
         business: {
@@ -107,13 +109,12 @@ const authMiddleware = async (req, res, next) => {
 
     // 🔥 CONSENT PATCH (BUSINESS USERS ONLY)
     try {
-      const consent = await prisma.consentLog.findFirst({
-        where: {
-          userId: user.id,
-        },
+      const hasConsent = await privacyService.hasAcceptedLatestTermsAndPrivacy({
+        actorType: 'USER',
+        userId: user.id,
       });
 
-      req.user.hasConsent = !!consent;
+      req.user.hasConsent = hasConsent;
     } catch (err) {
       console.log(err);
       req.user.hasConsent = false;
@@ -169,13 +170,12 @@ const authMiddleware = async (req, res, next) => {
 
     // 🔥 CONSENT PATCH (CUSTOMERS ONLY)
     try {
-      const consent = await prisma.ConsentLog.findFirst({
-        where: {
-          customerId: customer.id,
-        },
+      const hasConsent = await privacyService.hasAcceptedLatestTermsAndPrivacy({
+        actorType: 'CUSTOMER',
+        customerId: customer.id,
       });
 
-      req.user.hasConsent = !!consent;
+      req.user.hasConsent = hasConsent;
     } catch (err) {
       console.log(err);
       req.user.hasConsent = false;

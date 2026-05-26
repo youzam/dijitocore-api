@@ -72,7 +72,7 @@ router.post(
 router.get(
   '/customer/my-payments',
   role(['CUSTOMER']),
-  subscriptionFeature('allowCustomerPortal'),
+  subscriptionFeature('hasCustomerPortal'),
   controller.getMyPayments,
 );
 
