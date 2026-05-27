@@ -4,7 +4,18 @@
     "internal_error": "Internal server error",
     "not_found": "Resource not found"
   },
-
+  "validation": {
+    "failed": "Validation failed",
+    "invalid": "Invalid input",
+    "required": "{{field}} is required",
+    "invalid_value": "{{field}} has an invalid value",
+    "string_min": "{{field}} must be at least {{limit}} characters long",
+    "string_max": "{{field}} must not exceed {{limit}} characters",
+    "email_invalid": "Please enter a valid email address",
+    "password_min": "Password must be at least {{limit}} characters long",
+    "password_max": "Password must not exceed {{limit}} characters",
+    "password_complexity": "Password must contain at least one uppercase letter, one lowercase letter, and one number"
+  },
   "auth": {
     "email_exists": "An account with this email already exists",
     "invalid_credentials": "Invalid email or password",

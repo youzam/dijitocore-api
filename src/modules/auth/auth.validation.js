@@ -2,13 +2,21 @@ const Joi = require('joi');
 
 exports.ownerSignup = Joi.object({
   name: Joi.string().trim().min(2).max(100).required(),
+
   email: Joi.string().email().required(),
-  password: Joi.string().min(8).max(128).required(),
+
+  password: Joi.string()
+    .min(8)
+    .max(128)
+    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).+$/)
+    .required(),
 
   packageId: Joi.string().required(),
+
   billingCycle: Joi.string().valid('MONTHLY', 'YEARLY').required(),
 
   acceptedTerms: Joi.boolean().valid(true).required(),
+
   acceptedPrivacy: Joi.boolean().valid(true).required(),
 });
 

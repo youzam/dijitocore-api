@@ -40,7 +40,6 @@ const ownerSignup = async (
       isDeleted: false,
     },
   });
-
   if (!pkg) {
     throw new AppError('subscription.package_not_available', 404);
   }

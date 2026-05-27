@@ -4,7 +4,18 @@
     "internal_error": "Hitilafu ya ndani ya mfumo",
     "not_found": "Rasilimali haijapatikana"
   },
-
+  "validation": {
+    "failed": "Uhakiki umeshindikana",
+    "invalid": "Taarifa si sahihi",
+    "required": "{{field}} inahitajika",
+    "invalid_value": "{{field}} ina thamani isiyo sahihi",
+    "string_min": "{{field}} lazima iwe na angalau herufi {{limit}}",
+    "string_max": "{{field}} isizidi herufi {{limit}}",
+    "email_invalid": "Tafadhali weka barua pepe sahihi",
+    "password_min": "Nenosiri lazima liwe na angalau herufi {{limit}}",
+    "password_max": "Nenosiri lisizidi herufi {{limit}}",
+    "password_complexity": "Nenosiri lazima liwe na herufi kubwa, herufi ndogo, na namba angalau moja"
+  },
   "auth": {
     "email_exists": "Akaunti yenye barua pepe hii tayari ipo",
     "invalid_credentials": "Barua pepe au nenosiri si sahihi",
