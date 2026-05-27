@@ -80,6 +80,7 @@ const ownerSignup = async (
     });
 
     await privacyService.acceptTermsAndPrivacy({
+      tx,
       actorType: 'USER',
       userId: createdUser.id,
       businessId: null,
@@ -222,6 +223,50 @@ const verifyEmail = async (code) => {
       package: user.onboarding?.package || null,
     },
   };
+};
+
+const resendEmailCode = async (email) => {
+  const user = await prisma.user.findFirst({
+    where: {
+      email,
+      emailVerified: false,
+      isDeleted: false,
+    },
+  });
+
+  if (!user) {
+    return true;
+  }
+
+  const verifyCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+  const verifyHash = crypto
+    .createHash('sha256')
+    .update(verifyCode)
+    .digest('hex');
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      emailVerifyToken: verifyHash,
+      emailVerifyExpires: new Date(Date.now() + 15 * 60 * 1000),
+    },
+  });
+
+  await notifications.sendEmailVerification({
+    to: user.email,
+    code: verifyCode,
+  });
+
+  await logAudit({
+    businessId: user.businessId,
+    userId: user.id,
+    entityType: 'AUTH',
+    entityId: user.id,
+    action: 'EMAIL_VERIFICATION_CODE_RESENT',
+  });
+
+  return true;
 };
 
 /**
@@ -535,5 +580,6 @@ module.exports = {
   requestPasswordReset,
   resetPassword,
   verifyEmail,
+  resendEmailCode,
   revokeAllUserSessions,
 };

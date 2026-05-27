@@ -14,6 +14,12 @@ exports.verifyEmail = catchAsync(async (req, res) => {
   return response.success(req, res, result);
 });
 
+exports.resendEmailCode = catchAsync(async (req, res) => {
+  await authService.resendEmailCode(req.body.email);
+
+  return response.success(req, res, {});
+});
+
 exports.login = catchAsync(async (req, res) => {
   const result = await authService.login(req.body, req);
   return response.success(req, res, result);

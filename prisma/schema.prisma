@@ -1600,7 +1600,7 @@ model SubscriptionPackage {
 
   isActive Boolean @default(true)
 
-  subscriptions Subscription[]
+  subscriptions   Subscription[]
   userOnboardings UserOnboarding[]
 
   configVersion Int @default(1)

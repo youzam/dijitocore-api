@@ -77,7 +77,6 @@ exports.loginWithPin = Joi.object({
   pin: Joi.string().required(),
 });
 
-exports.adminLogin = Joi.object({
+exports.resendEmailCode = Joi.object({
   email: Joi.string().email().required(),
-  password: Joi.string().required(),
 });

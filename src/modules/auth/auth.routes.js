@@ -22,6 +22,13 @@ router.post(
 );
 
 router.post(
+  '/resend-email-code',
+  authRateLimiter,
+  validate(validation.resendEmailCode),
+  controller.resendEmailCode,
+);
+
+router.post(
   '/login',
   authRateLimiter,
   validate(validation.login),

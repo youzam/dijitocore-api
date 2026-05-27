@@ -46,6 +46,7 @@ exports.hasAcceptedLatestTermsAndPrivacy = async ({
 };
 
 exports.acceptTermsAndPrivacy = async ({
+  tx = null,
   actorType,
   userId = null,
   customerId = null,
@@ -56,9 +57,11 @@ exports.acceptTermsAndPrivacy = async ({
   userAgent = null,
   deviceId = null,
 }) => {
+  const db = tx || prisma;
+
   const { terms, privacy } = await getActiveLegalPolicies();
 
-  const consent = await prisma.consentLog.create({
+  const consent = await db.consentLog.create({
     data: {
       actorType,
       userId,
@@ -85,6 +88,11 @@ exports.acceptTermsAndPrivacy = async ({
     action: 'CONSENT_GRANTED',
     module: 'PRIVACY',
     actorType,
+    metadata: {
+      termsVersion: terms.version,
+      privacyVersion: privacy.version,
+      source,
+    },
   });
 
   return consent;

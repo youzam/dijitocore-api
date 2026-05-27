@@ -152,6 +152,9 @@ const SYSTEM_MODELS = [
   // Terms and privcy policies versioning
   'legalPolicyDocument',
 
+  // Onboarding steps
+  'userOnboarding',
+
   '_prisma_migrations',
 ];
 
